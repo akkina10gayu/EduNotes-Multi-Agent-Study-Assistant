@@ -1,0 +1,5 @@
+Artificial Neural Networks (ANNs) are computing systems inspired by the biological neural networks that constitute animal brains. An ANN is based on a collection of connected units or nodes called artificial neurons, which loosely model the neurons in a biological brain.
+
+Each connection, like the synapses in a biological brain, can transmit a signal to other neurons. An artificial neuron receives signals then processes them and can signal neurons connected to it. The signal at a connection is a real number, and the output of each neuron is computed by some non-linear function of the sum of its inputs.
+
+Neural networks learn by adjusting the weights of connections between neurons. This process, called training, involves using algorithms like backpropagation to minimize the difference between predicted and actual outputs. Deep learning refers to neural networks with multiple hidden layers between input and output layers.

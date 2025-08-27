@@ -1,0 +1,5 @@
+Natural Language Processing (NLP) is a branch of artificial intelligence that helps computers understand, interpret and manipulate human language. NLP draws from many disciplines, including computer science and computational linguistics, in its pursuit to fill the gap between human communication and computer understanding.
+
+Key NLP tasks include tokenization (breaking text into words or phrases), part-of-speech tagging, named entity recognition, sentiment analysis, and machine translation. Modern NLP heavily relies on machine learning, particularly deep learning models like transformers.
+
+The transformer architecture, introduced in 2017, revolutionized NLP by enabling models to process entire sequences simultaneously rather than sequentially. This led to breakthrough models like BERT, GPT, and T5, which achieve state-of-the-art performance on various NLP tasks through pre-training on large text corpora followed by fine-tuning on specific tasks.

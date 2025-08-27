@@ -1,0 +1,47 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# LangChain Ecosystem
+langchain
+langchain-community
+
+# ML Models
+sentence-transformers
+transformers
+torch
+tokenizers
+
+# Vector Database
+chromadb
+
+# Web Scraping
+newspaper3k
+beautifulsoup4
+lxml
+requests
+aiohttp
+
+# Caching
+diskcache
+
+# Data Processing
+numpy
+
+# UI
+streamlit
+
+# Utilities
+python-dotenv
+pyyaml
+loguru
+tqdm
+
+# API Extensions
+slowapi
+
+# Development & Testing
+pytest
+pytest-asyncio

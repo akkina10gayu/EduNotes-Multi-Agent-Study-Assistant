@@ -1,0 +1,22 @@
+{
+  "id": "1a629b573351f3d8ad7dfadc8168e482",
+  "content": "Machine Learning is a subset of artificial intelligence AI that provides systems the ability to automatically learn and improve from experience without being explicitly programmed. Machine learning focuses on the development of computer programs that can access data and use it to learn for themselves. The process of learning begins with observations or data, such as examples, direct experience, or instruction, in order to look for patterns in data and make better decisions in the future based on the examples that we provide. The primary aim is to allow the computers to learn automatically without human intervention or assistance and adjust actions accordingly. Machine learning algorithms are categorized as supervised, unsupervised, semi-supervised, and reinforcement learning. Supervised learning algorithms build a mathematical model of a set of data that contains both the inputs and the desired outputs. Unsupervised learning algorithms take a set of data that contains only inputs, and find structure in the data.",
+  "source": "educational",
+  "title": "Introduction to Machine Learning",
+  "url": "",
+  "topic": "machine-learning",
+  "keywords": [
+    "machine",
+    "learning",
+    "subset",
+    "artificial",
+    "intelligence",
+    "that",
+    "provides",
+    "systems",
+    "ability",
+    "automatically"
+  ],
+  "date_added": "2025-08-25T23:33:56.632728",
+  "word_count": 154
+}

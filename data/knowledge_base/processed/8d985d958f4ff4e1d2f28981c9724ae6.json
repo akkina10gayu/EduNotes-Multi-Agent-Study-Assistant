@@ -1,0 +1,22 @@
+{
+  "id": "8d985d958f4ff4e1d2f28981c9724ae6",
+  "content": "Support Vector Machines are supervised learning models with associated learning algorithms that analyze data for classification and regression analysis. Given a set of training examples, each marked as belonging to one of two categories, an SVM training algorithm builds a model that assigns new examples to one category or the other. An SVM model is a representation of the examples as points in space, mapped so that the examples of the separate categories are divided by a clear gap that is as wide as possible. New examples are then mapped into that same space and predicted to belong to a category based on which side of the gap they fall. The key idea behind SVMs is to find the hyperplane that best separates the classes in the feature space. This hyperplane is chosen to maximize the margin between the classes, where the margin is defined as the distance between the hyperplane and the nearest data points from each class, called support vectors.",
+  "source": "educational",
+  "title": "Support Vector Machines (SVM)",
+  "url": "",
+  "topic": "machine-learning",
+  "keywords": [
+    "support",
+    "vector",
+    "machines",
+    "supervised",
+    "learning",
+    "models",
+    "associated",
+    "algorithms",
+    "that",
+    "analyze"
+  ],
+  "date_added": "2025-08-25T23:33:56.646300",
+  "word_count": 162
+}

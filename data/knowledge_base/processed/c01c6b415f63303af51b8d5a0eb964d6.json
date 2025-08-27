@@ -1,0 +1,22 @@
+{
+  "id": "c01c6b415f63303af51b8d5a0eb964d6",
+  "content": "Reinforcement Learning RL is an area of machine learning concerned with how intelligent agents ought to take actions in an environment in order to maximize the notion of cumulative reward. It differs from supervised learning in that labelled inputoutput pairs are not needed, and sub-optimal actions need not be explicitly corrected. The basic RL framework consists of an agent, environment, states, actions, and rewards. The agent learns to achieve a goal in an uncertain, potentially complex environment. The agent uses trial and error to come up with a solution to the problem. To get the machine to do what the programmer wants, the artificial intelligence gets either rewards or penalties for the actions it performs. Key algorithms in RL include Q-learning, Deep Q-Networks DQN, Policy Gradient methods, and Actor-Critic methods. Applications range from game playing like AlphaGo to robotics, autonomous vehicles, and recommendation systems.",
+  "source": "educational",
+  "title": "Reinforcement Learning Concepts",
+  "url": "",
+  "topic": "reinforcement-learning",
+  "keywords": [
+    "reinforcement",
+    "learning",
+    "area",
+    "machine",
+    "concerned",
+    "intelligent",
+    "agents",
+    "ought",
+    "take",
+    "actions"
+  ],
+  "date_added": "2025-08-25T23:33:56.663622",
+  "word_count": 144
+}

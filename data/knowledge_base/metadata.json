@@ -1,0 +1,119 @@
+{
+  "1a629b573351f3d8ad7dfadc8168e482": {
+    "title": "Introduction to Machine Learning",
+    "source": "educational",
+    "date_added": "2025-08-25T23:33:56.632728",
+    "topic": "machine-learning",
+    "keywords": [
+      "machine",
+      "learning",
+      "subset",
+      "artificial",
+      "intelligence"
+    ]
+  },
+  "100d98d06d0160daa5c9d11c40865c37": {
+    "title": "Neural Networks Fundamentals",
+    "source": "educational",
+    "date_added": "2025-08-25T23:33:56.638261",
+    "topic": "deep-learning",
+    "keywords": [
+      "artificial",
+      "neural",
+      "networks",
+      "anns",
+      "computing"
+    ]
+  },
+  "8d985d958f4ff4e1d2f28981c9724ae6": {
+    "title": "Support Vector Machines (SVM)",
+    "source": "educational",
+    "date_added": "2025-08-25T23:33:56.646300",
+    "topic": "machine-learning",
+    "keywords": [
+      "support",
+      "vector",
+      "machines",
+      "supervised",
+      "learning"
+    ]
+  },
+  "7002c7b58668761e73aed812e6cf0b01": {
+    "title": "Natural Language Processing Basics",
+    "source": "educational",
+    "date_added": "2025-08-25T23:33:56.656071",
+    "topic": "nlp",
+    "keywords": [
+      "natural",
+      "language",
+      "processing",
+      "branch",
+      "artificial"
+    ]
+  },
+  "c01c6b415f63303af51b8d5a0eb964d6": {
+    "title": "Reinforcement Learning Concepts",
+    "source": "educational",
+    "date_added": "2025-08-25T23:33:56.663622",
+    "topic": "reinforcement-learning",
+    "keywords": [
+      "reinforcement",
+      "learning",
+      "area",
+      "machine",
+      "concerned"
+    ]
+  },
+  "980f2debf4801ba5cdb12855ff3fd8e9": {
+    "title": "Machine Learning Tutorial - GeeksforGeeks",
+    "source": "web",
+    "date_added": "2025-08-25T23:36:26.329086",
+    "topic": "ml-web-content",
+    "keywords": [
+      "machine",
+      "learning",
+      "tutorial",
+      "geeksforgeeks",
+      "skip"
+    ]
+  },
+  "feb2885032fbe72716fdf57f887d6945": {
+    "title": "Top 10 Machine Learning Algorithms in 2025 - Analytics Vidhya",
+    "source": "web",
+    "date_added": "2025-08-25T23:36:26.351119",
+    "topic": "ml-web-content",
+    "keywords": [
+      "machine",
+      "learning",
+      "algorithms",
+      "2025",
+      "analytics"
+    ]
+  },
+  "22a70dfb217f34225198c41afb1fddea": {
+    "title": "Introduction to Deep Learning - GeeksforGeeks",
+    "source": "web",
+    "date_added": "2025-08-25T23:36:26.367803",
+    "topic": "ml-web-content",
+    "keywords": [
+      "introduction",
+      "deep",
+      "learning",
+      "geeksforgeeks",
+      "skip"
+    ]
+  },
+  "5b2f9d78c70cd7df5f89fc39a0c0672d": {
+    "title": "Introduction To Neural Networks | Deep Learning",
+    "source": "web",
+    "date_added": "2025-08-25T23:36:26.388187",
+    "topic": "ml-web-content",
+    "keywords": [
+      "introduction",
+      "neural",
+      "networks",
+      "deep",
+      "learning"
+    ]
+  }
+}
