@@ -31,7 +31,7 @@ EduNotes uses a coordinated multi-agent system where specialized AI agents work 
 
 ### **Summarizer Agent**
 - **Role**: Creates concise summaries and extracts key points
-- **Technology**: Google's Flan-T5-small model (CPU-optimized)
+- **Technology**: Google's Flan-T5-base model (improved quality)
 - **Function**: Generates bullet-point summaries from long texts
 
 ### **Note-Maker Agent**
@@ -55,7 +55,7 @@ EduNotes uses a coordinated multi-agent system where specialized AI agents work 
 - **Vector Database**: ChromaDB with SQLite backend
 - **ML Models**: 
   - Embeddings: `sentence-transformers/all-MiniLM-L6-v2` (80MB)
-  - Summarization: `google/flan-t5-small` (242MB)
+  - Summarization: `google/flan-t5-base` (990MB)
 - **Backend**: FastAPI with automatic OpenAPI documentation
 - **Frontend**: Streamlit for interactive web interface
 - **Caching**: DiskCache for performance optimization
@@ -164,7 +164,7 @@ DEBUG_MODE=False
 
 # Model Settings (CPU-optimized)
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-SUMMARIZATION_MODEL=google/flan-t5-small
+SUMMARIZATION_MODEL=google/flan-t5-base
 
 # Knowledge Base Settings
 KB_CHUNK_SIZE=512

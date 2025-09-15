@@ -311,3 +311,11 @@
 2025-08-26 22:07:11 | INFO     | src.agents.summarizer:process:179 - Successfully summarized content in bullet_points mode
 2025-08-26 22:07:18 | INFO     | src.agents.summarizer:process:179 - Successfully summarized content in summary mode
 2025-08-26 22:07:18 | INFO     | src.agents.note_maker:create_notes:55 - Created notes for: Machine Learning
+2025-09-15 12:11:40 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2025-09-15 12:11:40 | INFO     | src.agents.summarizer:_initialize_model:27 - Loading model: google/flan-t5-base
+2025-09-15 12:13:34 | INFO     | src.agents.summarizer:_initialize_model:56 - Model loaded successfully
+2025-09-15 12:13:36 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2025-09-15 12:13:37 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2025-09-15 12:13:37 | INFO     | src.api.app:startup_event:61 - Starting EduNotes API...
+2025-09-15 12:13:37 | INFO     | src.api.app:startup_event:62 - API running on 0.0.0.0:8000
+2025-09-15 12:14:48 | INFO     | src.api.app:shutdown_event:67 - Shutting down EduNotes API...

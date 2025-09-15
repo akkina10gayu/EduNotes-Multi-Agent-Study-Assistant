@@ -29,36 +29,68 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
     return unique_keywords[:max_keywords]
 
 def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
-    """Format content as markdown"""
+    """Format content as markdown with paragraph-style formatting"""
     md = f"# {title}\n\n"
-    
+
     if "summary" in content:
-        md += "## Summary\n\n"
+        md += "## Overview\n\n"
         if isinstance(content["summary"], list):
+            # Format as bullet points if it's a list
             for point in content["summary"]:
                 md += f"- {point}\n"
         else:
-            md += f"{content['summary']}\n"
+            # Format as paragraphs for detailed content
+            summary_text = content['summary']
+            # Split long text into paragraphs for better readability
+            sentences = summary_text.split('. ')
+
+            # Group sentences into paragraphs (roughly every 3-4 sentences)
+            paragraphs = []
+            current_paragraph = []
+
+            for i, sentence in enumerate(sentences):
+                current_paragraph.append(sentence.strip())
+                # Create new paragraph every 3-4 sentences or if sentence is very long
+                if (i + 1) % 3 == 0 or len(sentence) > 200:
+                    if current_paragraph:
+                        paragraph_text = '. '.join(current_paragraph)
+                        if not paragraph_text.endswith('.'):
+                            paragraph_text += '.'
+                        paragraphs.append(paragraph_text)
+                        current_paragraph = []
+
+            # Add remaining sentences as final paragraph
+            if current_paragraph:
+                paragraph_text = '. '.join(current_paragraph)
+                if not paragraph_text.endswith('.'):
+                    paragraph_text += '.'
+                paragraphs.append(paragraph_text)
+
+            # Add paragraphs with proper spacing
+            for paragraph in paragraphs:
+                if paragraph.strip():
+                    md += f"{paragraph}\n\n"
+
         md += "\n"
-    
-    if "key_points" in content:
+
+    if "key_points" in content and content["key_points"]:
         md += "## Key Points\n\n"
         for point in content["key_points"]:
             md += f"- {point}\n"
         md += "\n"
-    
-    if "sources" in content:
+
+    if "sources" in content and content["sources"]:
         md += "## Sources\n\n"
         for source in content["sources"]:
             md += f"- [{source['title']}]({source['url']})\n"
         md += "\n"
-    
+
     if "metadata" in content:
         md += "---\n"
         md += f"*Generated on: {content['metadata'].get('date', 'N/A')}*\n"
         if 'topic' in content['metadata']:
             md += f"*Topic: {content['metadata']['topic']}*\n"
-    
+
     return md
 
 def chunk_text(text: str, chunk_size: int = 512, overlap: int = 50) -> List[str]:

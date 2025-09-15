@@ -38,14 +38,15 @@ class SummarizerAgent(BaseAgent):
                 torch_dtype=torch.float32
             )
             
-            # Create pipeline
+            # Create pipeline with dramatically increased context window
             self.pipe = pipeline(
                 "summarization",
                 model=self.model,
                 tokenizer=self.tokenizer,
-                max_length=150,
-                min_length=30,
-                do_sample=False,
+                max_length=1024,  # Increased to 1024 tokens for much longer output
+                min_length=200,   # Increased minimum for substantial content
+                do_sample=True,   # Enable sampling
+                early_stopping=True,  # Better for BART
                 device=-1  # CPU
             )
             
@@ -62,31 +63,43 @@ class SummarizerAgent(BaseAgent):
     def summarize_text(self, text: str, max_length: int = None) -> str:
         """Summarize a single text"""
         try:
-            # For Flan-T5, we need to add a prompt
-            prompt = f"summarize: {text}"
+            self.logger.info(f"Summarizing text of length: {len(text)}")
+
+            # Increase input text limit dramatically
+            if len(text) > 8000:  # Much higher limit for comprehensive content
+                text = text[:8000]
+                self.logger.warning(f"Truncated input text to 8000 characters")
+
+            # Use much more input text for comprehensive summaries
+            if "machine learning" in text.lower() or "data science" in text.lower() or "algorithm" in text.lower():
+                prompt = f"Technical Summary: {text[:3000]}"  # Tripled input size
+            else:
+                prompt = text[:3000]  # Much larger input for better summaries
             
-            # Truncate if too long
-            max_input_length = 512
+            # BART can handle up to 1024 input tokens, but we'll use full capacity
+            max_input_length = 1024
             input_tokens = self.tokenizer.encode(prompt)
             if len(input_tokens) > max_input_length:
                 input_tokens = input_tokens[:max_input_length]
                 prompt = self.tokenizer.decode(input_tokens, skip_special_tokens=True)
             
-            # Set dynamic max_length based on input length
+            # Set much higher dynamic max_length for comprehensive summaries
             if max_length is None:
                 input_length = len(input_tokens)
-                # Set max_length to 80% of input length, minimum 30, maximum 150
-                max_length = max(30, min(150, int(input_length * 0.8)))
+                # Dramatically increased range: minimum 200, maximum 1024
+                max_length = max(200, min(1024, int(input_length * 1.0)))
             
-            # Generate summary
-            result = self.pipe(prompt, max_length=max_length, min_length=min(30, max_length-10))
+            # Generate summary with much higher min_length for comprehensive content
+            min_len = max(150, min(max_length//2, 400))  # Much higher minimum for detailed summaries
+            result = self.pipe(prompt, max_length=max_length, min_length=min_len)
             summary = result[0]['summary_text'] if result else ""
             
             return summary
             
         except Exception as e:
             self.logger.error(f"Error summarizing text: {e}")
-            return ""
+            # Return a fallback summary instead of empty string
+            return f"Summary of content about {text[:100]}... [Error in detailed summarization: {str(e)}]"
     
     def summarize_documents(self, documents: List[str]) -> str:
         """Summarize multiple documents using LangChain"""
@@ -113,17 +126,21 @@ class SummarizerAgent(BaseAgent):
     def extract_bullet_points(self, text: str, num_points: int = 5) -> List[str]:
         """Extract key points as bullet points"""
         try:
-            prompt = f"Extract {num_points} key points from this text as a bullet list: {text}"
-            
-            # Truncate if needed
+            # For BART, use direct text for better bullet point extraction
+            if "machine learning" in text.lower() or "data science" in text.lower():
+                prompt = f"Key technical concepts: {text[:800]}"
+            else:
+                prompt = text[:800]
+
+            # BART token limits
             input_tokens = self.tokenizer.encode(prompt)
-            if len(input_tokens) > 512:
-                input_tokens = input_tokens[:512]
+            if len(input_tokens) > 1024:
+                input_tokens = input_tokens[:1024]
                 prompt = self.tokenizer.decode(input_tokens, skip_special_tokens=True)
-            
-            # Set dynamic max_length for bullet points (should be longer to accommodate multiple points)
+
+            # BART-optimized length for bullet points
             input_length = len(input_tokens)
-            max_length = max(50, min(200, int(input_length * 1.2)))  # Allow expansion for bullet points
+            max_length = max(150, min(400, int(input_length * 0.7)))
             
             result = self.pipe(prompt, max_length=max_length, min_length=min(40, max_length-10))
             summary = result[0]['summary_text'] if result else ""
@@ -178,6 +195,12 @@ class SummarizerAgent(BaseAgent):
             
             self.logger.info(f"Successfully summarized content in {mode} mode")
             return result
-            
+
         except Exception as e:
-            return self.handle_error(e)
+            self.logger.error(f"Error in summarizer process: {e}")
+            return {
+                'success': False,
+                'agent': self.name,
+                'error': str(e),
+                'summary': f"Error processing summarization request: {str(e)}"
+            }

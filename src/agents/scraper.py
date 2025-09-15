@@ -58,15 +58,45 @@ class ScraperAgent(BaseAgent):
             
             soup = BeautifulSoup(response.content, 'lxml')
             
-            # Remove scripts and styles
-            for script in soup(["script", "style"]):
-                script.decompose()
-            
-            # Extract text
-            text = soup.get_text()
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = ' '.join(chunk for chunk in chunks if chunk)
+            # Remove scripts, styles, navigation, ads, and other noise
+            for element in soup(["script", "style", "nav", "header", "footer", "aside",
+                               "button", "form", "input", "select", "option", "menu",
+                               "iframe", "embed", "object", "noscript"]):
+                element.decompose()
+
+            # Remove elements with navigation/menu classes and IDs
+            for element in soup.find_all(class_=lambda x: x and any(nav_word in x.lower()
+                                       for nav_word in ['nav', 'menu', 'sidebar', 'header', 'footer', 'ad', 'banner', 'breadcrumb'])):
+                element.decompose()
+
+            for element in soup.find_all(id=lambda x: x and any(nav_word in x.lower()
+                                       for nav_word in ['nav', 'menu', 'sidebar', 'header', 'footer', 'ad', 'banner', 'breadcrumb'])):
+                element.decompose()
+
+            # Try to find main content area first
+            main_content = None
+            content_selectors = [
+                'article', 'main', '.content', '.post-content', '.entry-content',
+                '.article-content', '.blog-content', '#content', '#main-content',
+                '.post-body', '.entry-body', '.article-body'
+            ]
+
+            for selector in content_selectors:
+                main_content = soup.select_one(selector)
+                if main_content and len(main_content.get_text().strip()) > 500:
+                    break
+
+            # Use main content if found, otherwise use body
+            content_element = main_content if main_content else soup.find('body')
+
+            if content_element:
+                # Extract text from main content area only
+                text = content_element.get_text()
+                lines = (line.strip() for line in text.splitlines())
+                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+                text = ' '.join(chunk for chunk in chunks if chunk)
+            else:
+                text = "Unable to extract content"
             
             # Try to extract title
             title = soup.find('title')

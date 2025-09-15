@@ -63,33 +63,34 @@ class Orchestrator:
                 
                 # Extract content from results
                 documents = [doc['content'] for doc in retrieval_result['results']]
-                sources = [
-                    {
-                        'title': doc['metadata'].get('title', 'Unknown'),
-                        'url': doc['metadata'].get('url', '#')
-                    }
-                    for doc in retrieval_result['results']
-                ]
+
+                # Remove duplicate sources by URL
+                seen_urls = set()
+                sources = []
+                for doc in retrieval_result['results']:
+                    url = doc['metadata'].get('url', '#')
+                    if url not in seen_urls and url != '#':
+                        seen_urls.add(url)
+                        sources.append({
+                            'title': doc['metadata'].get('title', 'Unknown'),
+                            'url': url
+                        })
                 
-                # Extract key points (primary focus)
-                bullet_result = await self.summarizer.process({
-                    'content': ' '.join(documents[:3]),  # Use top 3 documents
-                    'mode': 'bullet_points',
-                    'num_points': 8  # More key points for comprehensive notes
+                # Create comprehensive technical summary using ALL available documents
+                all_content = ' '.join(documents[:5])  # Use top 5 documents for maximum content
+                self.logger.info(f"Processing {len(documents)} documents with total length: {len(all_content)}")
+
+                detailed_summary = await self.summarizer.process({
+                    'content': all_content,  # Use all available content
+                    'mode': 'summary'  # Use detailed summary mode
                 })
-                
-                # Create concise summary for context only
-                summary_result = await self.summarizer.process({
-                    'content': ' '.join(documents[:2]),  # Shorter summary from top 2 docs
-                    'mode': 'summary'
-                })
-                
-                # Create notes (emphasize key points over summary)
+
+                # Create notes with detailed technical content
                 notes_result = await self.note_maker.process({
                     'mode': 'create',
                     'title': f"{query.title()}",
-                    'summary': bullet_result.get('summary', ''),  # Use bullet points as main content
-                    'key_points': [],  # Key points already in summary
+                    'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
+                    'key_points': [],  # Include key points separately if needed
                     'sources': sources,
                     'topic': query
                 })
@@ -151,19 +152,29 @@ class Orchestrator:
                     'error': f"Failed to scrape URL: {url}"
                 }
             
-            # Extract key points (primary focus)
-            bullet_result = await self.summarizer.process({
+            # Log content length for debugging
+            content_length = len(scrape_result['content'])
+            self.logger.info(f"Scraped content length: {content_length} characters")
+
+            if content_length < 100:
+                self.logger.error(f"Scraped content too short: {scrape_result['content'][:200]}")
+                return {
+                    'success': False,
+                    'error': f"Scraped content too short ({content_length} chars). Check URL accessibility."
+                }
+
+            # Create comprehensive technical summary from scraped content
+            detailed_summary = await self.summarizer.process({
                 'content': scrape_result['content'],
-                'mode': 'bullet_points',
-                'num_points': 8
+                'mode': 'summary'  # Use detailed summary mode
             })
-            
-            # Create notes (emphasize key points)
+
+            # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
                 'title': scrape_result.get('title', 'Web Article'),
-                'summary': bullet_result.get('summary', ''),  # Use bullet points as main content
-                'key_points': [],  # Key points already in summary
+                'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
+                'key_points': [],  # Key points can be added separately if needed
                 'sources': [{'title': scrape_result.get('title', 'Web Article'), 'url': url}],
                 'topic': 'Web Content'
             })
@@ -200,28 +211,51 @@ class Orchestrator:
     async def process_text_query(self, text: str) -> Dict[str, Any]:
         """Process direct text input"""
         try:
-            self.logger.info("Processing direct text input")
-            
-            # Extract key points (primary focus)
-            bullet_result = await self.summarizer.process({
-                'content': text,
-                'mode': 'bullet_points',
-                'num_points': 8
+            self.logger.info(f"Processing direct text input of length: {len(text)}")
+
+            # Validate input
+            if not text or len(text.strip()) < 10:
+                return {
+                    'success': False,
+                    'error': 'Input text too short. Please provide at least 10 characters.'
+                }
+
+            # Create comprehensive technical summary from direct text
+            detailed_summary = await self.summarizer.process({
+                'content': text.strip(),
+                'mode': 'summary'  # Use detailed summary mode
             })
-            
-            # Create notes (emphasize key points)
+
+            # Check if summarization was successful
+            if not detailed_summary.get('success', False):
+                self.logger.error(f"Summarization failed: {detailed_summary.get('error', 'Unknown error')}")
+                return {
+                    'success': False,
+                    'error': f"Failed to summarize text: {detailed_summary.get('error', 'Unknown error')}"
+                }
+
+            # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
-                'title': 'Key Points Summary',
-                'summary': bullet_result.get('summary', ''),  # Use bullet points as main content
-                'key_points': [],  # Key points already in summary
+                'title': 'Comprehensive Summary',
+                'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
+                'key_points': [],  # Key points can be added separately if needed
                 'sources': [],
                 'topic': 'Direct Input'
             })
-            
+
+            # Check if note creation was successful
+            if not notes_result.get('success', False):
+                self.logger.error(f"Note creation failed: {notes_result.get('error', 'Unknown error')}")
+                return {
+                    'success': False,
+                    'error': f"Failed to create notes: {notes_result.get('error', 'Unknown error')}"
+                }
+
             return {
                 'success': True,
                 'query_type': 'text',
+                'query': text[:100] + "..." if len(text) > 100 else text,
                 'notes': notes_result.get('notes', ''),
                 'sources_used': 0,
                 'from_kb': False

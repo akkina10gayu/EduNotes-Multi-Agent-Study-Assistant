@@ -27,7 +27,7 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 
 # Model Settings
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "google/flan-t5-small")
+SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "facebook/bart-large-cnn")
 QA_MODEL = os.getenv("QA_MODEL", "deepset/roberta-base-squad2")
 MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", str(MODELS_DIR / "downloaded")))
 
