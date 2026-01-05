@@ -119,24 +119,126 @@ class Orchestrator:
     async def fetch_and_process_topic(self, topic: str) -> Dict[str, Any]:
         """Fetch information about a topic from web and process"""
         try:
-            # For now, return a message that KB needs updating
-            # In production, this would trigger web scraping
+            self.logger.info(f"No KB results for '{topic}', attempting web search...")
+
+            # Build search URLs for the topic
+            search_urls = self._build_search_urls(topic)
+
+            if not search_urls:
+                return {
+                    'success': True,
+                    'query_type': 'topic',
+                    'query': topic,
+                    'notes': f"# {topic}\n\nNo information found in knowledge base.\n\nPlease run the seed script to populate the KB:\n```\npython scripts/seed_data.py --sample\n```",
+                    'sources_used': 0,
+                    'from_kb': False,
+                    'message': 'Knowledge base needs updating for this topic'
+                }
+
+            # Try to scrape content from educational sources
+            scraped_content = []
+            sources = []
+
+            for url in search_urls[:3]:  # Try up to 3 URLs
+                try:
+                    scrape_result = await self.scraper.process({'url': url})
+                    if scrape_result.get('success') and scrape_result.get('content'):
+                        content = scrape_result['content']
+                        if len(content) > 200:  # Only use substantial content
+                            scraped_content.append(content)
+                            sources.append({
+                                'title': scrape_result.get('title', 'Web Source'),
+                                'url': url
+                            })
+                            self.logger.info(f"Successfully scraped: {url}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to scrape {url}: {e}")
+                    continue
+
+            if not scraped_content:
+                return {
+                    'success': True,
+                    'query_type': 'topic',
+                    'query': topic,
+                    'notes': f"# {topic}\n\nNo information found in knowledge base and web scraping was unsuccessful.\n\nPlease run the seed script to populate the KB:\n```\npython scripts/seed_data.py --sample\n```",
+                    'sources_used': 0,
+                    'from_kb': False,
+                    'message': 'Could not fetch information from web'
+                }
+
+            # Combine scraped content and summarize
+            combined_content = "\n\n".join(scraped_content[:3])
+            self.logger.info(f"Combined {len(scraped_content)} web sources, total length: {len(combined_content)}")
+
+            # Summarize the content
+            summary_result = await self.summarizer.process({
+                'content': combined_content,
+                'mode': 'summary'
+            })
+
+            # Create notes
+            notes_result = await self.note_maker.process({
+                'mode': 'create',
+                'title': f"{topic.title()}",
+                'summary': summary_result.get('summary', ''),
+                'key_points': [],
+                'sources': sources,
+                'topic': topic
+            })
+
+            # Optionally add to KB for future queries
+            if combined_content:
+                try:
+                    doc = self.doc_processor.process_document(
+                        content=combined_content,
+                        source='web',
+                        title=f"Web content: {topic}",
+                        url=sources[0]['url'] if sources else '',
+                        topic=topic.lower().replace(' ', '-')
+                    )
+                    if doc:
+                        self.vector_store.add_documents([doc])
+                        self.logger.info(f"Added web content about '{topic}' to KB")
+                except Exception as e:
+                    self.logger.warning(f"Failed to add to KB: {e}")
+
             return {
                 'success': True,
                 'query_type': 'topic',
                 'query': topic,
-                'notes': f"# {topic}\n\nNo information found in knowledge base.\n\nPlease run the KB update script to fetch latest information about this topic.",
-                'sources_used': 0,
+                'notes': notes_result.get('notes', ''),
+                'sources_used': len(sources),
                 'from_kb': False,
-                'message': 'Knowledge base needs updating for this topic'
+                'message': 'Generated from web sources'
             }
-            
+
         except Exception as e:
             self.logger.error(f"Error fetching topic from web: {e}")
             return {
                 'success': False,
                 'error': str(e)
             }
+
+    def _build_search_urls(self, topic: str) -> List[str]:
+        """Build educational URLs for a topic"""
+        # Common educational sources for tech/ML topics
+        topic_slug = topic.lower().replace(' ', '-')
+        topic_query = topic.lower().replace(' ', '+')
+
+        urls = []
+
+        # Educational sites that work well with scraping
+        educational_sources = [
+            f"https://www.geeksforgeeks.org/{topic_slug}/",
+            f"https://www.tutorialspoint.com/{topic_slug}/index.htm",
+            f"https://realpython.com/tutorials/{topic_slug}/",
+        ]
+
+        # Only add URLs that are likely to exist
+        for url in educational_sources:
+            urls.append(url)
+
+        return urls[:3]  # Return top 3
     
     async def process_url_query(self, url: str) -> Dict[str, Any]:
         """Process a URL-based query"""

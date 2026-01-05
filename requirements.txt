@@ -8,11 +8,15 @@ python-multipart
 langchain
 langchain-community
 
-# ML Models
+# ML Models (Local - kept as fallback)
 sentence-transformers
 transformers
 torch
 tokenizers
+
+# Free LLM APIs (Primary - no cost)
+groq
+huggingface_hub
 
 # Vector Database
 chromadb

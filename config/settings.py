@@ -1,5 +1,6 @@
 """
 Configuration settings for EduNotes application
+Version 2.0 - With FREE LLM API support
 """
 import os
 from pathlib import Path
@@ -25,9 +26,26 @@ API_PORT = int(os.getenv("API_PORT", 8000))
 API_VERSION = os.getenv("API_VERSION", "v1")
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 
-# Model Settings
+# =============================================================================
+# LLM API Settings (FREE APIs - No cost)
+# =============================================================================
+# Provider: groq (recommended), huggingface, local
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
+USE_LOCAL_MODEL = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+
+# Groq API (FREE - 14,400 requests/day)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+
+# HuggingFace API (FREE - 30,000 requests/month)
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+HF_MODEL = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
+
+# =============================================================================
+# Local Model Settings (Fallback when USE_LOCAL_MODEL=true)
+# =============================================================================
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "facebook/bart-large-cnn")
+SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "google/flan-t5-base")
 QA_MODEL = os.getenv("QA_MODEL", "deepset/roberta-base-squad2")
 MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", str(MODELS_DIR / "downloaded")))
 
@@ -69,3 +87,15 @@ LOG_FILE = Path(os.getenv("LOG_FILE", str(LOGS_DIR / "edunotes.log")))
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", 4))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 32))
 MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", 10))
+
+# =============================================================================
+# Study Features Settings
+# =============================================================================
+FLASHCARD_STORAGE = Path(os.getenv("FLASHCARD_STORAGE", str(DATA_DIR / "flashcards")))
+PROGRESS_STORAGE = Path(os.getenv("PROGRESS_STORAGE", str(DATA_DIR / "progress")))
+MAX_FLASHCARDS_PER_NOTE = int(os.getenv("MAX_FLASHCARDS_PER_NOTE", 20))
+QUIZ_QUESTIONS_COUNT = int(os.getenv("QUIZ_QUESTIONS_COUNT", 10))
+
+# Create study feature directories
+for dir_path in [FLASHCARD_STORAGE, PROGRESS_STORAGE]:
+    dir_path.mkdir(parents=True, exist_ok=True)
