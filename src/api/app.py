@@ -20,6 +20,7 @@ from src.agents.orchestrator import Orchestrator
 from src.knowledge_base.vector_store import VectorStore
 from src.knowledge_base.document_processor import DocumentProcessor
 from src.utils.logger import get_logger
+from src.api.study_routes import router as study_router
 from config import settings
 
 logger = get_logger(__name__)
@@ -27,8 +28,8 @@ logger = get_logger(__name__)
 # Initialize FastAPI app
 app = FastAPI(
     title="EduNotes API",
-    description="Multi-Agent Study Assistant API",
-    version="1.0.0",
+    description="Multi-Agent Study Assistant API with Study Features (Flashcards, Quizzes, Progress Tracking)",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -49,6 +50,9 @@ limiter = Limiter(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Include study routes
+app.include_router(study_router)
 
 # Initialize components
 orchestrator = Orchestrator()

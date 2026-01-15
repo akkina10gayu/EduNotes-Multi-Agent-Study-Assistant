@@ -1,65 +1,64 @@
-# EduNotes - Multi-Agent Study Assistant
+# EduNotes - AI-Powered Study Assistant
 
-A production-ready multi-agent educational assistant that creates structured study notes from various sources using RAG (Retrieval-Augmented Generation) and advanced NLP models.
+A multi-agent educational assistant that creates structured study notes and interactive learning materials from any source using RAG (Retrieval-Augmented Generation) and state-of-the-art LLMs.
 
 ## 🚀 What is EduNotes?
 
-EduNotes is an intelligent study companion that automatically generates comprehensive, structured notes from multiple sources:
+EduNotes is your intelligent study companion that helps you learn faster and retain more:
 
-- **📚 Knowledge Base Search**: Retrieves information from your local knowledge repository
+- **📚 Smart Note Generation**: Automatically creates comprehensive study notes from topics, URLs, or text
 - **🌐 Web Content Processing**: Scrapes and summarizes educational articles and blogs
-- **📝 Text Summarization**: Creates key points from direct text input
-- **🎯 Smart Note Generation**: Produces well-organized markdown notes with bullet points
+- **🃏 AI Flashcards**: Generates interactive flashcards from your notes for active recall practice
+- **📋 Adaptive Quizzes**: Creates personalized quizzes to test your understanding
+- **📊 Progress Tracking**: Monitor your study habits, streaks, and mastery levels
 
-## 🤖 Multi-Agent Architecture
+## 🤖 How It Works
 
-EduNotes uses a coordinated multi-agent system where specialized AI agents work together:
+EduNotes uses an intelligent async pipeline that coordinates four specialized agents:
 
-### **Orchestrator Agent**
-- **Role**: Coordinates all other agents and manages the workflow
-- **Function**: Detects input type (topic/URL/text) and routes to appropriate agents
+**1. Retriever Agent** → Searches your knowledge base using AI-powered semantic similarity (ChromaDB + MiniLM embeddings)
 
-### **Retriever Agent** 
-- **Role**: Searches the local knowledge base using semantic similarity
-- **Technology**: ChromaDB vector database with sentence transformers
-- **Function**: Finds relevant documents based on user queries
+**2. Scraper Agent** → Extracts clean content from web URLs using newspaper3k with smart fallback to BeautifulSoup
 
-### **Scraper Agent**
-- **Role**: Extracts content from web URLs
-- **Technology**: newspaper3k with BeautifulSoup fallback
-- **Function**: Intelligently scrapes educational content from websites
+**3. Summarizer Agent** → Generates summaries using hybrid LLM approach:
+   - **Primary**: Groq API with Llama-3.1-70B (free, fast, high-quality)
+   - **Fallback**: Local Flan-T5 model (works offline)
 
-### **Summarizer Agent**
-- **Role**: Creates concise summaries and extracts key points
-- **Technology**: Google's Flan-T5-base model (improved quality)
-- **Function**: Generates bullet-point summaries from long texts
+**4. Note-Maker Agent** → Formats everything into structured markdown notes with metadata and sources
 
-### **Note-Maker Agent**
-- **Role**: Formats final structured study notes
-- **Function**: Creates clean markdown notes with metadata and sources
+The system automatically detects your input type (topic/URL/text), routes it through the right agents, and delivers comprehensive study materials in seconds.
 
 ## ✨ Key Features
 
-- **🧠 Intelligent Query Processing**: Automatically detects whether input is a topic, URL, or direct text
-- **📊 Vector Search**: Semantic search through your knowledge base using embeddings
-- **⚡ Fast Processing**: CPU-optimized models for quick note generation
-- **🎨 Clean UI**: Intuitive Streamlit interface with real-time processing
-- **💾 Persistent Storage**: ChromaDB for efficient document storage and retrieval
-- **🔄 Automatic KB Updates**: Web-scraped content automatically added to knowledge base
-- **📤 Export Options**: Download notes as markdown files
-- **🛡️ Rate Limiting**: Built-in API protection and error handling
+**Core Capabilities:**
+- **🧠 Smart Input Detection**: Automatically detects topics, URLs, or direct text input
+- **📊 Semantic Search**: AI-powered vector search through your knowledge base
+- **⚡ Hybrid LLM**: Free cloud API (Groq) for speed, local models for offline use
+- **🔄 Auto KB Updates**: Web content automatically added to your knowledge base
+
+**Study Features:**
+- **🃏 Flashcard Generation**: AI creates question-answer pairs from your notes
+- **📋 Quiz Mode**: Generate multiple-choice quizzes with instant feedback
+- **📊 Progress Dashboard**: Track study streaks, accuracy, and topic mastery
+- **📤 Export Options**: Download notes and flashcards as markdown
+
+**Technical:**
+- **🎨 Clean UI**: 4-tab Streamlit interface (Generate, Search, Update, Study Mode)
+- **💾 Persistent Storage**: ChromaDB vector database with SQLite backend
+- **🛡️ Production Ready**: Rate limiting, caching, error handling, logging
 
 ## 🛠️ Technology Stack
 
-- **Framework**: LangChain for agent orchestration
-- **Vector Database**: ChromaDB with SQLite backend
-- **ML Models**: 
-  - Embeddings: `sentence-transformers/all-MiniLM-L6-v2` (80MB)
-  - Summarization: `google/flan-t5-base` (990MB)
-- **Backend**: FastAPI with automatic OpenAPI documentation
-- **Frontend**: Streamlit for interactive web interface
-- **Caching**: DiskCache for performance optimization
-- **Web Scraping**: newspaper3k with BeautifulSoup fallback
+- **LLM Strategy**: Hybrid approach for best of both worlds
+  - **Primary**: Groq API (Llama-3.1-70B) - Free, fast, high-quality
+  - **Fallback**: Local Flan-T5-base (990MB) - Works offline
+- **Embeddings**: sentence-transformers/all-MiniLM-L6-v2 (80MB, local)
+- **Vector Store**: ChromaDB with persistent SQLite backend
+- **Framework**: LangChain for agent coordination
+- **Backend**: FastAPI with OpenAPI docs and rate limiting
+- **Frontend**: Streamlit with 4-tab interface
+- **Web Scraping**: newspaper3k + BeautifulSoup fallback
+- **Caching**: DiskCache for performance
 
 ## 📋 Prerequisites
 
@@ -70,7 +69,7 @@ EduNotes uses a coordinated multi-agent system where specialized AI agents work 
 
 ## 🚀 Quick Setup
 
-### 1. Clone and Setup Environment
+### 1. Clone and Install Dependencies
 
 ```bash
 git clone <your-repo-url>
@@ -80,99 +79,112 @@ cd EduNotes
 python -m venv venv
 
 # Activate environment
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Mac/Linux
 
-# Upgrade pip and install dependencies
+# Install packages
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> **Note**: This will download ~1.5GB of ML models on first run.
+### 2. Get Free API Key (Optional but Recommended)
 
-### 2. Initialize Knowledge Base
+For best performance, get a free Groq API key (no credit card required):
+
+1. Visit https://console.groq.com
+2. Sign up with your email
+3. Copy your API key
+4. Add to `.env` file:
+```env
+GROQ_API_KEY=your_key_here
+```
+
+> **Note**: Without API key, system automatically uses local models (slower but works offline)
+
+### 3. Initialize Knowledge Base
 
 ```bash
-# Initialize the vector database
 python scripts/setup_kb.py --init
-
-# Add sample educational content (recommended)
-python scripts/seed_data.py --sample
-
-# Optional: Fetch additional content from web
-python scripts/seed_data.py --web --topics machine-learning deep-learning
+python scripts/seed_data.py --sample  # Adds 30+ educational documents
 ```
 
-### 3. Start the Application
+### 4. Start the Application
 
-**Terminal 1 - Start API Server:**
+Open two terminals:
+
+**Terminal 1 - API Server:**
 ```bash
-uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn src.api.app:app --reload
 ```
 
-**Terminal 2 - Start Web Interface:**
+**Terminal 2 - Web Interface:**
 ```bash
 streamlit run ui/streamlit_app.py
 ```
 
-### 4. Access the Application
+### 5. Open Your Browser
 
-- **Web Interface**: http://localhost:8501
-- **API Documentation**: http://localhost:8000/docs
-- **API Health Check**: http://localhost:8000/api/v1/health
+- **Main App**: http://localhost:8501
+- **API Docs**: http://localhost:8000/docs
 
 ## 📚 How to Use
 
-### Generate Notes from Topics
-1. Enter a topic like "machine learning" or "neural networks"
-2. The system searches your knowledge base
-3. Generates structured notes with key points
-4. Download as markdown file
+### Tab 1: Generate Notes
+**From Topics:** Type "machine learning" → Get comprehensive notes from your knowledge base
 
-### Process Web Articles
-1. Paste any educational blog/article URL
-2. System automatically scrapes and summarizes content
-3. Content gets added to your knowledge base
-4. Receive structured notes with source links
+**From URLs:** Paste any article URL → System scrapes, summarizes, and adds to KB
 
-### Summarize Direct Text
-1. Paste long text (research papers, articles, etc.)
-2. System extracts key points and creates summary
-3. Get organized notes in markdown format
+**From Text:** Paste long text → Get structured summary with key points
 
-### Search Knowledge Base
-1. Use the "Search Knowledge Base" tab
-2. Enter keywords to find relevant documents
-3. Adjust similarity threshold and result count
-4. Browse matching content with scores
+All notes can be downloaded as markdown files.
 
-### Update Knowledge Base
-1. Go to "Update Knowledge Base" tab
-2. Manually add documents with title, topic, and content
-3. System processes and adds to searchable database
+### Tab 2: Search Knowledge Base
+Find specific information in your KB with semantic search. Adjust similarity threshold to control relevance.
+
+### Tab 3: Update Knowledge Base
+Manually add documents to expand your knowledge base. Enter title, topic, and content.
+
+### Tab 4: Study Mode
+
+**Flashcards:**
+- Generate flashcards from any content
+- Interactive flip cards with Q&A format
+- Track review count and accuracy
+- Shuffle and filter by difficulty
+
+**Quizzes:**
+- AI generates multiple-choice questions
+- Instant feedback on answers
+- Score tracking with explanations
+- Review incorrect answers
+
+**Progress Dashboard:**
+- Study streaks and daily activity
+- Topic mastery levels
+- Accuracy metrics for flashcards and quizzes
+- Recent activity feed
 
 ## 🔧 Configuration
 
 Key settings in `.env` file:
 
 ```env
-# API Configuration
-API_PORT=8000
-DEBUG_MODE=False
+# LLM Configuration (Use free API or local models)
+LLM_PROVIDER=groq              # groq, huggingface, or local
+GROQ_API_KEY=your_key_here     # Free from console.groq.com
+USE_LOCAL_MODEL=false          # Set true for offline mode
 
-# Model Settings (CPU-optimized)
+# Local Models (Fallback)
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 SUMMARIZATION_MODEL=google/flan-t5-base
 
-# Knowledge Base Settings
+# Knowledge Base
 KB_CHUNK_SIZE=512
 KB_CHUNK_OVERLAP=50
 
-# Performance Settings
-RATE_LIMIT_PER_MINUTE=100
-MAX_CONCURRENT_REQUESTS=10
+# Study Features
+MAX_FLASHCARDS_PER_NOTE=20
+QUIZ_QUESTIONS_COUNT=10
 ```
 
 ## 📁 Project Structure
@@ -180,54 +192,51 @@ MAX_CONCURRENT_REQUESTS=10
 ```
 EduNotes/
 ├── src/
-│   ├── agents/          # Multi-agent implementations
-│   ├── api/             # FastAPI backend
-│   ├── knowledge_base/  # Vector store management
-│   ├── models/          # Pydantic schemas
-│   └── utils/           # Utilities (logging, caching)
-├── ui/                  # Streamlit interface
-├── scripts/             # Setup and data scripts
-├── config/              # Configuration files
-├── data/                # Knowledge base storage
-├── models/              # Downloaded ML models
-├── cache/               # Performance caching
+│   ├── agents/          # 4 specialized agents (retriever, scraper, summarizer, note-maker)
+│   ├── api/             # FastAPI backend + study feature routes
+│   ├── knowledge_base/  # ChromaDB vector store
+│   ├── models/          # Data models (notes, flashcards, quizzes, progress)
+│   └── utils/           # LLM client, generators, storage, caching
+├── ui/                  # Streamlit app (4 tabs)
+├── scripts/             # Setup and seed scripts
+├── data/
+│   ├── knowledge_base/  # Document storage
+│   ├── flashcards/      # Flashcard sets
+│   ├── quizzes/         # Quiz data
+│   └── progress/        # Study progress tracking
+├── config/              # Settings and configuration
 └── logs/                # Application logs
 ```
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+**"API key not found" error:**
+- Add `GROQ_API_KEY` to `.env` file, OR
+- Set `USE_LOCAL_MODEL=true` to use offline mode
 
-**Models not downloading:**
+**Port 8000/8501 already in use:**
 ```bash
-# Manual model download
-python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
-```
-
-**Port already in use:**
-```bash
-# Windows
-netstat -ano | findstr :8000
-taskkill /PID <PID> /F
-
-# Linux/Mac
-lsof -i :8000
-kill -9 <PID>
+# Kill the process using the port
+netstat -ano | findstr :8000    # Windows
+lsof -i :8000                   # Mac/Linux
 ```
 
 **ChromaDB errors:**
 ```bash
-# Reset knowledge base
-python scripts/setup_kb.py --reset
+python scripts/setup_kb.py --reset  # Reinitialize database
 ```
+
+**Slow performance:**
+- Get a free Groq API key (10x faster than local models)
+- Reduce `KB_CHUNK_SIZE` in `.env`
 
 ## 🎯 Use Cases
 
-- **Students**: Generate study notes from research papers and online articles
-- **Researchers**: Quickly summarize and organize academic papers
-- **Professionals**: Create knowledge bases from industry documentation  
-- **Content Creators**: Extract key points from various educational sources
-- **Lifelong Learners**: Build personal knowledge repositories with smart search
+- **Students**: Auto-generate notes, flashcards, and quizzes from lectures and readings
+- **Researchers**: Summarize academic papers and build searchable knowledge bases
+- **Professionals**: Create and maintain technical documentation libraries
+- **Self-Learners**: Track progress, build study habits, and master new topics
+- **Educators**: Quickly create study materials and assessments from content
 
 ## 🤝 Contributing
 
@@ -243,4 +252,4 @@ This project is open source. Please ensure responsible use of the scraping featu
 
 ---
 
-**EduNotes v1.0** - Transforming how you create and manage study materials with AI-powered multi-agent assistance.
+**EduNotes v2.0** - Your AI-powered study companion with smart note generation, flashcards, quizzes, and progress tracking.
