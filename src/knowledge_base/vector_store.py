@@ -165,3 +165,31 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error getting collection stats: {e}")
             return {}
+
+    def get_unique_topics(self) -> List[str]:
+        """Get list of unique topics from the knowledge base"""
+        try:
+            # Get all documents with metadata
+            results = self.collection.get()
+
+            if not results or not results.get('metadatas'):
+                return []
+
+            # Extract unique topics
+            topics = set()
+            for metadata in results['metadatas']:
+                if metadata and 'topic' in metadata:
+                    topic = metadata['topic']
+                    if topic:
+                        # Clean up topic name
+                        topic = topic.replace('-', ' ').replace('_', ' ').title()
+                        topics.add(topic)
+
+            # Sort alphabetically
+            sorted_topics = sorted(list(topics))
+            logger.info(f"Found {len(sorted_topics)} unique topics in KB")
+            return sorted_topics
+
+        except Exception as e:
+            logger.error(f"Error getting unique topics: {e}")
+            return []

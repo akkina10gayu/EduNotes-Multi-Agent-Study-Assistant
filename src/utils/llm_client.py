@@ -195,43 +195,89 @@ class LLMClient:
 
         # Build prompt based on style
         if style == "bullet_points":
-            system_prompt = """You are an educational assistant that creates clear, comprehensive study notes.
-Extract the key concepts and create well-organized bullet points.
-Focus on important definitions, concepts, and relationships."""
+            system_prompt = """You are an expert educational assistant specializing in creating comprehensive, well-structured study notes.
+Your notes should be clear, accurate, and optimized for learning and retention.
+Focus on extracting key information and presenting it in an easily digestible format."""
 
-            prompt = f"""Create detailed bullet-point notes from the following content.
-Include:
-- Key definitions and concepts
-- Important relationships and connections
-- Practical examples if mentioned
-- Summary of main ideas
+            prompt = f"""Create comprehensive bullet-point study notes from the following content.
+
+**Structure your notes to include:**
+• **Core Concepts**: Main ideas and fundamental principles
+• **Definitions**: Clear explanations of key terms
+• **Formulas/Equations**: Any mathematical expressions (if applicable)
+• **Examples**: Concrete illustrations of concepts
+• **Applications**: Real-world uses or practical applications
+• **Key Relationships**: How concepts connect and interact
+• **Important Details**: Critical facts and data points
+
+**Format Guidelines:**
+- Use hierarchical bullet points (main points → sub-points)
+- Keep language clear and concise
+- Highlight technical terms
+- Include specific examples when available
+- Organize from fundamental to advanced concepts
 
 Content to summarize:
 {text}
 
-Provide comprehensive bullet-point notes:"""
+Provide comprehensive, well-structured bullet-point notes:"""
 
         elif style == "brief":
-            system_prompt = "You are a concise summarizer. Provide brief, accurate summaries."
-            prompt = f"Summarize this in 2-3 sentences:\n\n{text}"
+            system_prompt = "You are an expert at creating concise, accurate summaries that capture the essence of educational content."
+            prompt = f"""Summarize the following content in 2-3 clear, informative sentences.
+Focus on the main takeaways and key insights.
+
+Content:
+{text}
+
+Brief summary:"""
 
         else:  # detailed
-            system_prompt = """You are an educational assistant that creates comprehensive study notes.
-Your summaries should be detailed, well-structured, and educational.
-Include key concepts, definitions, examples, and relationships between ideas."""
+            system_prompt = """You are an expert educational content creator who produces detailed, comprehensive study materials.
+Your summaries should be thorough, well-organized, and designed to facilitate deep understanding and retention.
+Include definitions, examples, applications, and clear explanations of complex concepts."""
 
-            prompt = f"""Create a comprehensive, detailed summary of the following educational content.
-The summary should:
-1. Explain the main concepts clearly
-2. Include important definitions
-3. Highlight key relationships between ideas
-4. Be suitable for study purposes
-5. Be well-organized with clear structure
+            prompt = f"""Create a comprehensive, detailed educational summary of the following content.
+
+**Your summary should include:**
+
+1. **Overview**: Brief introduction to the topic (2-3 sentences)
+
+2. **Core Concepts**: Detailed explanation of main ideas
+   - Define key terms clearly
+   - Explain fundamental principles
+   - Break down complex ideas into understandable parts
+
+3. **Key Details**:
+   - Important formulas, equations, or algorithms (if applicable)
+   - Critical facts, data points, or statistics
+   - Significant terminology and definitions
+
+4. **Examples & Applications**:
+   - Concrete examples illustrating concepts
+   - Real-world applications or use cases
+   - Practical scenarios demonstrating the ideas
+
+5. **Relationships & Connections**:
+   - How different concepts relate to each other
+   - Dependencies and prerequisites
+   - Common patterns or themes
+
+6. **Important Takeaways**:
+   - Essential points to remember
+   - Key insights and conclusions
+
+**Style Guidelines:**
+- Use clear, accessible language
+- Organize information logically
+- Include specific details and examples
+- Make it suitable for studying and reference
+- Structure with clear headings and sections
 
 Content to summarize:
 {text}
 
-Provide a detailed educational summary:"""
+Provide a detailed, well-organized educational summary:"""
 
         try:
             return self.generate(

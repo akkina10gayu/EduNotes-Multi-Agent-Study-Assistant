@@ -165,6 +165,62 @@ async def delete_flashcard_set(set_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/flashcards/export/{set_id}/anki")
+async def export_flashcards_to_anki(set_id: str):
+    """Export a flashcard set to Anki-compatible format"""
+    try:
+        from fastapi.responses import PlainTextResponse
+
+        store = get_flashcard_store()
+        anki_export = store.export_to_anki(set_id)
+
+        if anki_export:
+            # Get set name for filename
+            flashcard_set = store.load_set(set_id)
+            filename = f"{flashcard_set.name.replace(' ', '_')}_anki.txt" if flashcard_set else "flashcards_anki.txt"
+
+            return PlainTextResponse(
+                content=anki_export,
+                media_type="text/plain",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Flashcard set not found or export failed")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting to Anki: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/flashcards/export/all/anki")
+async def export_all_flashcards_to_anki():
+    """Export all flashcard sets to Anki-compatible format"""
+    try:
+        from fastapi.responses import PlainTextResponse
+
+        store = get_flashcard_store()
+        anki_export = store.export_all_to_anki()
+
+        if anki_export:
+            return PlainTextResponse(
+                content=anki_export,
+                media_type="text/plain",
+                headers={"Content-Disposition": "attachment; filename=all_flashcards_anki.txt"}
+            )
+        else:
+            return PlainTextResponse(
+                content="",
+                media_type="text/plain",
+                headers={"Content-Disposition": "attachment; filename=all_flashcards_anki.txt"}
+            )
+
+    except Exception as e:
+        logger.error(f"Error exporting all flashcards to Anki: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =============================================================================
 # QUIZ ENDPOINTS
 # =============================================================================

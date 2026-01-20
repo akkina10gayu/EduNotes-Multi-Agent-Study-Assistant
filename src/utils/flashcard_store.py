@@ -195,6 +195,70 @@ class FlashcardStore:
             logger.error(f"Error listing flashcard sets: {e}")
             return []
 
+    def export_to_anki(self, set_id: str) -> Optional[str]:
+        """
+        Export a flashcard set to Anki-compatible format.
+
+        Args:
+            set_id: The ID of the flashcard set to export
+
+        Returns:
+            String in Anki import format (tab-separated), or None if failed
+        """
+        try:
+            flashcard_set = self.load_set(set_id)
+            if not flashcard_set:
+                logger.error(f"Cannot export: flashcard set {set_id} not found")
+                return None
+
+            # Anki format: Front\tBack\tDeck
+            lines = []
+            deck_name = flashcard_set.name.replace('\t', ' ')
+
+            for card in flashcard_set.cards:
+                front = card.front.replace('\t', ' ').replace('\n', '<br>')
+                back = card.back.replace('\t', ' ').replace('\n', '<br>')
+                lines.append(f"{front}\t{back}\t{deck_name}")
+
+            export_text = '\n'.join(lines)
+            logger.info(f"Exported {len(lines)} cards from set {set_id} to Anki format")
+            return export_text
+
+        except Exception as e:
+            logger.error(f"Error exporting flashcard set to Anki: {e}")
+            return None
+
+    def export_all_to_anki(self) -> Optional[str]:
+        """
+        Export all flashcard sets to a single Anki-compatible file.
+
+        Returns:
+            String in Anki import format, or None if failed
+        """
+        try:
+            index = self._load_index()
+            all_lines = []
+            total_cards = 0
+
+            for set_id in index.keys():
+                flashcard_set = self.load_set(set_id)
+                if flashcard_set:
+                    deck_name = flashcard_set.name.replace('\t', ' ')
+
+                    for card in flashcard_set.cards:
+                        front = card.front.replace('\t', ' ').replace('\n', '<br>')
+                        back = card.back.replace('\t', ' ').replace('\n', '<br>')
+                        all_lines.append(f"{front}\t{back}\t{deck_name}")
+                        total_cards += 1
+
+            export_text = '\n'.join(all_lines)
+            logger.info(f"Exported {total_cards} cards from all sets to Anki format")
+            return export_text
+
+        except Exception as e:
+            logger.error(f"Error exporting all flashcards to Anki: {e}")
+            return None
+
     def get_sets_by_topic(self, topic: str) -> List[Dict[str, Any]]:
         """
         Get all flashcard sets for a specific topic.

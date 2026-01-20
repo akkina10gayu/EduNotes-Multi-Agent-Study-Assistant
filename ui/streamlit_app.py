@@ -20,38 +20,78 @@ st.set_page_config(
 # API configuration
 API_BASE_URL = "http://localhost:8000/api/v1"
 
-# Custom CSS
-st.markdown("""
+# Initialize session state for note history and UI controls
+if 'note_history' not in st.session_state:
+    st.session_state.note_history = []
+if 'selected_history' not in st.session_state:
+    st.session_state.selected_history = None
+if 'show_copy_box' not in st.session_state:
+    st.session_state.show_copy_box = False
+if 'show_copy_box_history' not in st.session_state:
+    st.session_state.show_copy_box_history = False
+if 'font_size' not in st.session_state:
+    st.session_state.font_size = 'medium'  # Default font size
+if 'first_time_user' not in st.session_state:
+    st.session_state.first_time_user = True
+if 'dismissed_welcome' not in st.session_state:
+    st.session_state.dismissed_welcome = False
+
+# Font size mapping
+font_sizes = {
+    'small': {'base': '14px', 'header': '2.5rem', 'notes': '0.9rem'},
+    'medium': {'base': '16px', 'header': '3rem', 'notes': '1rem'},
+    'large': {'base': '18px', 'header': '3.5rem', 'notes': '1.1rem'}
+}
+
+current_size = font_sizes[st.session_state.font_size]
+
+# Apply unified CSS with dynamic font sizing
+st.markdown(f"""
 <style>
-    .main-header {
-        font-size: 3rem;
-        color: #1E88E5;
+    /* Base styling */
+    html, body, .stApp {{
+        font-size: {current_size['base']};
+    }}
+
+    .main-header {{
+        font-size: {current_size['header']};
+        color: #6CA0DC;
         text-align: center;
         margin-bottom: 2rem;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #1E88E5;
-        color: white;
-    }
-    .success-message {
+    }}
+
+    .success-message {{
         padding: 1rem;
-        background-color: #E8F5E9;
+        background-color: #1B3A1B;
         border-radius: 0.5rem;
-        color: #2E7D32;
-    }
-    .error-message {
+        color: #4CAF50;
+    }}
+
+    .error-message {{
         padding: 1rem;
-        background-color: #FFEBEE;
+        background-color: #3A1B1B;
         border-radius: 0.5rem;
-        color: #C62828;
-    }
-    .notes-container {
-        background-color: #F5F5F5;
+        color: #F44336;
+    }}
+
+    .notes-container {{
+        background-color: #1E1E1E;
         padding: 1.5rem;
         border-radius: 0.5rem;
         margin-top: 1rem;
-    }
+        border-left: 4px solid #6CA0DC;
+        font-size: {current_size['notes']};
+    }}
+
+    /* Improve readability */
+    .stMarkdown p, .stText {{
+        line-height: 1.6;
+    }}
+
+    /* Button styling */
+    .stButton>button {{
+        font-size: {current_size['base']};
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -61,19 +101,49 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Settings")
-    
+
     # API Status Check
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=2)
         if response.status_code == 200:
             st.success("✅ API Connected")
+
+            # Check if API key is configured
+            import os
+            env_path = os.path.join(os.getcwd(), '.env')
+            if os.path.exists(env_path):
+                with open(env_path, 'r') as f:
+                    env_content = f.read()
+                    if 'GROQ_API_KEY=your_groq_key_here' in env_content or 'GROQ_API_KEY=' not in env_content:
+                        st.warning("⚠️ API key not configured")
+                        st.caption("See Help below for setup")
         else:
             st.error("❌ API Error")
     except:
         st.error("❌ API Offline")
-    
+        st.caption("See Help below to start API")
+
     st.divider()
-    
+
+    # Font Size Control
+    st.markdown("#### 📏 Text Size")
+    font_choice = st.radio(
+        "Adjust text size for better readability:",
+        options=["Small", "Medium", "Large"],
+        index=["small", "medium", "large"].index(st.session_state.font_size),
+        key="font_size_radio",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    # Update state if changed
+    new_font_size = font_choice.lower()
+    if new_font_size != st.session_state.font_size:
+        st.session_state.font_size = new_font_size
+        st.rerun()
+
+    st.divider()
+
     # System Stats
     if st.button("📊 View System Stats"):
         try:
@@ -92,9 +162,151 @@ with st.sidebar:
     1. **Topic Query**: Enter a topic like "machine learning"
     2. **URL**: Paste a blog/article URL
     3. **Text**: Paste text directly for summarization
-    
+
     The system will automatically detect the input type and generate structured notes.
     """)
+
+    st.divider()
+
+    # Note History
+    st.header("📜 Note History")
+    if st.session_state.note_history:
+        st.markdown(f"*Last {len(st.session_state.note_history)} notes*")
+        for idx, note_item in enumerate(reversed(st.session_state.note_history)):
+            with st.expander(f"{note_item['timestamp']} - {note_item['query'][:30]}..."):
+                st.markdown(f"**Query:** {note_item['query'][:100]}...")
+                st.markdown(f"**Type:** {note_item['type']}")
+                if st.button(f"📋 View Notes", key=f"history_{idx}"):
+                    st.session_state.selected_history = note_item
+                    st.rerun()
+    else:
+        st.info("No notes generated yet")
+
+    st.divider()
+
+    # Help Section at Bottom
+    with st.expander("❓ Help & Setup Guide"):
+        st.markdown("### 🚀 Getting Started")
+
+        st.markdown("#### 1️⃣ Start the API Server")
+        st.code("uvicorn src.api.app:app --reload", language="bash")
+        st.caption("Run this command in your terminal from the project root")
+
+        st.markdown("#### 2️⃣ Start the UI")
+        st.code("streamlit run ui/streamlit_app.py", language="bash")
+        st.caption("Run this in a separate terminal")
+
+        st.markdown("---")
+
+        st.markdown("### ⚡ Setup API Key (Recommended)")
+        st.markdown("""
+        **Get FREE Groq API Key for 10x faster performance:**
+
+        1. Visit [console.groq.com](https://console.groq.com)
+        2. Sign up (no credit card required)
+        3. Copy your API key
+        4. Edit `.env` file in project root:
+        """)
+        st.code("GROQ_API_KEY=your_key_here", language="bash")
+        st.markdown("5. Restart both API and UI")
+
+        st.markdown("---")
+
+        st.markdown("### 📚 How to Use")
+        st.markdown("""
+        **Generate Notes:**
+        - Enter a topic (e.g., "Machine Learning")
+        - Paste a URL to an article
+        - Upload a PDF file
+        - Paste text directly
+
+        **Study Features:**
+        - Create flashcards from notes
+        - Take quizzes to test knowledge
+        - Track your progress and streaks
+        - Export flashcards to Anki
+
+        **Tips:**
+        - Click topic chips for quick queries
+        - Use note history to revisit past notes
+        - Copy notes directly without downloading
+        """)
+
+        st.markdown("---")
+
+        st.markdown("### ⚙️ Troubleshooting")
+        st.markdown("""
+        **API Offline?**
+        - Make sure you ran `uvicorn src.api.app:app --reload`
+        - Check if port 8000 is available
+        - Look at terminal for error messages
+
+        **Slow Performance?**
+        - Add a Groq API key (see above)
+        - Local models are slower but work offline
+
+        **PDF Not Processing?**
+        - Make sure file is less than 10MB
+        - PDF must have readable text (not images only)
+        """)
+
+# First-Time User Welcome Banner
+if st.session_state.first_time_user and not st.session_state.dismissed_welcome:
+    st.info("👋 **Welcome to EduNotes!** New here? Check out the **Help & Setup Guide** in the sidebar (bottom left) to get started.")
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("Got it! ✓", key="dismiss_welcome", use_container_width=True):
+            st.session_state.dismissed_welcome = True
+            st.session_state.first_time_user = False
+            st.rerun()
+
+# Quick Stats Dashboard
+st.markdown("### 📊 Your Study Stats")
+stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+
+try:
+    # Get progress data
+    progress_resp = requests.get(f"{API_BASE_URL}/study/progress", timeout=3)
+    flashcard_resp = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)
+
+    notes_generated = len(st.session_state.get('note_history', []))
+
+    if progress_resp.status_code == 200:
+        progress_data = progress_resp.json()
+        total_flashcards = progress_data.get('flashcard_reviews', 0)
+        total_quizzes = progress_data.get('quiz_attempts', 0)
+        current_streak = progress_data.get('current_streak', 0)
+    else:
+        total_flashcards = 0
+        total_quizzes = 0
+        current_streak = 0
+
+    if flashcard_resp.status_code == 200:
+        flashcard_data = flashcard_resp.json()
+        flashcard_sets = len(flashcard_data.get('sets', []))
+    else:
+        flashcard_sets = 0
+
+    with stat_col1:
+        st.metric("📝 Notes Generated", notes_generated)
+    with stat_col2:
+        st.metric("🃏 Flashcard Sets", flashcard_sets)
+    with stat_col3:
+        st.metric("📋 Quizzes Taken", total_quizzes)
+    with stat_col4:
+        st.metric("🔥 Study Streak", f"{current_streak} days")
+
+except:
+    with stat_col1:
+        st.metric("📝 Notes Generated", len(st.session_state.get('note_history', [])))
+    with stat_col2:
+        st.metric("🃏 Flashcard Sets", "—")
+    with stat_col3:
+        st.metric("📋 Quizzes Taken", "—")
+    with stat_col4:
+        st.metric("🔥 Study Streak", "—")
+
+st.divider()
 
 # Main content area
 tab1, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "🔍 Search Knowledge Base", "📤 Update Knowledge Base", "📖 Study Mode"])
@@ -102,14 +314,91 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "🔍 Search Knowledge 
 # Tab 1: Generate Notes
 with tab1:
     st.header("Generate Study Notes")
-    
+
+    # Show selected history note if any
+    if 'selected_history' in st.session_state and st.session_state.selected_history:
+        hist = st.session_state.selected_history
+        st.info(f"📜 Viewing note from history: {hist['timestamp']}")
+
+        # Display metadata
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Query Type", hist['type'].upper())
+        with col2:
+            st.metric("Sources Used", hist['sources_used'])
+        with col3:
+            st.metric("From KB", "Yes" if hist['from_kb'] else "No")
+
+        # Display notes
+        st.markdown("### 📚 Historical Note")
+        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+        st.markdown(hist['notes'])
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Action buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.download_button(
+                label="📥 Download",
+                data=hist['notes'],
+                file_name=f"notes_history_{hist['timestamp'].replace(':', '-')}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+        with col2:
+            if st.button("📋 Copy", use_container_width=True, key="copy_history"):
+                st.session_state.show_copy_box_history = True
+        with col3:
+            if st.button("🔄 New Query", use_container_width=True):
+                st.session_state.selected_history = None
+                st.rerun()
+
+        # Show copyable text area
+        if st.session_state.get('show_copy_box_history', False):
+            st.text_area(
+                "Copy this text:",
+                value=hist['notes'],
+                height=150,
+                key="copy_history_text"
+            )
+
+        st.divider()
+
+    # Topic Suggestions
+    st.markdown("#### 💡 Quick Topics from Knowledge Base")
+    try:
+        topics_resp = requests.get(f"{API_BASE_URL}/topics", timeout=3)
+        if topics_resp.status_code == 200:
+            topics_data = topics_resp.json()
+            if topics_data.get('topics'):
+                topics = topics_data['topics'][:12]  # Show first 12 topics
+
+                # Display as clickable chips
+                chip_cols = st.columns(4)
+                for idx, topic in enumerate(topics):
+                    col_idx = idx % 4
+                    with chip_cols[col_idx]:
+                        if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
+                            st.session_state.suggested_topic = topic
+                            st.rerun()
+    except:
+        pass
+
+    st.markdown("---")
+
     # Input section
     col1, col2 = st.columns([3, 1])
-    
+
+    # Pre-fill if topic was clicked
+    default_query = st.session_state.get('suggested_topic', '')
+    if default_query:
+        st.session_state.suggested_topic = None  # Clear after using
+
     with col1:
         query_input = st.text_area(
             "Enter your query (topic, URL, or text):",
             height=100,
+            value=default_query,
             placeholder="Examples:\n- Machine Learning\n- https://example.com/article\n- Paste your text here..."
         )
     
@@ -122,56 +411,238 @@ with tab1:
                 st.info("📄 Text Detected")
             else:
                 st.info("🎯 Topic Detected")
-    
+
+    # PDF Upload Section
+    st.markdown("---")
+    st.markdown("#### 📄 Or Upload a PDF")
+    uploaded_file = st.file_uploader(
+        "Upload a PDF file to generate notes",
+        type=['pdf'],
+        help="Upload research papers, textbooks, or any PDF document (max 10MB)"
+    )
+
+    if uploaded_file:
+        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+        st.info(f"📎 **{uploaded_file.name}** ({file_size_mb:.2f}MB)")
+
+    st.markdown("---")
+
     # Generate button
     if st.button("🚀 Generate Notes", type="primary"):
-        if query_input:
-            with st.spinner("🤖 Processing your request..."):
-                try:
-                    # Make API request
+        # Check if either query or PDF is provided
+        if uploaded_file:
+            # Process PDF file
+            progress_placeholder = st.empty()
+            status_placeholder = st.empty()
+
+            try:
+                # Validate file size
+                file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+                if file_size_mb > 10:
+                    st.error(f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB.")
+                else:
+                    progress_placeholder.progress(0.2)
+                    status_placeholder.info("📄 Extracting text from PDF...")
+                    time.sleep(0.3)
+
+                    # Upload PDF to API
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
+
+                    progress_placeholder.progress(0.5)
+                    status_placeholder.info("🤖 Processing PDF content...")
+
                     response = requests.post(
-                        f"{API_BASE_URL}/generate-notes",
-                        json={"query": query_input},
-                        timeout=120  # Increased to 2 minutes for ML processing
+                        f"{API_BASE_URL}/process-pdf",
+                        files=files,
+                        timeout=120
                     )
-                    
+
+                    progress_placeholder.progress(0.9)
+                    status_placeholder.info("📝 Generating notes from PDF...")
+                    time.sleep(0.3)
+
+                    progress_placeholder.progress(1.0)
+                    progress_placeholder.empty()
+                    status_placeholder.empty()
+
                     if response.status_code == 200:
                         result = response.json()
-                        
+
                         if result['success']:
-                            st.success("✅ Notes generated successfully!")
-                            
+                            st.success(f"✅ Notes generated from PDF: {uploaded_file.name}")
+
+                            # Save to history
+                            note_entry = {
+                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                                'query': f"PDF: {uploaded_file.name}",
+                                'type': 'pdf',
+                                'notes': result['notes'],
+                                'sources_used': result.get('sources_used', 0),
+                                'from_kb': False
+                            }
+                            st.session_state.note_history.append(note_entry)
+                            if len(st.session_state.note_history) > 10:
+                                st.session_state.note_history.pop(0)
+
                             # Display metadata
                             col1, col2, col3 = st.columns(3)
                             with col1:
-                                st.metric("Query Type", result['query_type'].upper())
+                                st.metric("Source", "PDF Upload")
                             with col2:
-                                st.metric("Sources Used", result['sources_used'])
+                                st.metric("File Size", f"{file_size_mb:.2f} MB")
                             with col3:
-                                st.metric("From KB", "Yes" if result['from_kb'] else "No")
-                            
+                                st.metric("Filename", uploaded_file.name[:20])
+
                             # Display notes
                             st.markdown("### 📚 Generated Notes")
                             st.markdown('<div class="notes-container">', unsafe_allow_html=True)
                             st.markdown(result['notes'])
                             st.markdown('</div>', unsafe_allow_html=True)
-                            
-                            # Download button
-                            st.download_button(
-                                label="📥 Download Notes (Markdown)",
-                                data=result['notes'],
-                                file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                                mime="text/markdown"
-                            )
+
+                            # Action buttons
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.download_button(
+                                    label="📥 Download Notes",
+                                    data=result['notes'],
+                                    file_name=f"notes_{uploaded_file.name.replace('.pdf', '')}.md",
+                                    mime="text/markdown",
+                                    use_container_width=True
+                                )
+                            with col2:
+                                if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_pdf"):
+                                    st.session_state.show_copy_box = True
+
+                            if st.session_state.get('show_copy_box', False):
+                                st.markdown("**📋 Copy the text below:**")
+                                st.text_area(
+                                    "Select all (Ctrl+A) and copy (Ctrl+C):",
+                                    value=result['notes'],
+                                    height=200,
+                                    key="copy_pdf_text"
+                                )
                         else:
                             st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
                     else:
-                        st.error(f"❌ API Error: {response.status_code}")
-                        
-                except requests.exceptions.Timeout:
-                    st.error("⏱️ Request timed out. Please try again.")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                        st.error(f"❌ API Error: {response.status_code} - {response.text}")
+
+            except Exception as e:
+                progress_placeholder.empty()
+                status_placeholder.empty()
+                st.error(f"❌ Error processing PDF: {str(e)}")
+
+        elif query_input:
+            # Progress indicator container
+            progress_placeholder = st.empty()
+            status_placeholder = st.empty()
+
+            try:
+                # Step 1: Routing
+                progress_placeholder.progress(0.2)
+                status_placeholder.info("🔄 Detecting query type and routing...")
+                time.sleep(0.3)
+
+                # Step 2: Processing
+                progress_placeholder.progress(0.4)
+                if query_input.startswith(('http://', 'https://', 'www.')):
+                    status_placeholder.info("🌐 Scraping web content...")
+                elif len(query_input) > 500:
+                    status_placeholder.info("📄 Processing text input...")
+                else:
+                    status_placeholder.info("🔍 Searching knowledge base...")
+
+                # Make API request
+                response = requests.post(
+                    f"{API_BASE_URL}/generate-notes",
+                    json={"query": query_input},
+                    timeout=120
+                )
+
+                # Step 3: Summarizing
+                progress_placeholder.progress(0.7)
+                status_placeholder.info("🤖 Generating AI-powered summary...")
+                time.sleep(0.3)
+
+                # Step 4: Creating Notes
+                progress_placeholder.progress(0.9)
+                status_placeholder.info("📝 Formatting structured notes...")
+                time.sleep(0.3)
+
+                # Complete
+                progress_placeholder.progress(1.0)
+                status_placeholder.empty()
+                progress_placeholder.empty()
+
+                if response.status_code == 200:
+                    result = response.json()
+
+                    if result['success']:
+                        st.success("✅ Notes generated successfully!")
+
+                        # Save to history (keep last 10)
+                        note_entry = {
+                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                            'query': query_input,
+                            'type': result['query_type'],
+                            'notes': result['notes'],
+                            'sources_used': result['sources_used'],
+                            'from_kb': result['from_kb']
+                        }
+                        st.session_state.note_history.append(note_entry)
+                        if len(st.session_state.note_history) > 10:
+                            st.session_state.note_history.pop(0)
+
+                        # Display metadata
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Query Type", result['query_type'].upper())
+                        with col2:
+                            st.metric("Sources Used", result['sources_used'])
+                        with col3:
+                            st.metric("From KB", "Yes" if result['from_kb'] else "No")
+
+                        # Display notes
+                        st.markdown("### 📚 Generated Notes")
+                        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+                        st.markdown(result['notes'])
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                        # Action buttons
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.download_button(
+                                label="📥 Download Notes",
+                                data=result['notes'],
+                                file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                                mime="text/markdown",
+                                use_container_width=True
+                            )
+                        with col2:
+                            if st.button("📋 Copy to Clipboard", use_container_width=True):
+                                st.session_state.show_copy_box = True
+
+                        # Show copyable text area when button clicked
+                        if st.session_state.get('show_copy_box', False):
+                            st.markdown("**📋 Copy the text below:**")
+                            st.text_area(
+                                "Select all (Ctrl+A) and copy (Ctrl+C):",
+                                value=result['notes'],
+                                height=200,
+                                key="copy_text_area"
+                            )
+                    else:
+                        st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
+                else:
+                    st.error(f"❌ API Error: {response.status_code}")
+
+            except requests.exceptions.Timeout:
+                progress_placeholder.empty()
+                status_placeholder.empty()
+                st.error("⏱️ Request timed out. Please try again.")
+            except Exception as e:
+                progress_placeholder.empty()
+                status_placeholder.empty()
+                st.error(f"❌ Error: {str(e)}")
         else:
             st.warning("⚠️ Please enter a query")
 
@@ -346,6 +817,36 @@ with tab4:
                                 st.rerun()
                     else:
                         st.info("No flashcard sets yet. Generate some!")
+            except:
+                pass
+
+            st.divider()
+
+            # Export to Anki
+            st.markdown("#### 📤 Export to Anki")
+            try:
+                response = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result['sets']:
+                        # Export specific set
+                        st.markdown("**Export a specific set:**")
+                        export_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in result['sets']}
+                        selected_export = st.selectbox("Choose set to export:", [""] + list(export_options.keys()), key="export_select")
+
+                        if selected_export:
+                            set_id = export_options[selected_export]
+                            export_url = f"{API_BASE_URL}/study/flashcards/export/{set_id}/anki"
+                            st.markdown(f"[⬇️ Download {selected_export.split(' (')[0]} for Anki]({export_url})", unsafe_allow_html=False)
+
+                        # Export all sets
+                        st.markdown("**Or export all sets:**")
+                        all_export_url = f"{API_BASE_URL}/study/flashcards/export/all/anki"
+                        total_cards = sum(s['card_count'] for s in result['sets'])
+                        st.markdown(f"[⬇️ Download All Flashcards ({total_cards} cards)]({all_export_url})", unsafe_allow_html=False)
+                        st.caption("💡 Import the .txt file into Anki to study anywhere!")
+                    else:
+                        st.info("No flashcards to export yet")
             except:
                 pass
 
