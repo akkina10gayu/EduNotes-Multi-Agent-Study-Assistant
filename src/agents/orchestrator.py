@@ -45,22 +45,22 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str) -> Dict[str, Any]:
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
         """Process a topic-based query"""
         try:
             self.logger.info(f"Processing topic query: {query[:50]}...")
-            
+
             # Search knowledge base
             retrieval_result = await self.retriever.process({
                 'query': query,
                 'k': 5,
                 'threshold': 1.0
             })
-            
+
             if retrieval_result['success'] and retrieval_result['count'] > 0:
                 # Found relevant documents
                 self.logger.info(f"Found {retrieval_result['count']} relevant documents")
-                
+
                 # Extract content from results
                 documents = [doc['content'] for doc in retrieval_result['results']]
 
@@ -75,24 +75,34 @@ class Orchestrator:
                             'title': doc['metadata'].get('title', 'Unknown'),
                             'url': url
                         })
-                
+
                 # Create comprehensive technical summary using ALL available documents
                 all_content = ' '.join(documents[:5])  # Use top 5 documents for maximum content
                 self.logger.info(f"Processing {len(documents)} documents with total length: {len(all_content)}")
 
+                # Pass the summarization_mode directly to the summarizer
                 detailed_summary = await self.summarizer.process({
                     'content': all_content,  # Use all available content
-                    'mode': 'summary'  # Use detailed summary mode
+                    'mode': summarization_mode
                 })
+
+                # Determine title based on summarization mode
+                title_suffix_map = {
+                    'paragraph_summary': '',
+                    'important_points': ' - Important Points',
+                    'key_highlights': ' - Key Highlights'
+                }
+                note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
 
                 # Create notes with detailed technical content
                 notes_result = await self.note_maker.process({
                     'mode': 'create',
-                    'title': f"{query.title()}",
-                    'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
-                    'key_points': [],  # Include key points separately if needed
+                    'title': note_title,
+                    'summary': detailed_summary.get('summary', ''),
+                    'key_points': [],
                     'sources': sources,
-                    'topic': query
+                    'topic': query,
+                    'summarization_mode': summarization_mode  # Pass mode for header formatting
                 })
                 
                 return {
@@ -107,7 +117,7 @@ class Orchestrator:
             else:
                 # No relevant documents found - need to fetch from web
                 self.logger.info("No relevant documents in KB, fetching from web...")
-                return await self.fetch_and_process_topic(query)
+                return await self.fetch_and_process_topic(query, summarization_mode)
                 
         except Exception as e:
             self.logger.error(f"Error processing topic query: {e}")
@@ -116,7 +126,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def fetch_and_process_topic(self, topic: str) -> Dict[str, Any]:
+    async def fetch_and_process_topic(self, topic: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
         """Fetch information about a topic from web and process"""
         try:
             self.logger.info(f"No KB results for '{topic}', attempting web search...")
@@ -170,20 +180,29 @@ class Orchestrator:
             combined_content = "\n\n".join(scraped_content[:3])
             self.logger.info(f"Combined {len(scraped_content)} web sources, total length: {len(combined_content)}")
 
-            # Summarize the content
+            # Pass the summarization_mode directly to the summarizer
             summary_result = await self.summarizer.process({
                 'content': combined_content,
-                'mode': 'summary'
+                'mode': summarization_mode
             })
+
+            # Determine title based on summarization mode
+            title_suffix_map = {
+                'paragraph_summary': '',
+                'important_points': ' - Important Points',
+                'key_highlights': ' - Key Highlights'
+            }
+            note_title = f"{topic.title()}{title_suffix_map.get(summarization_mode, '')}"
 
             # Create notes
             notes_result = await self.note_maker.process({
                 'mode': 'create',
-                'title': f"{topic.title()}",
+                'title': note_title,
                 'summary': summary_result.get('summary', ''),
                 'key_points': [],
                 'sources': sources,
-                'topic': topic
+                'topic': topic,
+                'summarization_mode': summarization_mode  # Pass mode for header formatting
             })
 
             # Optionally add to KB for future queries
@@ -240,20 +259,20 @@ class Orchestrator:
 
         return urls[:3]  # Return top 3
     
-    async def process_url_query(self, url: str) -> Dict[str, Any]:
+    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
             self.logger.info(f"Processing URL: {url}")
-            
+
             # Scrape the URL
             scrape_result = await self.scraper.process({'url': url})
-            
+
             if not scrape_result['success']:
                 return {
                     'success': False,
                     'error': f"Failed to scrape URL: {url}"
                 }
-            
+
             # Log content length for debugging
             content_length = len(scrape_result['content'])
             self.logger.info(f"Scraped content length: {content_length} characters")
@@ -265,20 +284,30 @@ class Orchestrator:
                     'error': f"Scraped content too short ({content_length} chars). Check URL accessibility."
                 }
 
-            # Create comprehensive technical summary from scraped content
+            # Pass the summarization_mode directly to the summarizer
             detailed_summary = await self.summarizer.process({
                 'content': scrape_result['content'],
-                'mode': 'summary'  # Use detailed summary mode
+                'mode': summarization_mode
             })
+
+            # Determine title based on summarization mode
+            base_title = scrape_result.get('title', 'Web Article')
+            title_suffix_map = {
+                'paragraph_summary': '',
+                'important_points': ' - Important Points',
+                'key_highlights': ' - Key Highlights'
+            }
+            note_title = f"{base_title}{title_suffix_map.get(summarization_mode, '')}"
 
             # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
-                'title': scrape_result.get('title', 'Web Article'),
-                'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
-                'key_points': [],  # Key points can be added separately if needed
+                'title': note_title,
+                'summary': detailed_summary.get('summary', ''),
+                'key_points': [],
                 'sources': [{'title': scrape_result.get('title', 'Web Article'), 'url': url}],
-                'topic': 'Web Content'
+                'topic': 'Web Content',
+                'summarization_mode': summarization_mode  # Pass mode for header formatting
             })
             
             # Optionally add to knowledge base
@@ -310,7 +339,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process_text_query(self, text: str) -> Dict[str, Any]:
+    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
         """Process direct text input"""
         try:
             self.logger.info(f"Processing direct text input of length: {len(text)}")
@@ -322,10 +351,10 @@ class Orchestrator:
                     'error': 'Input text too short. Please provide at least 10 characters.'
                 }
 
-            # Create comprehensive technical summary from direct text
+            # Pass the summarization_mode directly to the summarizer
             detailed_summary = await self.summarizer.process({
                 'content': text.strip(),
-                'mode': 'summary'  # Use detailed summary mode
+                'mode': summarization_mode
             })
 
             # Check if summarization was successful
@@ -336,14 +365,23 @@ class Orchestrator:
                     'error': f"Failed to summarize text: {detailed_summary.get('error', 'Unknown error')}"
                 }
 
+            # Determine title based on summarization mode
+            title_map = {
+                'paragraph_summary': 'Summary',
+                'important_points': 'Important Points',
+                'key_highlights': 'Key Highlights'
+            }
+            note_title = title_map.get(summarization_mode, 'Summary')
+
             # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
-                'title': 'Comprehensive Summary',
-                'summary': detailed_summary.get('summary', ''),  # Use detailed summary as main content
-                'key_points': [],  # Key points can be added separately if needed
+                'title': note_title,
+                'summary': detailed_summary.get('summary', ''),
+                'key_points': [],
                 'sources': [],
-                'topic': 'Direct Input'
+                'topic': 'Direct Input',
+                'summarization_mode': summarization_mode  # Pass mode for header formatting
             })
 
             # Check if note creation was successful
@@ -370,21 +408,21 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str) -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
             query_type = self.detect_query_type(query)
-            
+
             self.logger.info(f"Detected query type: {query_type.value}")
-            
+
             # Process based on type
             if query_type == QueryType.URL:
-                return await self.process_url_query(query)
+                return await self.process_url_query(query, summarization_mode)
             elif query_type == QueryType.TEXT:
-                return await self.process_text_query(query)
+                return await self.process_text_query(query, summarization_mode)
             else:  # TOPIC
-                return await self.process_topic_query(query)
+                return await self.process_topic_query(query, summarization_mode)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")

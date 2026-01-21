@@ -106,36 +106,39 @@ class SummarizerAgent(BaseAgent):
         return self._pipe
 
     @cached("summarizer", ttl=settings.CACHE_SUMMARY_TTL)
-    def summarize_text(self, text: str, max_length: int = None, style: str = "detailed") -> str:
+    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary") -> str:
         """
         Summarize text using API or local model.
 
         Args:
             text: Text to summarize
             max_length: Maximum output length
-            style: 'detailed', 'bullet_points', or 'brief'
+            style: 'paragraph_summary', 'important_points', or 'key_highlights'
 
         Returns:
             Summary string
         """
         try:
-            self.logger.info(f"Summarizing text of length: {len(text)}")
+            original_length = len(text)
+            self.logger.info(f"Summarizing text of length: {original_length} characters in '{style}' mode")
 
-            # Truncate very long text
-            if len(text) > 15000:
-                text = text[:15000]
-                self.logger.warning("Truncated input text to 15000 characters")
+            # Truncate very long text (increased limit for full paper coverage)
+            if len(text) > 50000:
+                text = text[:50000]
+                self.logger.warning(f"Truncated input text from {original_length} to 50000 characters")
+
+            self.logger.info(f"Processing {len(text)} characters with style='{style}'")
 
             # Try API first (if not in local mode)
             if not self.use_local and self.llm_client:
                 try:
                     summary = self.llm_client.summarize(
                         text=text,
-                        max_length=max_length or 1024,
+                        max_length=max_length or 3072,  # Tripled output space for quality
                         style=style
                     )
                     if summary:
-                        self.logger.info("Summary generated using API")
+                        self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}")
                         return summary
                 except Exception as e:
                     self.logger.warning(f"API summarization failed: {e}, falling back to local")
@@ -177,14 +180,14 @@ class SummarizerAgent(BaseAgent):
             self.logger.error(f"Error in local summarization: {e}")
             raise
 
-    def summarize_documents(self, documents: List[str]) -> str:
+    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary") -> str:
         """Summarize multiple documents."""
         try:
             # Combine documents
             combined = "\n\n---\n\n".join(documents[:5])  # Use top 5 documents
 
             # Summarize combined content
-            return self.summarize_text(combined, style="detailed")
+            return self.summarize_text(combined, style=style)
 
         except Exception as e:
             self.logger.error(f"Error summarizing documents: {e}")
@@ -196,8 +199,8 @@ class SummarizerAgent(BaseAgent):
     def extract_bullet_points(self, text: str, num_points: int = 5) -> List[str]:
         """Extract key points as bullet points."""
         try:
-            # Use bullet_points style for API
-            summary = self.summarize_text(text, style="bullet_points")
+            # Use important_points style for API
+            summary = self.summarize_text(text, style="important_points")
 
             # Parse bullet points from response
             lines = summary.split('\n')
@@ -223,7 +226,7 @@ class SummarizerAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Error extracting bullet points: {e}")
             # Return summary as single point
-            summary = self.summarize_text(text, style="brief")
+            summary = self.summarize_text(text, style="paragraph_summary")
             return [summary] if summary else []
 
     def generate_flashcards(self, text: str, num_cards: int = 10) -> List[Dict[str, str]]:
@@ -332,7 +335,7 @@ class SummarizerAgent(BaseAgent):
                 return self.handle_error(ValueError("Invalid input"))
 
             content = input_data.get('content', '')
-            mode = input_data.get('mode', 'summary')
+            mode = input_data.get('mode', 'paragraph_summary')
 
             if not content:
                 return self.handle_error(ValueError("No content provided"))
@@ -343,11 +346,15 @@ class SummarizerAgent(BaseAgent):
                 'provider': 'local' if self.use_local else self.llm_client.provider if self.llm_client else 'unknown'
             }
 
-            if mode == 'bullet_points':
-                num_points = input_data.get('num_points', 5)
-                bullet_points = self.extract_bullet_points(content, num_points)
-                result['bullet_points'] = bullet_points
-                result['summary'] = '\n'.join(f"• {point}" for point in bullet_points)
+            if mode == 'important_points':
+                # Use important_points style for numbered key points
+                summary = self.summarize_text(content, style="important_points")
+                result['summary'] = summary
+
+            elif mode == 'key_highlights':
+                # Use key_highlights style for brief term definitions
+                summary = self.summarize_text(content, style="key_highlights")
+                result['summary'] = summary
 
             elif mode == 'flashcards':
                 num_cards = input_data.get('num_cards', 10)
@@ -361,11 +368,11 @@ class SummarizerAgent(BaseAgent):
                 result['quiz'] = quiz
                 result['summary'] = f"Generated {len(quiz)} quiz questions"
 
-            else:  # summary mode
+            else:  # paragraph_summary mode (default)
                 if isinstance(content, list):
-                    summary = self.summarize_documents(content)
+                    summary = self.summarize_documents(content, style="paragraph_summary")
                 else:
-                    summary = self.summarize_text(content)
+                    summary = self.summarize_text(content, style="paragraph_summary")
                 result['summary'] = summary
 
             self.logger.info(f"Successfully processed content in {mode} mode")

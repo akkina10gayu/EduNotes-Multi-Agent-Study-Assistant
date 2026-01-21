@@ -9,6 +9,8 @@ class GenerateNotesRequest(BaseModel):
     """Request model for generating notes"""
     query: str = Field(..., description="Query text, URL, or topic")
     max_results: Optional[int] = Field(5, description="Maximum number of results to retrieve")
+    summarization_mode: Optional[str] = Field("paragraph_summary", description="Format: 'paragraph_summary' for flowing paragraphs, 'important_points' for detailed bullets, 'key_highlights' for key terms")
+    summary_length: Optional[str] = Field("auto", description="Length: 'auto' for smart sizing, 'brief' (~350 words), 'medium' (~800 words), 'detailed' (~2,300 words)")
     
 class GenerateNotesResponse(BaseModel):
     """Response model for generated notes"""

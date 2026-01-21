@@ -33,6 +33,7 @@ diskcache
 
 # Data Processing
 numpy
+PyPDF2
 
 # UI
 streamlit

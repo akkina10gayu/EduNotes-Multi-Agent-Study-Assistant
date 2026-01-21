@@ -393,6 +393,7 @@ async def complete_quiz_attempt(body: CompleteQuizRequest):
                 correct_count=result["correct_count"],
                 total_questions=result["total_questions"],
                 results=result["results"],
+                detailed_results=result.get("detailed_results", []),
                 message="Quiz completed"
             )
         else:

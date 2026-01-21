@@ -12,17 +12,18 @@ class NoteMakerAgent(BaseAgent):
     def __init__(self):
         super().__init__("NoteMakerAgent")
     
-    def create_notes(self, 
+    def create_notes(self,
                     title: str,
                     summary: str,
                     key_points: List[str] = None,
                     sources: List[Dict[str, str]] = None,
-                    topic: str = None) -> str:
+                    topic: str = None,
+                    summarization_mode: str = "detailed") -> str:
         """Create structured notes in markdown format"""
         try:
             content = {}
-            
-            # Add summary
+
+            # Add summary with mode information
             if summary:
                 # If summary is already in bullet points, parse it
                 if '\n•' in summary or '\n-' in summary:
@@ -46,9 +47,10 @@ class NoteMakerAgent(BaseAgent):
             # Add metadata
             content['metadata'] = {
                 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'topic': topic or 'General'
+                'topic': topic or 'General',
+                'summarization_mode': summarization_mode  # Pass mode to formatter
             }
-            
+
             # Format as markdown
             notes = format_as_markdown(title, content)
             
@@ -133,13 +135,15 @@ class NoteMakerAgent(BaseAgent):
                 key_points = input_data.get('key_points', [])
                 sources = input_data.get('sources', [])
                 topic = input_data.get('topic', 'General')
-                
+                summarization_mode = input_data.get('summarization_mode', 'detailed')
+
                 notes = self.create_notes(
                     title=title,
                     summary=summary,
                     key_points=key_points,
                     sources=sources,
-                    topic=topic
+                    topic=topic,
+                    summarization_mode=summarization_mode
                 )
                 
                 return {

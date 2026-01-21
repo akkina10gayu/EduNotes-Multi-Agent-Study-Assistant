@@ -411,7 +411,7 @@ Explanation: This statement is from the source material."""
             return {"success": False, "error": str(e)}
 
     def complete_attempt(self, quiz_id: str, attempt_id: str) -> Dict[str, Any]:
-        """Complete a quiz attempt and calculate final score"""
+        """Complete a quiz attempt and calculate final score with detailed results"""
         try:
             quiz = self.store.load_quiz(quiz_id)
             if not quiz:
@@ -429,12 +429,29 @@ Explanation: This statement is from the source material."""
             attempt.complete()
             self.store.save_quiz(quiz)
 
+            # Build detailed results for each question
+            detailed_results = []
+            for question in quiz.questions:
+                user_answer = attempt.answers.get(question.id, "")
+                is_correct = attempt.results.get(question.id, False)
+
+                detailed_results.append({
+                    "question_id": question.id,
+                    "question_text": question.question,
+                    "user_answer": user_answer,
+                    "correct_answer": question.correct_answer,
+                    "is_correct": is_correct,
+                    "options": question.options,
+                    "explanation": question.explanation or "No explanation available."
+                })
+
             return {
                 "success": True,
                 "score": attempt.score,
                 "correct_count": attempt.correct_count,
                 "total_questions": attempt.total_questions,
-                "results": attempt.results
+                "results": attempt.results,
+                "detailed_results": detailed_results
             }
 
         except Exception as e:

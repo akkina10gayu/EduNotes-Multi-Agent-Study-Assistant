@@ -147,25 +147,42 @@ with st.sidebar:
     # System Stats
     if st.button("📊 View System Stats"):
         try:
-            response = requests.get(f"{API_BASE_URL}/stats")
+            response = requests.get(f"{API_BASE_URL}/stats", timeout=3)
             if response.status_code == 200:
                 stats = response.json()
-                st.json(stats)
+
+                # Display Knowledge Base Stats
+                st.markdown("**📚 Knowledge Base**")
+                kb_stats = stats.get('knowledge_base', {})
+                st.markdown(f"- **Total Documents:** {kb_stats.get('total_documents', 0):,}")
+                st.markdown(f"- **Collection:** {kb_stats.get('collection_name', 'N/A')}")
+                st.markdown(f"- **Storage:** {kb_stats.get('persist_directory', 'N/A')}")
+
+                st.markdown("")
+
+                # Display Agents Status
+                st.markdown("**🤖 AI Agents**")
+                agents = stats.get('agents', {})
+                for agent_name, status in agents.items():
+                    status_icon = "🟢" if status == "active" else "🔴"
+                    agent_display = agent_name.replace('_', ' ').title()
+                    st.markdown(f"- **{agent_display}:** {status_icon} {status.title()}")
+        except requests.exceptions.ConnectionError:
+            st.error("⚠️ **API Server Not Running**")
+            st.warning("""
+            The backend API server is not running. Please start it:
+
+            ```bash
+            uvicorn src.api.app:app --reload
+            ```
+
+            The API should run on http://localhost:8000
+            """)
+        except requests.exceptions.Timeout:
+            st.error("⏱️ **Request Timeout** - API server is slow or unresponsive")
         except Exception as e:
-            st.error(f"Error fetching stats: {e}")
+            st.error(f"❌ Error fetching stats: {str(e)[:100]}")
     
-    st.divider()
-    
-    # Instructions
-    st.header("📖 How to Use")
-    st.markdown("""
-    1. **Topic Query**: Enter a topic like "machine learning"
-    2. **URL**: Paste a blog/article URL
-    3. **Text**: Paste text directly for summarization
-
-    The system will automatically detect the input type and generate structured notes.
-    """)
-
     st.divider()
 
     # Note History
@@ -180,7 +197,7 @@ with st.sidebar:
                     st.session_state.selected_history = note_item
                     st.rerun()
     else:
-        st.info("No notes generated yet")
+        st.info("📝 No notes in this session yet. Generate a note to see it appear here!")
 
     st.divider()
 
@@ -427,6 +444,35 @@ with tab1:
 
     st.markdown("---")
 
+    # Summarization Mode Selection
+    st.markdown("#### ⚙️ Output Format")
+    summarization_mode = st.radio(
+        "Choose how you want the content to be processed:",
+        options=["paragraph_summary", "important_points", "key_highlights"],
+        format_func=lambda x: {
+            "paragraph_summary": "📖 Paragraph Summary",
+            "important_points": "📋 Important Points",
+            "key_highlights": "⚡ Key Highlights"
+        }.get(x, x),
+        help="""**Paragraph Summary**: Comprehensive overview in flowing paragraphs (3+ sentences each). Ideal for understanding the full context and relationships between concepts.
+
+**Important Points**: Key information as numbered points. Each point is independent and self-contained with no duplicates. Perfect for quick review and study notes.
+
+**Key Highlights**: Essential terms and concepts with brief definitions (half a line each). Great for creating glossaries and quick reference cards.""",
+        horizontal=True,
+        key="summarization_mode_selector"
+    )
+
+    # Display mode description
+    mode_descriptions = {
+        "paragraph_summary": "Creates a comprehensive overview with flowing paragraphs explaining concepts in detail.",
+        "important_points": "Extracts distinct key points, each providing unique information without repetition.",
+        "key_highlights": "Lists essential terms and concepts with very brief definitions for quick scanning."
+    }
+    st.caption(f"💡 {mode_descriptions.get(summarization_mode, '')}")
+
+    st.markdown("---")
+
     # Generate button
     if st.button("🚀 Generate Notes", type="primary"):
         # Check if either query or PDF is provided
@@ -449,16 +495,23 @@ with tab1:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
 
                     progress_placeholder.progress(0.5)
-                    status_placeholder.info("🤖 Processing PDF content...")
+                    mode_text_map = {
+                        "paragraph_summary": "paragraph summary",
+                        "important_points": "important points",
+                        "key_highlights": "key highlights"
+                    }
+                    mode_text = mode_text_map.get(summarization_mode, "summary")
+                    status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
 
                     response = requests.post(
                         f"{API_BASE_URL}/process-pdf",
                         files=files,
+                        params={"summarization_mode": summarization_mode},
                         timeout=120
                     )
 
                     progress_placeholder.progress(0.9)
-                    status_placeholder.info("📝 Generating notes from PDF...")
+                    status_placeholder.info("📝 Formatting structured notes...")
                     time.sleep(0.3)
 
                     progress_placeholder.progress(1.0)
@@ -554,13 +607,22 @@ with tab1:
                 # Make API request
                 response = requests.post(
                     f"{API_BASE_URL}/generate-notes",
-                    json={"query": query_input},
+                    json={
+                        "query": query_input,
+                        "summarization_mode": summarization_mode
+                    },
                     timeout=120
                 )
 
                 # Step 3: Summarizing
                 progress_placeholder.progress(0.7)
-                status_placeholder.info("🤖 Generating AI-powered summary...")
+                mode_text_map = {
+                    "paragraph_summary": "paragraph summary",
+                    "important_points": "important points",
+                    "key_highlights": "key highlights"
+                }
+                mode_text = mode_text_map.get(summarization_mode, "summary")
+                status_placeholder.info(f"🤖 Generating {mode_text}...")
                 time.sleep(0.3)
 
                 # Step 4: Creating Notes
@@ -1104,20 +1166,89 @@ with tab4:
 
                 # Display score
                 score = results.get('score', 0)
-                if score >= 80:
-                    st.success(f"🎉 Excellent! Score: {score:.1f}%")
-                elif score >= 60:
-                    st.info(f"👍 Good job! Score: {score:.1f}%")
-                else:
-                    st.warning(f"📚 Keep studying! Score: {score:.1f}%")
+                correct_count = results.get('correct_count', 0)
+                total_questions = results.get('total_questions', 0)
 
-                st.metric("Correct Answers", f"{results.get('correct_count', 0)} / {results.get('total_questions', 0)}")
+                st.markdown("### 📊 Quiz Results")
 
-                if st.button("🔄 Try Again"):
-                    st.session_state.current_quiz = None
-                    st.session_state.quiz_submitted = False
-                    st.session_state.quiz_answers = {}
-                    st.rerun()
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if score >= 80:
+                        st.success(f"🎉 Excellent!\n\n**{score:.1f}%**")
+                    elif score >= 60:
+                        st.info(f"👍 Good job!\n\n**{score:.1f}%**")
+                    else:
+                        st.warning(f"📚 Keep studying!\n\n**{score:.1f}%**")
+                with col2:
+                    st.metric("Correct Answers", f"{correct_count} / {total_questions}")
+                with col3:
+                    st.metric("Incorrect", f"{total_questions - correct_count}")
+
+                st.markdown("---")
+
+                # Display detailed results for each question
+                st.markdown("### 📝 Detailed Review")
+
+                detailed_results = results.get('detailed_results', [])
+                if detailed_results:
+                    for idx, question_result in enumerate(detailed_results, 1):
+                        is_correct = question_result['is_correct']
+
+                        # Question header with status icon
+                        if is_correct:
+                            st.markdown(f"#### Question {idx} ✅")
+                        else:
+                            st.markdown(f"#### Question {idx} ❌")
+
+                        # Question text
+                        st.markdown(f"**{question_result['question_text']}**")
+
+                        # Display options with highlighting
+                        options = question_result['options']
+                        user_answer = question_result['user_answer']
+                        correct_answer = question_result['correct_answer']
+
+                        for opt in options:
+                            opt_clean = opt.strip()
+
+                            # Highlight correct answer in green
+                            if opt_clean == correct_answer:
+                                if is_correct:
+                                    st.success(f"✓ **{opt_clean}** (Correct Answer - Your Choice)")
+                                else:
+                                    st.success(f"✓ **{opt_clean}** (Correct Answer)")
+
+                            # Highlight incorrect user answer in red
+                            elif opt_clean == user_answer and not is_correct:
+                                st.error(f"✗ **{opt_clean}** (Your Choice)")
+
+                            # Regular option
+                            else:
+                                st.write(f"  {opt_clean}")
+
+                        # Show explanation
+                        explanation = question_result.get('explanation')
+                        if explanation:
+                            st.info(f"**Explanation:** {explanation}")
+
+                        st.markdown("---")
+
+                st.markdown("")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔄 Try Again", use_container_width=True):
+                        st.session_state.current_quiz = None
+                        st.session_state.quiz_submitted = False
+                        st.session_state.quiz_answers = {}
+                        st.rerun()
+                with col2:
+                    if st.button("📚 New Quiz", use_container_width=True):
+                        st.session_state.current_quiz = None
+                        st.session_state.quiz_submitted = False
+                        st.session_state.quiz_answers = {}
+                        st.session_state.quiz_attempt_id = None
+                        st.rerun()
             else:
                 st.info("Generate a quiz or load an existing one to start!")
 

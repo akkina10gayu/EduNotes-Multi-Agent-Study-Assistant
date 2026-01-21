@@ -177,7 +177,7 @@ class LLMClient:
         self,
         text: str,
         max_length: int = 1024,
-        style: str = "detailed"
+        style: str = "paragraph_summary"
     ) -> str:
         """
         Summarize text using the LLM.
@@ -185,7 +185,7 @@ class LLMClient:
         Args:
             text: Text to summarize
             max_length: Maximum summary length in tokens
-            style: 'detailed', 'bullet_points', or 'brief'
+            style: 'paragraph_summary', 'important_points', or 'key_highlights'
 
         Returns:
             Summary string
@@ -193,99 +193,155 @@ class LLMClient:
         if self.provider == "local":
             return None  # Signal to use local model
 
+        logger.info(f"Building prompt for style='{style}', text_length={len(text)} chars, max_tokens={max_length}")
+
         # Build prompt based on style
-        if style == "bullet_points":
-            system_prompt = """You are an expert educational assistant specializing in creating comprehensive, well-structured study notes.
-Your notes should be clear, accurate, and optimized for learning and retention.
-Focus on extracting key information and presenting it in an easily digestible format."""
+        if style == "key_highlights":
+            # KEY HIGHLIGHTS: Key terms, terminology, topics with very brief descriptions
+            system_prompt = """You are an expert at extracting key terminology, topics, and important items from educational content. You identify ALL important elements: technical terms, concepts, methods, techniques, formulas, acronyms, named entities, tools, and key topics. You create comprehensive, scannable glossary-style lists with brief definitions."""
 
-            prompt = f"""Create comprehensive bullet-point study notes from the following content.
+            prompt = f"""Extract ALL KEY HIGHLIGHTS from this content. Create a comprehensive quick-reference list covering everything important.
 
-**Structure your notes to include:**
-• **Core Concepts**: Main ideas and fundamental principles
-• **Definitions**: Clear explanations of key terms
-• **Formulas/Equations**: Any mathematical expressions (if applicable)
-• **Examples**: Concrete illustrations of concepts
-• **Applications**: Real-world uses or practical applications
-• **Key Relationships**: How concepts connect and interact
-• **Important Details**: Critical facts and data points
+WHAT TO EXTRACT (be thorough):
+- Technical TERMINOLOGY and definitions
+- Key CONCEPTS and ideas
+- METHODS, techniques, and approaches mentioned
+- FORMULAS, equations, or algorithms
+- ACRONYMS and abbreviations (with full form)
+- Important NAMES (people, tools, frameworks, models)
+- KEY TOPICS and subtopics discussed
+- Any NUMERICAL VALUES or statistics that are significant
 
-**Format Guidelines:**
-- Use hierarchical bullet points (main points → sub-points)
-- Keep language clear and concise
-- Highlight technical terms
-- Include specific examples when available
-- Organize from fundamental to advanced concepts
+FORMAT RULES:
+- START DIRECTLY with "•" - no introduction or headers
+- Each item = term/topic followed by colon and BRIEF explanation (under 15 words)
+- Extract 10-20 highlights to be comprehensive
+- Cover ALL categories above, not just concepts
+- NO duplicates
 
-Content to summarize:
+OUTPUT FORMAT:
+• [Term/Topic]: [Brief 5-15 word explanation]
+
+EXAMPLE OUTPUT (notice the variety):
+• Neural Network: Computing system with interconnected nodes processing information in layers
+• CNN (Convolutional Neural Network): Architecture specialized for image and spatial data processing
+• Backpropagation: Algorithm adjusting weights by propagating errors backward through layers
+• ReLU: Activation function returning max(0, x), solving vanishing gradient problem
+• ImageNet: Large-scale dataset with 14 million images used for benchmarking
+• 95.6% Accuracy: State-of-the-art performance achieved by ResNet on ImageNet
+• Transfer Learning: Technique of reusing pre-trained models for new tasks
+• Dropout: Regularization method randomly disabling neurons during training
+• Batch Normalization: Technique normalizing layer inputs to accelerate training
+• PyTorch: Popular deep learning framework developed by Facebook
+
+BAD OUTPUT (DO NOT DO THIS):
+• Neural networks are computational systems inspired by biological neural networks. They consist of layers of interconnected nodes...
+[Too long! Keep each item brief]
+
+---
+CONTENT:
 {text}
 
-Provide comprehensive, well-structured bullet-point notes:"""
+---
+START WITH "•" NOW (no introduction):"""
 
-        elif style == "brief":
-            system_prompt = "You are an expert at creating concise, accurate summaries that capture the essence of educational content."
-            prompt = f"""Summarize the following content in 2-3 clear, informative sentences.
-Focus on the main takeaways and key insights.
+        elif style == "important_points":
+            # IMPORTANT POINTS: Independent key points, numbered, no duplicates
+            system_prompt = """You are an expert at extracting key information. You ONLY output numbered lists. You NEVER write introductions, headers, or explanations. You start your response directly with "1." and continue with numbered points only."""
 
-Content:
+            prompt = f"""Extract the important points from this content as a numbered list.
+
+CRITICAL RULES:
+- START YOUR RESPONSE DIRECTLY WITH "1." - no introduction, no headers, no preamble
+- ONLY output numbered points (1. 2. 3. etc.)
+- Each point: 1-3 sentences, independent, self-contained
+- NO duplicates - each point must be unique information
+- Extract 8-12 points
+- DO NOT write any text before "1." or after the last point
+
+OUTPUT FORMAT (START EXACTLY LIKE THIS):
+1. [First point here]
+
+2. [Second point here]
+
+3. [Third point here]
+
+WRONG (DO NOT DO THIS):
+"Here are the important points:"
+"The key points from this content are:"
+"Important Points:"
+[Any text before the numbered list is WRONG]
+
+CORRECT (DO THIS):
+1. Machine learning algorithms improve their performance automatically through experience, without being explicitly programmed for specific tasks.
+
+2. Supervised learning requires labeled training data where each input is paired with the correct output.
+
+3. Neural networks consist of layers of interconnected nodes that transform input data through weighted connections.
+
+---
+CONTENT:
 {text}
 
-Brief summary:"""
+---
+START YOUR RESPONSE WITH "1." NOW:"""
 
-        else:  # detailed
-            system_prompt = """You are an expert educational content creator who produces detailed, comprehensive study materials.
-Your summaries should be thorough, well-organized, and designed to facilitate deep understanding and retention.
-Include definitions, examples, applications, and clear explanations of complex concepts."""
+        else:  # paragraph_summary (default)
+            # PARAGRAPH SUMMARY: Comprehensive overview in flowing paragraphs
+            system_prompt = """You are an expert educator who explains complex topics clearly and comprehensively. Your task is to write a well-structured summary that flows naturally in paragraph form. You write in complete sentences, use smooth transitions between ideas, and ensure each paragraph covers a coherent theme. You NEVER use bullet points or lists - only flowing prose."""
 
-            prompt = f"""Create a comprehensive, detailed educational summary of the following content.
+            prompt = f"""Write a PARAGRAPH SUMMARY of this content. Create a comprehensive overview that explains the material clearly.
 
-**Your summary should include:**
+FORMAT REQUIREMENTS (STRICTLY FOLLOW):
+- Write in COMPLETE PARAGRAPHS only - NO bullet points, NO numbered lists, NO dashes
+- Each paragraph must have AT LEAST 3-4 SENTENCES that flow together
+- Use TRANSITIONS between sentences (Furthermore, Additionally, However, In contrast, As a result, etc.)
+- Write 3-5 substantial paragraphs depending on content length
+- Paragraphs should be CONTINUOUS PROSE, not disconnected statements
+- Cover: Introduction/Context → Main Concepts → Details/Examples → Synthesis/Conclusion
 
-1. **Overview**: Brief introduction to the topic (2-3 sentences)
+PARAGRAPH STRUCTURE:
+- Paragraph 1: Introduce the topic and its significance (3-4 sentences minimum)
+- Paragraphs 2-3: Explain the core concepts and how they work (4-5 sentences each)
+- Paragraph 4: Discuss applications, implications, or connections (3-4 sentences)
+- Paragraph 5 (if needed): Conclude with key takeaways (2-3 sentences)
 
-2. **Core Concepts**: Detailed explanation of main ideas
-   - Define key terms clearly
-   - Explain fundamental principles
-   - Break down complex ideas into understandable parts
+EXAMPLE OUTPUT:
+Machine learning represents a fundamental shift in how computers solve problems, moving away from explicit programming toward systems that learn from experience. This approach has transformed numerous fields by enabling computers to identify patterns in data and make predictions without being told exactly how to do so. The significance of this paradigm cannot be overstated, as it forms the foundation for many modern AI applications that affect our daily lives.
 
-3. **Key Details**:
-   - Important formulas, equations, or algorithms (if applicable)
-   - Critical facts, data points, or statistics
-   - Significant terminology and definitions
+At its core, machine learning works by exposing algorithms to large amounts of data and allowing them to adjust their internal parameters to minimize errors. In supervised learning, the most common approach, the algorithm receives labeled examples where both the input and correct output are known. Through an iterative process of making predictions and receiving feedback, the model gradually improves its accuracy. This process, known as training, continues until the model achieves satisfactory performance on the given task.
 
-4. **Examples & Applications**:
-   - Concrete examples illustrating concepts
-   - Real-world applications or use cases
-   - Practical scenarios demonstrating the ideas
+The practical applications of machine learning extend across virtually every industry and domain. In healthcare, these systems assist doctors in diagnosing diseases from medical images with remarkable accuracy. Financial institutions use machine learning to detect fraudulent transactions in real-time, protecting consumers from theft. Furthermore, recommendation systems powered by these algorithms determine what content we see on streaming platforms and social media, shaping our digital experiences in profound ways.
 
-5. **Relationships & Connections**:
-   - How different concepts relate to each other
-   - Dependencies and prerequisites
-   - Common patterns or themes
+BAD OUTPUT (DO NOT DO THIS):
+Machine learning is important.
+- It learns from data
+- Uses algorithms
+- Has many applications
 
-6. **Important Takeaways**:
-   - Essential points to remember
-   - Key insights and conclusions
+Key points:
+• Supervised learning uses labels
+• Unsupervised finds patterns
 
-**Style Guidelines:**
-- Use clear, accessible language
-- Organize information logically
-- Include specific details and examples
-- Make it suitable for studying and reference
-- Structure with clear headings and sections
+[This uses bullets and lists - WRONG! Write flowing paragraphs instead.]
 
-Content to summarize:
+---
+CONTENT TO SUMMARIZE:
 {text}
 
-Provide a detailed, well-organized educational summary:"""
+---
+NOW write the paragraph summary (flowing prose, no bullets, 3+ sentences per paragraph):"""
 
         try:
-            return self.generate(
+            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, Prompt length: {len(prompt)} chars")
+            result = self.generate(
                 prompt=prompt,
                 max_tokens=max_length,
                 temperature=0.7,
                 system_prompt=system_prompt
             )
+            logger.info(f"LLM response received - Length: {len(result) if result else 0} chars")
+            return result
         except Exception as e:
             logger.error(f"Error in summarize: {e}")
             raise

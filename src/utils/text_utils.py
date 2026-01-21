@@ -29,52 +29,106 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
     return unique_keywords[:max_keywords]
 
 def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
-    """Format content as markdown with paragraph-style formatting"""
+    """Format content as markdown based on summarization mode"""
     md = f"# {title}\n\n"
 
     if "summary" in content:
-        md += "## Overview\n\n"
-        if isinstance(content["summary"], list):
+        # Determine section header and formatting based on summarization mode
+        summarization_mode = content.get('metadata', {}).get('summarization_mode', 'paragraph_summary')
+
+        # Define section headers for each mode
+        # Note: important_points and key_highlights don't need headers since title already indicates the type
+        section_headers = {
+            'paragraph_summary': '## Overview\n\n',
+            'important_points': '',
+            'key_highlights': ''
+        }
+        md += section_headers.get(summarization_mode, '## Overview\n\n')
+
+        summary_text = content['summary']
+
+        if isinstance(summary_text, list):
             # Format as bullet points if it's a list
-            for point in content["summary"]:
+            for point in summary_text:
                 md += f"- {point}\n"
+            md += "\n"
+        elif summarization_mode == 'key_highlights':
+            # Key highlights: Keep bullet format, minimal processing
+            # The LLM output should already be in bullet format
+            lines = summary_text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line:
+                    # Ensure bullet format
+                    if not line.startswith(('•', '-', '*')):
+                        md += f"• {line}\n"
+                    else:
+                        md += f"{line}\n"
+            md += "\n"
+        elif summarization_mode == 'important_points':
+            # Important points: Keep ONLY numbered/bullet items
+            # Filter out any preamble text the LLM might generate
+            lines = summary_text.split('\n')
+
+            # Pattern to match numbered points (1. 2. 3. etc.) or bullets
+            numbered_pattern = re.compile(r'^\d+[\.\)]\s*')
+            bullet_pattern = re.compile(r'^[\•\-\*]\s*')
+
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Only include lines that are actual numbered points or bullets
+                if numbered_pattern.match(line) or bullet_pattern.match(line):
+                    md += f"{line}\n\n"
         else:
-            # Format as paragraphs for detailed content
-            summary_text = content['summary']
-            # Split long text into paragraphs for better readability
-            sentences = summary_text.split('. ')
+            # Paragraph summary: Format as flowing paragraphs
+            # Check if content already has paragraph breaks
+            if '\n\n' in summary_text:
+                # Already has paragraph structure
+                paragraphs = summary_text.split('\n\n')
+                for paragraph in paragraphs:
+                    paragraph = paragraph.strip()
+                    if paragraph:
+                        md += f"{paragraph}\n\n"
+            else:
+                # Try to create paragraphs from continuous text
+                # Split by double newline first, then by period patterns
+                summary_text = summary_text.replace('\n', ' ').strip()
+                sentences = summary_text.split('. ')
 
-            # Group sentences into paragraphs (roughly every 3-4 sentences)
-            paragraphs = []
-            current_paragraph = []
+                # Group sentences into paragraphs (every 3-4 sentences)
+                paragraphs = []
+                current_paragraph = []
 
-            for i, sentence in enumerate(sentences):
-                current_paragraph.append(sentence.strip())
-                # Create new paragraph every 3-4 sentences or if sentence is very long
-                if (i + 1) % 3 == 0 or len(sentence) > 200:
-                    if current_paragraph:
-                        paragraph_text = '. '.join(current_paragraph)
-                        if not paragraph_text.endswith('.'):
-                            paragraph_text += '.'
-                        paragraphs.append(paragraph_text)
-                        current_paragraph = []
+                for i, sentence in enumerate(sentences):
+                    sentence = sentence.strip()
+                    if sentence:
+                        current_paragraph.append(sentence)
+                        # Create new paragraph every 3-4 sentences
+                        if (i + 1) % 4 == 0:
+                            if current_paragraph:
+                                paragraph_text = '. '.join(current_paragraph)
+                                if not paragraph_text.endswith('.'):
+                                    paragraph_text += '.'
+                                paragraphs.append(paragraph_text)
+                                current_paragraph = []
 
-            # Add remaining sentences as final paragraph
-            if current_paragraph:
-                paragraph_text = '. '.join(current_paragraph)
-                if not paragraph_text.endswith('.'):
-                    paragraph_text += '.'
-                paragraphs.append(paragraph_text)
+                # Add remaining sentences as final paragraph
+                if current_paragraph:
+                    paragraph_text = '. '.join(current_paragraph)
+                    if not paragraph_text.endswith('.'):
+                        paragraph_text += '.'
+                    paragraphs.append(paragraph_text)
 
-            # Add paragraphs with proper spacing
-            for paragraph in paragraphs:
-                if paragraph.strip():
-                    md += f"{paragraph}\n\n"
-
-        md += "\n"
+                # Add paragraphs with proper spacing
+                for paragraph in paragraphs:
+                    if paragraph.strip():
+                        md += f"{paragraph}\n\n"
 
     if "key_points" in content and content["key_points"]:
-        md += "## Key Points\n\n"
+        md += "## Additional Points\n\n"
         for point in content["key_points"]:
             md += f"- {point}\n"
         md += "\n"

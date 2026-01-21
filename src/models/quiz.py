@@ -152,13 +152,25 @@ class CompleteQuizRequest(BaseModel):
     attempt_id: str
 
 
+class QuestionResult(BaseModel):
+    """Detailed result for a single question"""
+    question_id: str
+    question_text: str
+    user_answer: str
+    correct_answer: str
+    is_correct: bool
+    options: List[str]
+    explanation: Optional[str] = None
+
+
 class CompleteQuizResponse(BaseModel):
     """Response after completing a quiz"""
     success: bool
     score: float
     correct_count: int
     total_questions: int
-    results: Dict[str, bool]
+    results: Dict[str, bool]  # Keep for backward compatibility
+    detailed_results: List[QuestionResult] = Field(default_factory=list)
     message: str
 
 
