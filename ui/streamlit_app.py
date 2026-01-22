@@ -388,7 +388,35 @@ with tab1:
         if topics_resp.status_code == 200:
             topics_data = topics_resp.json()
             if topics_data.get('topics'):
-                topics = topics_data['topics'][:12]  # Show first 12 topics
+                all_topics = topics_data['topics']
+
+                # Featured/priority topics (commonly useful, shown first)
+                featured_topics = [
+                    "Machine Learning", "Deep Learning", "Neural Networks",
+                    "Natural Language Processing", "Python", "Data Science",
+                    "Statistics", "Artificial Intelligence"
+                ]
+
+                # Build curated list: featured topics first, then others
+                curated_topics = []
+                remaining_topics = []
+
+                for topic in all_topics:
+                    if topic in featured_topics and topic not in curated_topics:
+                        curated_topics.append(topic)
+                    elif topic not in featured_topics:
+                        remaining_topics.append(topic)
+
+                # Sort featured by their priority order
+                curated_topics.sort(key=lambda x: featured_topics.index(x) if x in featured_topics else 999)
+
+                # Add remaining topics to fill up to 8 total
+                max_topics = 8
+                if len(curated_topics) < max_topics:
+                    curated_topics.extend(remaining_topics[:max_topics - len(curated_topics)])
+
+                # Limit to max topics
+                topics = curated_topics[:max_topics]
 
                 # Display as clickable chips
                 chip_cols = st.columns(4)
@@ -471,6 +499,39 @@ with tab1:
     }
     st.caption(f"💡 {mode_descriptions.get(summarization_mode, '')}")
 
+    # Output Length Selection - ONLY shown for Paragraph Summary
+    output_length = "auto"  # Default value
+    if summarization_mode == "paragraph_summary":
+        st.markdown("#### 📏 Summary Length")
+        output_length = st.radio(
+            "Choose the desired length of your summary:",
+            options=["auto", "brief", "medium", "detailed"],
+            format_func=lambda x: {
+                "auto": "🔄 Auto (Recommended)",
+                "brief": "📝 Brief (5-8 lines)",
+                "medium": "📄 Medium (2-3 paragraphs)",
+                "detailed": "📚 Detailed (4-6 paragraphs)"
+            }.get(x, x),
+            help="""**Auto**: Automatically adjusts summary length based on input size - short input gets brief summary, long input gets detailed summary.
+
+**Brief**: Quick overview in 5-8 lines covering the main intention and key takeaways. Best for quick reference.
+
+**Medium**: Balanced summary with 2-3 paragraphs covering main concepts with moderate detail.
+
+**Detailed**: Comprehensive summary with 4-6 paragraphs including thorough explanations, examples, and connections.""",
+            horizontal=True,
+            key="output_length_selector"
+        )
+
+        # Display length description
+        length_descriptions = {
+            "auto": "Intelligently adjusts output length based on input size.",
+            "brief": "Quick 5-8 line overview highlighting the most critical information.",
+            "medium": "Balanced 2-3 paragraph summary with moderate detail.",
+            "detailed": "Comprehensive 4-6 paragraph explanation with full coverage."
+        }
+        st.caption(f"📐 {length_descriptions.get(output_length, '')}")
+
     st.markdown("---")
 
     # Generate button
@@ -506,7 +567,10 @@ with tab1:
                     response = requests.post(
                         f"{API_BASE_URL}/process-pdf",
                         files=files,
-                        params={"summarization_mode": summarization_mode},
+                        params={
+                            "summarization_mode": summarization_mode,
+                            "output_length": output_length
+                        },
                         timeout=120
                     )
 
@@ -609,7 +673,8 @@ with tab1:
                     f"{API_BASE_URL}/generate-notes",
                     json={
                         "query": query_input,
-                        "summarization_mode": summarization_mode
+                        "summarization_mode": summarization_mode,
+                        "summary_length": output_length
                     },
                     timeout=120
                 )

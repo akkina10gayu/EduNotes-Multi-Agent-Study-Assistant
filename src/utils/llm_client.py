@@ -177,7 +177,8 @@ class LLMClient:
         self,
         text: str,
         max_length: int = 1024,
-        style: str = "paragraph_summary"
+        style: str = "paragraph_summary",
+        output_length: str = "auto"
     ) -> str:
         """
         Summarize text using the LLM.
@@ -186,6 +187,7 @@ class LLMClient:
             text: Text to summarize
             max_length: Maximum summary length in tokens
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
+            output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
 
         Returns:
             Summary string
@@ -193,7 +195,19 @@ class LLMClient:
         if self.provider == "local":
             return None  # Signal to use local model
 
-        logger.info(f"Building prompt for style='{style}', text_length={len(text)} chars, max_tokens={max_length}")
+        # For paragraph_summary, determine actual length if auto mode
+        actual_length = output_length
+        if style == "paragraph_summary" and output_length == "auto":
+            input_chars = len(text)
+            if input_chars < 1000:
+                actual_length = "brief"
+            elif input_chars < 5000:
+                actual_length = "medium"
+            else:
+                actual_length = "detailed"
+            logger.info(f"Auto mode: input={input_chars} chars -> output_length='{actual_length}'")
+
+        logger.info(f"Building prompt for style='{style}', output_length='{actual_length}', text_length={len(text)} chars")
 
         # Build prompt based on style
         if style == "key_highlights":
@@ -287,50 +301,91 @@ CONTENT:
 START YOUR RESPONSE WITH "1." NOW:"""
 
         else:  # paragraph_summary (default)
-            # PARAGRAPH SUMMARY: Comprehensive overview in flowing paragraphs
-            system_prompt = """You are an expert educator who explains complex topics clearly and comprehensively. Your task is to write a well-structured summary that flows naturally in paragraph form. You write in complete sentences, use smooth transitions between ideas, and ensure each paragraph covers a coherent theme. You NEVER use bullet points or lists - only flowing prose."""
+            # PARAGRAPH SUMMARY: Overview in flowing paragraphs with length control
+            system_prompt = """You are an expert educator who explains complex topics clearly. Your task is to write a well-structured summary that flows naturally in paragraph form. You write in complete sentences, use smooth transitions between ideas, and ensure each paragraph covers a coherent theme. You NEVER use bullet points or lists - only flowing prose. You strictly follow the requested length."""
 
-            prompt = f"""Write a PARAGRAPH SUMMARY of this content. Create a comprehensive overview that explains the material clearly.
+            # LENGTH-BASED SUB-PROMPTS
+            length_instructions = {
+                "brief": """LENGTH REQUIREMENT - BRIEF (STRICTLY FOLLOW):
+- MAXIMUM 5-6 sentences total - NO MORE
+- Write as ONE short paragraph only
+- Include ONLY the most critical information - ruthlessly filter out everything else
+- Each sentence must pack maximum information
+- This is an executive summary - extremely condensed
 
-FORMAT REQUIREMENTS (STRICTLY FOLLOW):
+WHAT TO INCLUDE (pick only the essentials):
+1. What is the topic/concept about (1-2 sentences)
+2. The core method, approach, or key idea (1-2 sentences)
+3. Main result, conclusion, or takeaway (1-2 sentences)
+
+BRIEF EXAMPLE (notice: only 5 sentences, one paragraph):
+Machine learning enables computers to learn patterns from data without explicit programming. The two main approaches are supervised learning using labeled examples and unsupervised learning for discovering hidden patterns. Deep neural networks have revolutionized the field, achieving human-level performance in image and speech recognition. The key challenge remains preventing overfitting while ensuring models generalize well to new data. Recent advances have pushed accuracy above 95% on major benchmarks.
+
+WRONG - TOO LONG:
+[Any output with more than 6 sentences is TOO LONG. Cut it down.]""",
+
+                "medium": """LENGTH REQUIREMENT - MEDIUM (STRICTLY FOLLOW):
+- EXACTLY 2-3 paragraphs - NO MORE than 3 paragraphs
+- Each paragraph: MAXIMUM 4-5 sentences (not more)
+- Total sentences: 10-15 sentences across all paragraphs
+- DO NOT write 4, 5, 6 or more paragraphs - that is TOO LONG
+- Cover main concepts with moderate detail, skip minor details
+
+STRUCTURE FOR MEDIUM (strictly 2-3 paragraphs):
+**Paragraph 1 (4-5 sentences):** Introduction - what is it, why it matters, main concept
+**Paragraph 2 (4-5 sentences):** Core details - how it works, key methods or approaches
+**Paragraph 3 (3-4 sentences, optional):** Applications or conclusions - if space allows
+
+MEDIUM EXAMPLE (notice: exactly 3 paragraphs, 4 sentences each):
+Machine learning is a branch of AI where systems learn from data rather than following explicit instructions. This approach has transformed how we solve complex problems across many domains. At its core, ML algorithms identify patterns in training data and use them to make predictions on new data. The field has grown rapidly due to increased computing power and data availability.
+
+The main approaches include supervised learning with labeled data for classification tasks, and unsupervised learning for discovering hidden patterns. Deep learning uses multi-layered neural networks that have achieved remarkable results in image and speech recognition. These models automatically learn hierarchical features from raw data. Training requires large datasets and significant computational resources.
+
+ML now powers recommendation systems, fraud detection, medical diagnosis, and autonomous vehicles. The technology continues advancing with new architectures and training techniques. Challenges remain in interpretability, fairness, and data efficiency.
+
+WRONG - TOO LONG (DO NOT DO THIS):
+[Any output with more than 3 paragraphs is TOO LONG for medium. If you wrote 4+ paragraphs, you wrote too much. Cut it down to exactly 2-3 paragraphs.]""",
+
+                "detailed": """LENGTH REQUIREMENT - DETAILED (STRICTLY FOLLOW):
+- Write 4-6 substantial paragraphs
+- Each paragraph should be 5-7 sentences with thorough explanations
+- Cover all major concepts comprehensively
+- Include definitions, explanations, examples, and connections
+- Provide depth and context for full understanding
+
+STRUCTURE FOR DETAILED:
+- Paragraph 1: Introduction, context, and significance (5-6 sentences)
+- Paragraphs 2-3: Core concepts explained in depth (5-7 sentences each)
+- Paragraph 4: Methods, techniques, or mechanisms (5-6 sentences)
+- Paragraph 5: Applications, examples, and real-world impact (4-5 sentences)
+- Paragraph 6: Synthesis, challenges, or future directions (3-4 sentences)"""
+            }
+
+            # Get the appropriate length instruction (default to detailed)
+            length_instruction = length_instructions.get(actual_length, length_instructions["detailed"])
+
+            prompt = f"""Write a PARAGRAPH SUMMARY of this content following the specified length requirement.
+
+{length_instruction}
+
+FORMAT RULES (ALWAYS FOLLOW):
 - Write in COMPLETE PARAGRAPHS only - NO bullet points, NO numbered lists, NO dashes
-- Each paragraph must have AT LEAST 3-4 SENTENCES that flow together
-- Use TRANSITIONS between sentences (Furthermore, Additionally, However, In contrast, As a result, etc.)
-- Write 3-5 substantial paragraphs depending on content length
+- Each sentence must flow into the next using transitions (Furthermore, Additionally, However, etc.)
 - Paragraphs should be CONTINUOUS PROSE, not disconnected statements
-- Cover: Introduction/Context → Main Concepts → Details/Examples → Synthesis/Conclusion
+- Start writing directly - no headers or introductions like "Here is a summary:"
 
-PARAGRAPH STRUCTURE:
-- Paragraph 1: Introduce the topic and its significance (3-4 sentences minimum)
-- Paragraphs 2-3: Explain the core concepts and how they work (4-5 sentences each)
-- Paragraph 4: Discuss applications, implications, or connections (3-4 sentences)
-- Paragraph 5 (if needed): Conclude with key takeaways (2-3 sentences)
-
-EXAMPLE OUTPUT:
-Machine learning represents a fundamental shift in how computers solve problems, moving away from explicit programming toward systems that learn from experience. This approach has transformed numerous fields by enabling computers to identify patterns in data and make predictions without being told exactly how to do so. The significance of this paradigm cannot be overstated, as it forms the foundation for many modern AI applications that affect our daily lives.
-
-At its core, machine learning works by exposing algorithms to large amounts of data and allowing them to adjust their internal parameters to minimize errors. In supervised learning, the most common approach, the algorithm receives labeled examples where both the input and correct output are known. Through an iterative process of making predictions and receiving feedback, the model gradually improves its accuracy. This process, known as training, continues until the model achieves satisfactory performance on the given task.
-
-The practical applications of machine learning extend across virtually every industry and domain. In healthcare, these systems assist doctors in diagnosing diseases from medical images with remarkable accuracy. Financial institutions use machine learning to detect fraudulent transactions in real-time, protecting consumers from theft. Furthermore, recommendation systems powered by these algorithms determine what content we see on streaming platforms and social media, shaping our digital experiences in profound ways.
-
-BAD OUTPUT (DO NOT DO THIS):
-Machine learning is important.
-- It learns from data
-- Uses algorithms
-- Has many applications
-
-Key points:
-• Supervised learning uses labels
-• Unsupervised finds patterns
-
-[This uses bullets and lists - WRONG! Write flowing paragraphs instead.]
+BAD OUTPUT (NEVER DO THIS):
+- Using bullet points
+- Writing single disconnected sentences
+- Adding headers like "Summary:" or "Overview:"
+• Using any kind of list format
 
 ---
 CONTENT TO SUMMARIZE:
 {text}
 
 ---
-NOW write the paragraph summary (flowing prose, no bullets, 3+ sentences per paragraph):"""
+NOW write the paragraph summary (flowing prose, no bullets, follow the length requirement):"""
 
         try:
             logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, Prompt length: {len(prompt)} chars")

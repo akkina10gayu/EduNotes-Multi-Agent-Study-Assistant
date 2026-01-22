@@ -45,7 +45,7 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Process a topic-based query"""
         try:
             self.logger.info(f"Processing topic query: {query[:50]}...")
@@ -80,10 +80,11 @@ class Orchestrator:
                 all_content = ' '.join(documents[:5])  # Use top 5 documents for maximum content
                 self.logger.info(f"Processing {len(documents)} documents with total length: {len(all_content)}")
 
-                # Pass the summarization_mode directly to the summarizer
+                # Pass the summarization_mode and output_length directly to the summarizer
                 detailed_summary = await self.summarizer.process({
                     'content': all_content,  # Use all available content
-                    'mode': summarization_mode
+                    'mode': summarization_mode,
+                    'output_length': output_length
                 })
 
                 # Determine title based on summarization mode
@@ -104,7 +105,7 @@ class Orchestrator:
                     'topic': query,
                     'summarization_mode': summarization_mode  # Pass mode for header formatting
                 })
-                
+
                 return {
                     'success': True,
                     'query_type': 'topic',
@@ -113,11 +114,11 @@ class Orchestrator:
                     'sources_used': len(sources),
                     'from_kb': True
                 }
-            
+
             else:
                 # No relevant documents found - need to fetch from web
                 self.logger.info("No relevant documents in KB, fetching from web...")
-                return await self.fetch_and_process_topic(query, summarization_mode)
+                return await self.fetch_and_process_topic(query, summarization_mode, output_length)
                 
         except Exception as e:
             self.logger.error(f"Error processing topic query: {e}")
@@ -126,7 +127,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def fetch_and_process_topic(self, topic: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
+    async def fetch_and_process_topic(self, topic: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Fetch information about a topic from web and process"""
         try:
             self.logger.info(f"No KB results for '{topic}', attempting web search...")
@@ -180,10 +181,11 @@ class Orchestrator:
             combined_content = "\n\n".join(scraped_content[:3])
             self.logger.info(f"Combined {len(scraped_content)} web sources, total length: {len(combined_content)}")
 
-            # Pass the summarization_mode directly to the summarizer
+            # Pass the summarization_mode and output_length directly to the summarizer
             summary_result = await self.summarizer.process({
                 'content': combined_content,
-                'mode': summarization_mode
+                'mode': summarization_mode,
+                'output_length': output_length
             })
 
             # Determine title based on summarization mode
@@ -259,7 +261,7 @@ class Orchestrator:
 
         return urls[:3]  # Return top 3
     
-    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
+    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
             self.logger.info(f"Processing URL: {url}")
@@ -284,10 +286,11 @@ class Orchestrator:
                     'error': f"Scraped content too short ({content_length} chars). Check URL accessibility."
                 }
 
-            # Pass the summarization_mode directly to the summarizer
+            # Pass the summarization_mode and output_length directly to the summarizer
             detailed_summary = await self.summarizer.process({
                 'content': scrape_result['content'],
-                'mode': summarization_mode
+                'mode': summarization_mode,
+                'output_length': output_length
             })
 
             # Determine title based on summarization mode
@@ -339,7 +342,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
+    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Process direct text input"""
         try:
             self.logger.info(f"Processing direct text input of length: {len(text)}")
@@ -351,10 +354,11 @@ class Orchestrator:
                     'error': 'Input text too short. Please provide at least 10 characters.'
                 }
 
-            # Pass the summarization_mode directly to the summarizer
+            # Pass the summarization_mode and output_length directly to the summarizer
             detailed_summary = await self.summarizer.process({
                 'content': text.strip(),
-                'mode': summarization_mode
+                'mode': summarization_mode,
+                'output_length': output_length
             })
 
             # Check if summarization was successful
@@ -408,21 +412,21 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str, summarization_mode: str = "paragraph_summary") -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
             query_type = self.detect_query_type(query)
 
-            self.logger.info(f"Detected query type: {query_type.value}")
+            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}")
 
             # Process based on type
             if query_type == QueryType.URL:
-                return await self.process_url_query(query, summarization_mode)
+                return await self.process_url_query(query, summarization_mode, output_length)
             elif query_type == QueryType.TEXT:
-                return await self.process_text_query(query, summarization_mode)
+                return await self.process_text_query(query, summarization_mode, output_length)
             else:  # TOPIC
-                return await self.process_topic_query(query, summarization_mode)
+                return await self.process_topic_query(query, summarization_mode, output_length)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")

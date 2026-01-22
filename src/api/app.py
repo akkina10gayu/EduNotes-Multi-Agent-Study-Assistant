@@ -165,10 +165,14 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
                     detail="Invalid URL format. Please provide a valid URL (e.g., https://example.com)"
                 )
 
-        logger.info(f"Generating notes for query: {query[:50]}... Mode: {body.summarization_mode}")
+        logger.info(f"Generating notes for query: {query[:50]}... Mode: {body.summarization_mode}, Length: {body.summary_length}")
 
         # Process query through orchestrator
-        result = await orchestrator.process(query, summarization_mode=body.summarization_mode)
+        result = await orchestrator.process(
+            query,
+            summarization_mode=body.summarization_mode,
+            output_length=body.summary_length
+        )
 
         return GenerateNotesResponse(**result)
 
@@ -270,7 +274,8 @@ async def search_knowledge_base(request: Request, body: SearchKBRequest):
 async def process_pdf(
     request: Request,
     file: UploadFile = File(...),
-    summarization_mode: str = "detailed"
+    summarization_mode: str = "paragraph_summary",
+    output_length: str = "auto"
 ):
     """Process PDF file and generate study notes"""
     try:
@@ -309,10 +314,14 @@ async def process_pdf(
             )
 
         logger.info(f"Extracted {len(extracted_text)} characters from PDF")
-        logger.info(f"Processing PDF with summarization_mode='{summarization_mode}'")
+        logger.info(f"Processing PDF with summarization_mode='{summarization_mode}', output_length='{output_length}'")
 
         # Process through orchestrator as text query
-        result = await orchestrator.process(extracted_text, summarization_mode=summarization_mode)
+        result = await orchestrator.process(
+            extracted_text,
+            summarization_mode=summarization_mode,
+            output_length=output_length
+        )
 
         logger.info(f"PDF processing completed - Success: {result.get('success', False)}")
 

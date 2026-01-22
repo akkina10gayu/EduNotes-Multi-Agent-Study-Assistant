@@ -106,7 +106,7 @@ class SummarizerAgent(BaseAgent):
         return self._pipe
 
     @cached("summarizer", ttl=settings.CACHE_SUMMARY_TTL)
-    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary") -> str:
+    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto") -> str:
         """
         Summarize text using API or local model.
 
@@ -114,6 +114,7 @@ class SummarizerAgent(BaseAgent):
             text: Text to summarize
             max_length: Maximum output length
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
+            output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
 
         Returns:
             Summary string
@@ -127,7 +128,7 @@ class SummarizerAgent(BaseAgent):
                 text = text[:50000]
                 self.logger.warning(f"Truncated input text from {original_length} to 50000 characters")
 
-            self.logger.info(f"Processing {len(text)} characters with style='{style}'")
+            self.logger.info(f"Processing {len(text)} characters with style='{style}', output_length='{output_length}'")
 
             # Try API first (if not in local mode)
             if not self.use_local and self.llm_client:
@@ -135,10 +136,11 @@ class SummarizerAgent(BaseAgent):
                     summary = self.llm_client.summarize(
                         text=text,
                         max_length=max_length or 3072,  # Tripled output space for quality
-                        style=style
+                        style=style,
+                        output_length=output_length
                     )
                     if summary:
-                        self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}")
+                        self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
                         return summary
                 except Exception as e:
                     self.logger.warning(f"API summarization failed: {e}, falling back to local")
@@ -180,14 +182,14 @@ class SummarizerAgent(BaseAgent):
             self.logger.error(f"Error in local summarization: {e}")
             raise
 
-    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary") -> str:
+    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto") -> str:
         """Summarize multiple documents."""
         try:
             # Combine documents
             combined = "\n\n---\n\n".join(documents[:5])  # Use top 5 documents
 
             # Summarize combined content
-            return self.summarize_text(combined, style=style)
+            return self.summarize_text(combined, style=style, output_length=output_length)
 
         except Exception as e:
             self.logger.error(f"Error summarizing documents: {e}")
@@ -336,6 +338,7 @@ class SummarizerAgent(BaseAgent):
 
             content = input_data.get('content', '')
             mode = input_data.get('mode', 'paragraph_summary')
+            output_length = input_data.get('output_length', 'auto')  # Only used for paragraph_summary
 
             if not content:
                 return self.handle_error(ValueError("No content provided"))
@@ -370,12 +373,12 @@ class SummarizerAgent(BaseAgent):
 
             else:  # paragraph_summary mode (default)
                 if isinstance(content, list):
-                    summary = self.summarize_documents(content, style="paragraph_summary")
+                    summary = self.summarize_documents(content, style="paragraph_summary", output_length=output_length)
                 else:
-                    summary = self.summarize_text(content, style="paragraph_summary")
+                    summary = self.summarize_text(content, style="paragraph_summary", output_length=output_length)
                 result['summary'] = summary
 
-            self.logger.info(f"Successfully processed content in {mode} mode")
+            self.logger.info(f"Successfully processed content in {mode} mode, output_length={output_length}")
             return result
 
         except Exception as e:

@@ -115,5 +115,31 @@
       "deep",
       "learning"
     ]
+  },
+  "8fe397f581a1fb9696283d19fa995893": {
+    "title": "Machine Learning",
+    "source": "aman.ai",
+    "date_added": "2026-01-20T23:14:51.169309",
+    "topic": "Linear Regression",
+    "keywords": [
+      "linear",
+      "regression",
+      "overview",
+      "fundamental",
+      "widely"
+    ]
+  },
+  "6f19c61d933135835e10973b31d4e6dd": {
+    "title": "Aman's AI Journal \u2022 Primers \u2022 Linear and Logistic Regression",
+    "source": "web",
+    "date_added": "2026-01-20T23:44:37.770966",
+    "topic": "web_content",
+    "keywords": [
+      "linear",
+      "regression",
+      "overview",
+      "assumptions",
+      "general"
+    ]
   }
 }

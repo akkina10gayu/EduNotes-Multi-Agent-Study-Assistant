@@ -319,3 +319,335 @@
 2025-09-15 12:13:37 | INFO     | src.api.app:startup_event:61 - Starting EduNotes API...
 2025-09-15 12:13:37 | INFO     | src.api.app:startup_event:62 - API running on 0.0.0.0:8000
 2025-09-15 12:14:48 | INFO     | src.api.app:shutdown_event:67 - Shutting down EduNotes API...
+2026-01-20 23:09:24 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:09:24 | INFO     | src.agents.summarizer:_initialize:44 - Using FREE API for summarization
+2026-01-20 23:09:24 | ERROR    | src.utils.llm_client:_init_client:58 - Failed to initialize groq client: GROQ_API_KEY not found. Get free key at: https://console.groq.com
+2026-01-20 23:09:24 | INFO     | src.utils.llm_client:_init_client:59 - Falling back to local model
+2026-01-20 23:09:24 | INFO     | src.utils.llm_client:_init_local:99 - Using local model mode (BART/Flan-T5)
+2026-01-20 23:09:24 | INFO     | src.agents.summarizer:_initialize:46 - LLM Provider: {'provider': 'local', 'model': 'local', 'is_local': True}
+2026-01-20 23:09:24 | INFO     | src.agents.summarizer:_initialize_local_model:62 - Local model configured: google/flan-t5-base
+2026-01-20 23:09:26 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:09:28 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:09:28 | INFO     | src.api.app:startup_event:66 - Starting EduNotes API...
+2026-01-20 23:09:28 | INFO     | src.api.app:startup_event:67 - API running on 0.0.0.0:8000
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:72 - ================================================================================
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:73 - ⚠️  GROQ API KEY NOT CONFIGURED!
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:74 - ================================================================================
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:75 - The system will use local models (slower performance).
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:76 - To use the faster Groq API:
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:77 - 1. Get a free API key at: https://console.groq.com
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:78 - 2. Add it to your .env file: GROQ_API_KEY=your_key_here
+2026-01-20 23:09:28 | WARNING  | src.api.app:startup_event:79 - ================================================================================
+2026-01-20 23:09:48 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-01-20 23:09:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:09:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:09:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:09:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:09:50 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-01-20 23:09:52 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:09:56 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:09:56 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:00 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:10:00 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:00 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:08 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:08 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:23 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:23 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:27 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:10:30 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:30 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:34 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:10:37 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:37 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:10:41 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:10:43 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: machine learning... Mode: important_points
+2026-01-20 23:10:43 | INFO     | src.agents.orchestrator:process:417 - Detected query type: topic
+2026-01-20 23:10:43 | INFO     | src.agents.orchestrator:process_topic_query:51 - Processing topic query: machine learning...
+2026-01-20 23:10:44 | INFO     | src.knowledge_base.vector_store:search:139 - Found 5 relevant documents for query
+2026-01-20 23:10:44 | INFO     | src.agents.retriever:search_knowledge_base:28 - Found 5 relevant documents for query: machine learning...
+2026-01-20 23:10:44 | INFO     | src.agents.orchestrator:process_topic_query:62 - Found 5 relevant documents
+2026-01-20 23:10:44 | INFO     | src.agents.orchestrator:process_topic_query:81 - Processing 5 documents with total length: 2543
+2026-01-20 23:10:44 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 2543 characters in 'important_points' mode
+2026-01-20 23:10:44 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 2543 characters with style='important_points'
+2026-01-20 23:10:44 | INFO     | src.agents.summarizer:tokenizer:68 - Loading local tokenizer...
+2026-01-20 23:10:47 | INFO     | src.agents.summarizer:pipe:94 - Creating local summarization pipeline...
+2026-01-20 23:10:47 | INFO     | src.agents.summarizer:model:80 - Loading local model...
+2026-01-20 23:12:17 | INFO     | src.agents.summarizer:_summarize_local:176 - Summary generated using local model
+2026-01-20 23:12:17 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in important_points mode
+2026-01-20 23:12:17 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Machine Learning - Important Points
+2026-01-20 23:12:26 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:12:26 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:14:44 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:14:44 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:14:49 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 5 unique topics in KB
+2026-01-20 23:14:51 | INFO     | src.api.app:update_knowledge_base:214 - Updating KB with 1 documents
+2026-01-20 23:14:51 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Machine Learning
+2026-01-20 23:14:51 | INFO     | src.knowledge_base.document_processor:process_batch:121 - Processed 1 out of 1 documents
+2026-01-20 23:14:51 | INFO     | src.knowledge_base.vector_store:add_documents:109 - Added batch of 15 chunks to vector store
+2026-01-20 23:14:59 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:14:59 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:19 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:16:21 | INFO     | src.api.app:search_knowledge_base:247 - Searching KB for: linear regression...
+2026-01-20 23:16:21 | INFO     | src.knowledge_base.vector_store:search:139 - Found 5 relevant documents for query
+2026-01-20 23:16:29 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:29 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:48 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:16:52 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:17:01 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:17:01 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:17:05 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:17:08 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: linear regression... Mode: important_points
+2026-01-20 23:17:08 | INFO     | src.agents.orchestrator:process:417 - Detected query type: topic
+2026-01-20 23:17:08 | INFO     | src.agents.orchestrator:process_topic_query:51 - Processing topic query: linear regression...
+2026-01-20 23:17:08 | INFO     | src.knowledge_base.vector_store:search:139 - Found 5 relevant documents for query
+2026-01-20 23:17:08 | INFO     | src.agents.retriever:search_knowledge_base:28 - Found 5 relevant documents for query: linear regression...
+2026-01-20 23:17:08 | INFO     | src.agents.orchestrator:process_topic_query:62 - Found 5 relevant documents
+2026-01-20 23:17:08 | INFO     | src.agents.orchestrator:process_topic_query:81 - Processing 5 documents with total length: 2537
+2026-01-20 23:17:08 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 2537 characters in 'important_points' mode
+2026-01-20 23:17:08 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 2537 characters with style='important_points'
+2026-01-20 23:18:06 | INFO     | src.agents.summarizer:_summarize_local:176 - Summary generated using local model
+2026-01-20 23:18:06 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in important_points mode
+2026-01-20 23:18:06 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Linear Regression - Important Points
+2026-01-20 23:18:16 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:18:16 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:18:20 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:18:27 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:18:27 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:18:31 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:18:33 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: linear regression... Mode: paragraph_summary
+2026-01-20 23:18:33 | INFO     | src.agents.orchestrator:process:417 - Detected query type: topic
+2026-01-20 23:18:33 | INFO     | src.agents.orchestrator:process_topic_query:51 - Processing topic query: linear regression...
+2026-01-20 23:18:33 | INFO     | src.agents.orchestrator:process_topic_query:62 - Found 5 relevant documents
+2026-01-20 23:18:33 | INFO     | src.agents.orchestrator:process_topic_query:81 - Processing 5 documents with total length: 2537
+2026-01-20 23:18:33 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 2537 characters in 'paragraph_summary' mode
+2026-01-20 23:18:33 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 2537 characters with style='paragraph_summary'
+2026-01-20 23:19:53 | INFO     | src.agents.summarizer:_summarize_local:176 - Summary generated using local model
+2026-01-20 23:19:53 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in paragraph_summary mode
+2026-01-20 23:19:53 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Linear Regression
+2026-01-20 23:20:02 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:20:02 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:31:02 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:31:02 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:31:06 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:31:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:31:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:31:19 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:31:22 | INFO     | src.api.app:process_pdf:293 - Processing PDF: PerFine.pdf (1.00MB)
+2026-01-20 23:31:22 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:74 - Extracting text from uploaded PDF with 26 pages
+2026-01-20 23:31:23 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:90 - Successfully extracted 81085 characters from uploaded PDF
+2026-01-20 23:31:23 | INFO     | src.api.app:process_pdf:311 - Extracted 81085 characters from PDF
+2026-01-20 23:31:23 | INFO     | src.api.app:process_pdf:312 - Processing PDF with summarization_mode='paragraph_summary'
+2026-01-20 23:31:23 | INFO     | src.agents.orchestrator:process:417 - Detected query type: text
+2026-01-20 23:31:23 | INFO     | src.agents.orchestrator:process_text_query:345 - Processing direct text input of length: 81085
+2026-01-20 23:31:23 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 81085 characters in 'paragraph_summary' mode
+2026-01-20 23:31:23 | WARNING  | src.agents.summarizer:summarize_text:128 - Truncated input text from 81085 to 50000 characters
+2026-01-20 23:31:23 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 50000 characters with style='paragraph_summary'
+2026-01-20 23:33:23 | INFO     | src.agents.summarizer:_summarize_local:176 - Summary generated using local model
+2026-01-20 23:33:23 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in paragraph_summary mode
+2026-01-20 23:33:23 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Summary
+2026-01-20 23:33:23 | INFO     | src.api.app:process_pdf:317 - PDF processing completed - Success: True
+2026-01-20 23:33:29 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:33:29 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:33:33 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:33:35 | INFO     | src.api.app:process_pdf:293 - Processing PDF: PerFine.pdf (1.00MB)
+2026-01-20 23:33:35 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:74 - Extracting text from uploaded PDF with 26 pages
+2026-01-20 23:33:37 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:90 - Successfully extracted 81085 characters from uploaded PDF
+2026-01-20 23:33:37 | INFO     | src.api.app:process_pdf:311 - Extracted 81085 characters from PDF
+2026-01-20 23:33:37 | INFO     | src.api.app:process_pdf:312 - Processing PDF with summarization_mode='paragraph_summary'
+2026-01-20 23:33:37 | INFO     | src.agents.orchestrator:process:417 - Detected query type: text
+2026-01-20 23:33:37 | INFO     | src.agents.orchestrator:process_text_query:345 - Processing direct text input of length: 81085
+2026-01-20 23:33:37 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in paragraph_summary mode
+2026-01-20 23:33:37 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Summary
+2026-01-20 23:33:37 | INFO     | src.api.app:process_pdf:317 - PDF processing completed - Success: True
+2026-01-20 23:33:45 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:33:45 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:36:25 | INFO     | src.api.app:shutdown_event:102 - Shutting down EduNotes API...
+2026-01-20 23:36:47 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:36:47 | INFO     | src.agents.summarizer:_initialize:44 - Using FREE API for summarization
+2026-01-20 23:36:48 | INFO     | src.utils.llm_client:_init_groq:75 - Initialized Groq client with model: llama-3.3-70b-versatile
+2026-01-20 23:36:48 | INFO     | src.agents.summarizer:_initialize:46 - LLM Provider: {'provider': 'groq', 'model': 'llama-3.3-70b-versatile', 'is_local': False}
+2026-01-20 23:36:49 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:36:51 | INFO     | src.knowledge_base.vector_store:__init__:53 - Loaded existing collection: edunotes_kb
+2026-01-20 23:36:51 | INFO     | src.api.app:startup_event:66 - Starting EduNotes API...
+2026-01-20 23:36:51 | INFO     | src.api.app:startup_event:67 - API running on 0.0.0.0:8000
+2026-01-20 23:36:51 | INFO     | src.api.app:startup_event:81 - ✅ Groq API key configured
+2026-01-20 23:37:31 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-01-20 23:37:31 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:37:31 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:37:33 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-01-20 23:37:35 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:37:38 | INFO     | src.api.app:process_pdf:293 - Processing PDF: PerFine.pdf (1.00MB)
+2026-01-20 23:37:38 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:74 - Extracting text from uploaded PDF with 26 pages
+2026-01-20 23:37:39 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:90 - Successfully extracted 81085 characters from uploaded PDF
+2026-01-20 23:37:39 | INFO     | src.api.app:process_pdf:311 - Extracted 81085 characters from PDF
+2026-01-20 23:37:39 | INFO     | src.api.app:process_pdf:312 - Processing PDF with summarization_mode='paragraph_summary'
+2026-01-20 23:37:39 | INFO     | src.agents.orchestrator:process:417 - Detected query type: text
+2026-01-20 23:37:39 | INFO     | src.agents.orchestrator:process_text_query:345 - Processing direct text input of length: 81085
+2026-01-20 23:37:39 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 81085 characters in 'paragraph_summary' mode
+2026-01-20 23:37:39 | WARNING  | src.agents.summarizer:summarize_text:128 - Truncated input text from 81085 to 50000 characters
+2026-01-20 23:37:39 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 50000 characters with style='paragraph_summary'
+2026-01-20 23:37:39 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='paragraph_summary', text_length=50000 chars, max_tokens=3072
+2026-01-20 23:37:39 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: paragraph_summary, Prompt length: 52899 chars
+2026-01-20 23:37:43 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 4264 chars
+2026-01-20 23:37:43 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 4264 chars, Style: paragraph_summary
+2026-01-20 23:37:43 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in paragraph_summary mode
+2026-01-20 23:37:43 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Summary
+2026-01-20 23:37:43 | INFO     | src.api.app:process_pdf:317 - PDF processing completed - Success: True
+2026-01-20 23:37:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:37:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:05 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:05 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:09 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:38:12 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:12 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:17 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:38:19 | INFO     | src.api.app:process_pdf:293 - Processing PDF: PerFine.pdf (1.00MB)
+2026-01-20 23:38:19 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:74 - Extracting text from uploaded PDF with 26 pages
+2026-01-20 23:38:21 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:90 - Successfully extracted 81085 characters from uploaded PDF
+2026-01-20 23:38:21 | INFO     | src.api.app:process_pdf:311 - Extracted 81085 characters from PDF
+2026-01-20 23:38:21 | INFO     | src.api.app:process_pdf:312 - Processing PDF with summarization_mode='key_highlights'
+2026-01-20 23:38:21 | INFO     | src.agents.orchestrator:process:417 - Detected query type: text
+2026-01-20 23:38:21 | INFO     | src.agents.orchestrator:process_text_query:345 - Processing direct text input of length: 81085
+2026-01-20 23:38:21 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 81085 characters in 'key_highlights' mode
+2026-01-20 23:38:21 | WARNING  | src.agents.summarizer:summarize_text:128 - Truncated input text from 81085 to 50000 characters
+2026-01-20 23:38:21 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 50000 characters with style='key_highlights'
+2026-01-20 23:38:21 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='key_highlights', text_length=50000 chars, max_tokens=3072
+2026-01-20 23:38:21 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: key_highlights, Prompt length: 51939 chars
+2026-01-20 23:38:23 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 1376 chars
+2026-01-20 23:38:23 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 1376 chars, Style: key_highlights
+2026-01-20 23:38:23 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in key_highlights mode
+2026-01-20 23:38:23 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Key Highlights
+2026-01-20 23:38:23 | INFO     | src.api.app:process_pdf:317 - PDF processing completed - Success: True
+2026-01-20 23:38:31 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:38:31 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:39:09 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:39:09 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:39:13 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:39:21 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:39:21 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:40:21 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:40:21 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:40:25 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:40:28 | INFO     | src.api.app:process_pdf:293 - Processing PDF: PerFine.pdf (1.00MB)
+2026-01-20 23:40:28 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:74 - Extracting text from uploaded PDF with 26 pages
+2026-01-20 23:40:28 | INFO     | src.utils.pdf_processor:extract_text_from_bytes:90 - Successfully extracted 81085 characters from uploaded PDF
+2026-01-20 23:40:28 | INFO     | src.api.app:process_pdf:311 - Extracted 81085 characters from PDF
+2026-01-20 23:40:28 | INFO     | src.api.app:process_pdf:312 - Processing PDF with summarization_mode='important_points'
+2026-01-20 23:40:28 | INFO     | src.agents.orchestrator:process:417 - Detected query type: text
+2026-01-20 23:40:28 | INFO     | src.agents.orchestrator:process_text_query:345 - Processing direct text input of length: 81085
+2026-01-20 23:40:28 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 81085 characters in 'important_points' mode
+2026-01-20 23:40:28 | WARNING  | src.agents.summarizer:summarize_text:128 - Truncated input text from 81085 to 50000 characters
+2026-01-20 23:40:28 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 50000 characters with style='important_points'
+2026-01-20 23:40:28 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='important_points', text_length=50000 chars, max_tokens=3072
+2026-01-20 23:40:28 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: important_points, Prompt length: 51129 chars
+2026-01-20 23:40:30 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 2521 chars
+2026-01-20 23:40:30 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 2521 chars, Style: important_points
+2026-01-20 23:40:30 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in important_points mode
+2026-01-20 23:40:30 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Important Points
+2026-01-20 23:40:30 | INFO     | src.api.app:process_pdf:317 - PDF processing completed - Success: True
+2026-01-20 23:40:39 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:40:39 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:41:59 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:41:59 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:03 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:42:07 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:07 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:12 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:42:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:15 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:19 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:42:21 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: linear regression... Mode: paragraph_summary
+2026-01-20 23:42:21 | INFO     | src.agents.orchestrator:process:417 - Detected query type: topic
+2026-01-20 23:42:21 | INFO     | src.agents.orchestrator:process_topic_query:51 - Processing topic query: linear regression...
+2026-01-20 23:42:22 | INFO     | src.knowledge_base.vector_store:search:139 - Found 5 relevant documents for query
+2026-01-20 23:42:22 | INFO     | src.agents.retriever:search_knowledge_base:28 - Found 5 relevant documents for query: linear regression...
+2026-01-20 23:42:22 | INFO     | src.agents.orchestrator:process_topic_query:62 - Found 5 relevant documents
+2026-01-20 23:42:22 | INFO     | src.agents.orchestrator:process_topic_query:81 - Processing 5 documents with total length: 2537
+2026-01-20 23:42:22 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 2537 characters in 'paragraph_summary' mode
+2026-01-20 23:42:22 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 2537 characters with style='paragraph_summary'
+2026-01-20 23:42:22 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='paragraph_summary', text_length=2537 chars, max_tokens=3072
+2026-01-20 23:42:22 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: paragraph_summary, Prompt length: 5436 chars
+2026-01-20 23:42:25 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 5882 chars
+2026-01-20 23:42:25 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 5882 chars, Style: paragraph_summary
+2026-01-20 23:42:25 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in paragraph_summary mode
+2026-01-20 23:42:25 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Linear Regression
+2026-01-20 23:42:34 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:34 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:42 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:42 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:47 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:42:50 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:50 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:42:54 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:42:57 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: linear regression... Mode: important_points
+2026-01-20 23:42:57 | INFO     | src.agents.orchestrator:process:417 - Detected query type: topic
+2026-01-20 23:42:57 | INFO     | src.agents.orchestrator:process_topic_query:51 - Processing topic query: linear regression...
+2026-01-20 23:42:57 | INFO     | src.agents.orchestrator:process_topic_query:62 - Found 5 relevant documents
+2026-01-20 23:42:57 | INFO     | src.agents.orchestrator:process_topic_query:81 - Processing 5 documents with total length: 2537
+2026-01-20 23:42:57 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 2537 characters in 'important_points' mode
+2026-01-20 23:42:57 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 2537 characters with style='important_points'
+2026-01-20 23:42:57 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='important_points', text_length=2537 chars, max_tokens=3072
+2026-01-20 23:42:57 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: important_points, Prompt length: 3666 chars
+2026-01-20 23:42:58 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 2375 chars
+2026-01-20 23:42:58 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 2375 chars, Style: important_points
+2026-01-20 23:42:58 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in important_points mode
+2026-01-20 23:42:58 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Linear Regression - Important Points
+2026-01-20 23:43:07 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:43:07 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:43:57 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:43:57 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:01 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:44:10 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:10 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:13 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:13 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:18 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:44:26 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:26 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:30 | INFO     | src.knowledge_base.vector_store:get_unique_topics:190 - Found 6 unique topics in KB
+2026-01-20 23:44:32 | INFO     | src.api.app:generate_notes:168 - Generating notes for query: https://aman.ai/primers/ai/linear-logistic-regress... Mode: important_points
+2026-01-20 23:44:32 | INFO     | src.agents.orchestrator:process:417 - Detected query type: url
+2026-01-20 23:44:32 | INFO     | src.agents.orchestrator:process_url_query:265 - Processing URL: https://aman.ai/primers/ai/linear-logistic-regression/
+2026-01-20 23:44:34 | WARNING  | src.agents.scraper:scrape_with_newspaper:46 - Newspaper3k failed for https://aman.ai/primers/ai/linear-logistic-regression/: 
+**********************************************************************
+  Resource [93mpunkt_tab[0m not found.
+  Please use the NLTK Downloader to obtain the resource:
+
+  [31m>>> import nltk
+  >>> nltk.download('punkt_tab')
+  [0m
+  For more information see: https://www.nltk.org/data.html
+
+  Attempted to load [93mtokenizers/punkt_tab/english/[0m
+
+  Searched in:
+    - 'C:\\Users\\akkin/nltk_data'
+    - 'C:\\Users\\akkin\\anaconda3\\envs\\edunotes\\nltk_data'
+    - 'C:\\Users\\akkin\\anaconda3\\envs\\edunotes\\share\\nltk_data'
+    - 'C:\\Users\\akkin\\anaconda3\\envs\\edunotes\\lib\\nltk_data'
+    - 'C:\\Users\\akkin\\AppData\\Roaming\\nltk_data'
+    - 'C:\\nltk_data'
+    - 'D:\\nltk_data'
+    - 'E:\\nltk_data'
+**********************************************************************
+
+2026-01-20 23:44:34 | INFO     | src.agents.scraper:process:131 - Falling back to BeautifulSoup for https://aman.ai/primers/ai/linear-logistic-regression/
+2026-01-20 23:44:35 | INFO     | src.agents.scraper:process:136 - Successfully scraped https://aman.ai/primers/ai/linear-logistic-regression/
+2026-01-20 23:44:35 | INFO     | src.agents.orchestrator:process_url_query:278 - Scraped content length: 26435 characters
+2026-01-20 23:44:35 | INFO     | src.agents.summarizer:summarize_text:123 - Summarizing text of length: 26435 characters in 'important_points' mode
+2026-01-20 23:44:35 | INFO     | src.agents.summarizer:summarize_text:130 - Processing 26435 characters with style='important_points'
+2026-01-20 23:44:35 | INFO     | src.utils.llm_client:summarize:196 - Building prompt for style='important_points', text_length=26435 chars, max_tokens=3072
+2026-01-20 23:44:35 | INFO     | src.utils.llm_client:summarize:336 - Sending to LLM - Provider: groq, Style: important_points, Prompt length: 27564 chars
+2026-01-20 23:44:37 | INFO     | src.utils.llm_client:summarize:343 - LLM response received - Length: 3171 chars
+2026-01-20 23:44:37 | INFO     | src.agents.summarizer:summarize_text:141 - Summary generated using API - Length: 3171 chars, Style: important_points
+2026-01-20 23:44:37 | INFO     | src.agents.summarizer:process:378 - Successfully processed content in important_points mode
+2026-01-20 23:44:37 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Aman's AI Journal • Primers • Linear and Logistic Regression - Important Points
+2026-01-20 23:44:37 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Aman's AI Journal • Primers • Linear and Logistic Regression
+2026-01-20 23:44:38 | INFO     | src.knowledge_base.vector_store:add_documents:109 - Added batch of 56 chunks to vector store
+2026-01-20 23:44:38 | INFO     | src.agents.orchestrator:process_url_query:324 - Added scraped content to knowledge base
+2026-01-20 23:44:47 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-01-20 23:44:47 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default

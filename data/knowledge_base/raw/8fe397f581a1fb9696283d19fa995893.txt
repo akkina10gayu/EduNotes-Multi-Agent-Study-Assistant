@@ -1,0 +1,98 @@
+Linear Regression
+Overview
+Linear regression is a fundamental and widely used statistical technique in both machine learning and statistical analysis. Its purpose is to predict a dependent (or target) variable based on one or more independent (or explanatory) variables. This method is popular due to its simplicity, interpretability, and its foundational role in understanding more complex models. Despite the growing complexity of machine learning algorithms, linear regression remains an essential tool for predictive modeling and explanatory analysis across various domains.
+Linear regression is a statistical method used to model the relationship between a dependent (outcome) variable and one or more independent (predictor) variables. For linear regression to produce valid and reliable results, several assumptions must be met. Here are the main assumptions of linear regression:
+Assumptions of Linear Regression
+Linearity:
+The relationship between the independent variables (predictors) and the dependent variable (outcome) is assumed to be linear. Specifically, the expected value of the dependent variable is a linear function of the independent variables.
+Independence of Errors:
+The residuals (the differences between the observed and predicted values) should be independent of each other. This assumption means there should be no autocorrelation (particularly important in time series data).
+Homoscedasticity (Constant Variance of Errors):
+The residuals should have constant variance at all levels of the independent variables. This means that the spread of the residuals should be similar across the range of predicted values. If there is heteroscedasticity, it suggests that the model is performing better for some values than others.
+Normality of Errors:
+The residuals should be normally distributed. This assumption is especially important when conducting hypothesis testing (e.g., calculating p-values or confidence intervals).
+No Multicollinearity:
+The independent variables should not be highly correlated with each other. If multicollinearity exists, it becomes difficult to determine the individual effect of each predictor.
+No Endogeneity (No Correlation Between Errors and Predictors):
+The independent variables should not be correlated with the error term. This assumption ensures that the predictors are truly independent of the error term and are not capturing any omitted variable bias.
+The General Equation of Linear Regression
+At the heart of linear regression is the equation that represents the relationship between the target variable and one or more predictors:
+
+y=β0+β1x1+β2x2+⋯+βpxp+ϵ
+where:
+y
+: Dependent (or target) variable we aim to predict.
+x1,x2,…,xp
+: Independent (or explanatory) variables.
+β0
+: Intercept term.
+β1,β2,…,βp
+: Coefficients (or weights) that quantify the impact of each predictor xi
+ on y
+.
+ϵ
+: Error term representing the irreducible noise or unmodeled aspects of the data.
+The goal of linear regression is to estimate the coefficients (β
+) that minimize the prediction error for the dependent variable based on the given set of independent variables.
+
+Key Concepts
+Supervised Learning Algorithm: Linear regression is a supervised learning technique, meaning it learns the relationship between input variables and a labeled output variable from training data.
+
+Prediction: Once a linear regression model is fitted with appropriate coefficients, it can be used to predict y
+ for new data by simply plugging in the values of the predictors.
+
+Simple vs. Multiple Regression:
+
+Simple linear regression involves a single independent variable.
+Multiple linear regression involves two or more independent variables.
+For example, predicting house prices based on square footage is a case of simple linear regression, while predicting weight based on both height and age would be a multiple regression scenario.
+
+Model Fitting: Estimating the Coefficients
+The primary task in linear regression is to find the set of coefficients (β0,β1,…,βp
+) that minimize the difference between predicted and actual values. This is achieved by minimizing the sum of squared errors (SSE) or residuals, which is the difference between the observed data points and the predicted values from the regression line.
+
+The fitted model can then be used to make predictions using the following equation:
+
+y^=β0^+β1^x1+β2^x2+⋯+βp^xp
+where y^
+ represents the predicted values and βi^
+ are the estimated coefficients.
+Evaluation of Linear Regression Models
+Evaluating a linear regression model involves assessing how well the model fits the data and how accurate its predictions are.
+
+Mean Squared Error (MSE)
+MSE is a common loss function for regression models. It is calculated by taking the average of the squared differences between the actual and predicted values:
+MSE=1n∑i=1n(yi−yi^)2
+Interpretation: A lower MSE indicates that the model is making predictions closer to the actual values.
+R-Squared (Coefficient of Determination)
+R-squared measures the proportion of the variance in the dependent variable that is predictable from the independent variables. It ranges from 0 to 1, where 1 indicates that the model perfectly explains the variance in the data.
+
+R2=1−∑ni=1(yi−yi^)2∑ni=1(yi−y¯)2
+Interpretation: An R2
+ of 0.8, for example, means that 80% of the variance in the target variable is explained by the model.
+Optimization Techniques: Finding the Best Coefficients
+Gradient Descent
+Gradient descent is an iterative optimization algorithm used to minimize the cost function (MSE). It works by calculating the gradient (or slope) of the error function and updating the coefficients in the direction that minimizes this error. It is particularly useful when working with large datasets or many features, as it is computationally efficient.
+
+The update rule in gradient descent for linear regression is:
+
+βj=βj−α∂∂βjMSE
+where:
+α
+ is the learning rate (a small positive number that controls the step size).
+∂∂βjMSE
+ represents the derivative of the cost function with respect to the coefficient βj
+.
+Normal Equation
+For smaller datasets or problems where computational complexity is not a concern, the normal equation offers a closed-form solution to finding the best coefficients. The normal equation is derived by minimizing the residual sum of squares (RSS) and is given by:
+
+β^=(XTX)−1XTy
+where X
+ is the matrix of input features, and y
+ is the vector of target values.
+Extensions and Interpretations
+Linear regression can be extended in various ways, including:
+Regularized Regression: Adds penalty terms to the cost function to prevent overfitting (e.g., Lasso and Ridge regression).
+Polynomial Regression: Models non-linear relationships by adding polynomial terms of the independent variables.
+Multivariate Regression: Used when there are multiple independent variables predicting a single dependent variable.
+Interpreting the coefficients in these extended models follows the same principles, but the presence of multiple predictors or transformations may require more nuanced interpretation of the model’s behavior.
