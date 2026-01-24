@@ -102,21 +102,28 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    # API Status Check
+    # API Status Check - Also check LLM provider
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=2)
         if response.status_code == 200:
-            st.success("✅ API Connected")
+            # Check LLM provider status from stats endpoint
+            try:
+                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
+                if stats_resp.status_code == 200:
+                    stats = stats_resp.json()
+                    llm_info = stats.get('llm', {})
+                    is_local = llm_info.get('is_local', True)
+                    provider = llm_info.get('provider', 'unknown')
 
-            # Check if API key is configured
-            import os
-            env_path = os.path.join(os.getcwd(), '.env')
-            if os.path.exists(env_path):
-                with open(env_path, 'r') as f:
-                    env_content = f.read()
-                    if 'GROQ_API_KEY=your_groq_key_here' in env_content or 'GROQ_API_KEY=' not in env_content:
-                        st.warning("⚠️ API key not configured")
-                        st.caption("See Help below for setup")
+                    if is_local or provider == 'local':
+                        st.warning("🖥️ Local Model Mode")
+                        st.caption("Using offline model (slower)")
+                    else:
+                        st.success(f"✅ API Connected ({provider.title()})")
+                else:
+                    st.success("✅ API Connected")
+            except:
+                st.success("✅ API Connected")
         else:
             st.error("❌ API Error")
     except:
@@ -151,12 +158,28 @@ with st.sidebar:
             if response.status_code == 200:
                 stats = response.json()
 
+                # Display LLM Model Info
+                st.markdown("**🧠 LLM Model**")
+                llm_stats = stats.get('llm', {})
+                provider = llm_stats.get('provider', 'unknown')
+                model = llm_stats.get('model', 'unknown')
+                is_local = llm_stats.get('is_local', True)
+
+                if is_local or provider == 'local':
+                    st.markdown(f"- **Mode:** 🖥️ Local (Offline)")
+                    st.markdown(f"- **Model:** {model}")
+                else:
+                    st.markdown(f"- **Mode:** ☁️ Cloud API")
+                    st.markdown(f"- **Provider:** {provider.title()}")
+                    st.markdown(f"- **Model:** {model}")
+
+                st.markdown("")
+
                 # Display Knowledge Base Stats
                 st.markdown("**📚 Knowledge Base**")
                 kb_stats = stats.get('knowledge_base', {})
                 st.markdown(f"- **Total Documents:** {kb_stats.get('total_documents', 0):,}")
                 st.markdown(f"- **Collection:** {kb_stats.get('collection_name', 'N/A')}")
-                st.markdown(f"- **Storage:** {kb_stats.get('persist_directory', 'N/A')}")
 
                 st.markdown("")
 

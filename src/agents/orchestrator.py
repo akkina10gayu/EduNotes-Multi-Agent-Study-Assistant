@@ -438,6 +438,10 @@ class Orchestrator:
     def get_stats(self) -> Dict[str, Any]:
         """Get system statistics"""
         kb_stats = self.retriever.get_stats()
+
+        # Get LLM provider info from summarizer
+        llm_info = self.summarizer.get_provider_info()
+
         return {
             'knowledge_base': kb_stats,
             'agents': {
@@ -445,5 +449,10 @@ class Orchestrator:
                 'scraper': 'active',
                 'summarizer': 'active',
                 'note_maker': 'active'
+            },
+            'llm': {
+                'provider': llm_info.get('provider', 'unknown'),
+                'model': llm_info.get('model', 'unknown'),
+                'is_local': llm_info.get('is_local', True)
             }
         }

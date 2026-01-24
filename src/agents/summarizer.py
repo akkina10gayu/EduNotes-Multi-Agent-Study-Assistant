@@ -153,34 +153,50 @@ class SummarizerAgent(BaseAgent):
             return f"Summary of content about {text[:100]}... [Error: {str(e)}]"
 
     def _summarize_local(self, text: str, max_length: int = None) -> str:
-        """Summarize using local model."""
+        """Summarize using local model (Flan-T5)."""
         try:
-            # Prepare text for local model
+            original_text = text
+
+            # Prepare text for local model - Flan-T5 works best with task prefix
             if len(text) > 3000:
                 text = text[:3000]
 
+            # Add Flan-T5 task prefix for better summarization
+            task_text = f"summarize: {text}"
+
             # Encode and truncate to model limit
-            input_tokens = self.tokenizer.encode(text)
+            input_tokens = self.tokenizer.encode(task_text)
             if len(input_tokens) > 1024:
                 input_tokens = input_tokens[:1024]
-                text = self.tokenizer.decode(input_tokens, skip_special_tokens=True)
+                task_text = self.tokenizer.decode(input_tokens, skip_special_tokens=True)
 
-            # Calculate output length
+            # Calculate output length - aim for meaningful summary
             if max_length is None:
-                max_length = max(200, min(1024, len(input_tokens)))
+                max_length = max(150, min(512, len(input_tokens) // 2))
 
-            min_len = max(100, min(max_length // 2, 300))
+            min_len = max(50, min(max_length // 3, 150))
 
-            # Generate summary
-            result = self.pipe(text, max_length=max_length, min_length=min_len)
+            # Generate summary using pipeline
+            result = self.pipe(task_text, max_length=max_length, min_length=min_len)
             summary = result[0]['summary_text'] if result else ""
 
-            self.logger.info("Summary generated using local model")
+            # Ensure we never return empty - fallback to extractive summary
+            if not summary or len(summary.strip()) < 20:
+                self.logger.warning("Local model returned insufficient output, using extractive fallback")
+                # Simple extractive fallback - take first few sentences
+                sentences = original_text.replace('\n', ' ').split('. ')
+                summary = '. '.join(sentences[:5]) + '.'
+                if len(summary) > 500:
+                    summary = summary[:500] + '...'
+
+            self.logger.info(f"Summary generated using local model ({settings.SUMMARIZATION_MODEL}) - {len(summary)} chars")
             return summary
 
         except Exception as e:
             self.logger.error(f"Error in local summarization: {e}")
-            raise
+            # Last resort fallback - never return empty
+            fallback = original_text[:500] + "..." if len(original_text) > 500 else original_text
+            return f"Content Summary: {fallback}"
 
     def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto") -> str:
         """Summarize multiple documents."""
