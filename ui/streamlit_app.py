@@ -8,6 +8,11 @@ import json
 from datetime import datetime
 import time
 import random
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Page configuration
 st.set_page_config(
@@ -35,6 +40,20 @@ if 'first_time_user' not in st.session_state:
     st.session_state.first_time_user = True
 if 'dismissed_welcome' not in st.session_state:
     st.session_state.dismissed_welcome = False
+if 'show_system_stats' not in st.session_state:
+    st.session_state.show_system_stats = False
+if 'api_status_refresh' not in st.session_state:
+    st.session_state.api_status_refresh = 0
+if 'last_generated_notes' not in st.session_state:
+    st.session_state.last_generated_notes = None  # Stores the last generated notes
+if 'notes_generated_time' not in st.session_state:
+    st.session_state.notes_generated_time = None  # Timestamp of generation
+if 'last_generation_metadata' not in st.session_state:
+    st.session_state.last_generation_metadata = None  # Metadata (query, type, sources)
+if 'last_llm_provider' not in st.session_state:
+    st.session_state.last_llm_provider = None  # Track last used LLM provider
+if 'last_llm_model' not in st.session_state:
+    st.session_state.last_llm_model = None  # Track last used LLM model
 
 # Font size mapping
 font_sizes = {
@@ -102,33 +121,16 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    # API Status Check - Also check LLM provider
+    # API Status Check - Simple connection status
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=2)
         if response.status_code == 200:
-            # Check LLM provider status from stats endpoint
-            try:
-                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
-                if stats_resp.status_code == 200:
-                    stats = stats_resp.json()
-                    llm_info = stats.get('llm', {})
-                    is_local = llm_info.get('is_local', True)
-                    provider = llm_info.get('provider', 'unknown')
-
-                    if is_local or provider == 'local':
-                        st.warning("🖥️ Local Model Mode")
-                        st.caption("Using offline model (slower)")
-                    else:
-                        st.success(f"✅ API Connected ({provider.title()})")
-                else:
-                    st.success("✅ API Connected")
-            except:
-                st.success("✅ API Connected")
+            st.success("✅ API Connected")
         else:
             st.error("❌ API Error")
     except:
         st.error("❌ API Offline")
-        st.caption("See Help below to start API")
+        st.caption("Start API: uvicorn src.api.app:app --reload")
 
     st.divider()
 
@@ -151,76 +153,104 @@ with st.sidebar:
 
     st.divider()
 
-    # System Stats
-    if st.button("📊 View System Stats"):
+    # System Stats - Using expander (no rerun, no content loss)
+    with st.expander("📊 System Stats", expanded=False):
         try:
             response = requests.get(f"{API_BASE_URL}/stats", timeout=3)
             if response.status_code == 200:
                 stats = response.json()
 
-                # Display LLM Model Info
+                # LLM Info - Read directly from environment variables for accurate display
+                use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+
                 st.markdown("**🧠 LLM Model**")
-                llm_stats = stats.get('llm', {})
-                provider = llm_stats.get('provider', 'unknown')
-                model = llm_stats.get('model', 'unknown')
-                is_local = llm_stats.get('is_local', True)
-
-                if is_local or provider == 'local':
-                    st.markdown(f"- **Mode:** 🖥️ Local (Offline)")
-                    st.markdown(f"- **Model:** {model}")
+                if use_local_env:
+                    st.markdown("- Mode: 🖥️ Local (Offline)")
+                    st.markdown("- Model: Flan-T5")
                 else:
-                    st.markdown(f"- **Mode:** ☁️ Cloud API")
-                    st.markdown(f"- **Provider:** {provider.title()}")
-                    st.markdown(f"- **Model:** {model}")
+                    st.markdown("- Mode: ☁️ Cloud API")
+                    st.markdown("- Provider: Groq")
+                    st.markdown("- Model: Llama-3.3-70B")
 
-                st.markdown("")
-
-                # Display Knowledge Base Stats
-                st.markdown("**📚 Knowledge Base**")
+                # KB Info
                 kb_stats = stats.get('knowledge_base', {})
-                st.markdown(f"- **Total Documents:** {kb_stats.get('total_documents', 0):,}")
-                st.markdown(f"- **Collection:** {kb_stats.get('collection_name', 'N/A')}")
+                st.markdown("**📚 Knowledge Base**")
+                st.markdown(f"- Documents: {kb_stats.get('total_documents', 0):,}")
+                st.markdown(f"- Collection: {kb_stats.get('collection_name', 'N/A')}")
 
-                st.markdown("")
-
-                # Display Agents Status
+                # Agents Info
                 st.markdown("**🤖 AI Agents**")
                 agents = stats.get('agents', {})
                 for agent_name, status in agents.items():
                     status_icon = "🟢" if status == "active" else "🔴"
                     agent_display = agent_name.replace('_', ' ').title()
-                    st.markdown(f"- **{agent_display}:** {status_icon} {status.title()}")
+                    st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
+
         except requests.exceptions.ConnectionError:
-            st.error("⚠️ **API Server Not Running**")
-            st.warning("""
-            The backend API server is not running. Please start it:
-
-            ```bash
-            uvicorn src.api.app:app --reload
-            ```
-
-            The API should run on http://localhost:8000
-            """)
+            st.error("⚠️ API Server Not Running")
+            st.caption("Run: uvicorn src.api.app:app --reload")
         except requests.exceptions.Timeout:
-            st.error("⏱️ **Request Timeout** - API server is slow or unresponsive")
+            st.error("⏱️ Request Timeout")
         except Exception as e:
-            st.error(f"❌ Error fetching stats: {str(e)[:100]}")
-    
+            st.error(f"❌ Error: {str(e)[:50]}")
+
     st.divider()
 
-    # Note History
-    st.header("📜 Note History")
-    if st.session_state.note_history:
-        st.markdown(f"*Last {len(st.session_state.note_history)} notes*")
-        for idx, note_item in enumerate(reversed(st.session_state.note_history)):
-            with st.expander(f"{note_item['timestamp']} - {note_item['query'][:30]}..."):
-                st.markdown(f"**Query:** {note_item['query'][:100]}...")
-                st.markdown(f"**Type:** {note_item['type']}")
-                if st.button(f"📋 View Notes", key=f"history_{idx}"):
-                    st.session_state.selected_history = note_item
-                    st.rerun()
-    else:
-        st.info("📝 No notes in this session yet. Generate a note to see it appear here!")
+    # Note History - Collapsible with scrollable container
+    with st.expander("📜 Note History", expanded=False):
+        if st.session_state.note_history:
+            st.markdown(f"*Last {len(st.session_state.note_history)} notes*")
+            # Scrollable container for history items (180px height, ~3 items visible)
+            st.markdown("""
+            <style>
+            .history-scroll-container {
+                max-height: 180px;
+                overflow-y: auto;
+                padding-right: 10px;
+            }
+            .history-scroll-container::-webkit-scrollbar {
+                width: 6px;
+            }
+            .history-scroll-container::-webkit-scrollbar-track {
+                background: #1E1E1E;
+                border-radius: 3px;
+            }
+            .history-scroll-container::-webkit-scrollbar-thumb {
+                background: #4A4A4A;
+                border-radius: 3px;
+            }
+            .history-scroll-container::-webkit-scrollbar-thumb:hover {
+                background: #6A6A6A;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            # Create scrollable container
+            history_html = '<div class="history-scroll-container">'
+            for idx, note_item in enumerate(reversed(st.session_state.note_history)):
+                history_html += f'''
+                <details style="margin-bottom: 8px; background: #2D2D2D; padding: 8px; border-radius: 5px; border-left: 3px solid #6CA0DC;">
+                    <summary style="cursor: pointer; font-weight: 500;">{note_item['timestamp']} - {note_item['query'][:30]}...</summary>
+                    <div style="padding: 8px 0; font-size: 0.9em;">
+                        <p><strong>Query:</strong> {note_item['query'][:100]}...</p>
+                        <p><strong>Type:</strong> {note_item['type']}</p>
+                    </div>
+                </details>
+                '''
+            history_html += '</div>'
+            st.markdown(history_html, unsafe_allow_html=True)
+
+            # View buttons need to be outside HTML for Streamlit interactivity
+            st.markdown("---")
+            st.markdown("**Quick View:**")
+            cols = st.columns(3)
+            for idx, note_item in enumerate(reversed(st.session_state.note_history[:3])):
+                with cols[idx % 3]:
+                    if st.button(f"📄 {idx+1}", key=f"history_btn_{idx}", help=f"View: {note_item['query'][:20]}..."):
+                        st.session_state.selected_history = note_item
+                        st.rerun()
+        else:
+            st.info("📝 No notes yet. Generate a note to see it here!")
 
     st.divider()
 
@@ -313,9 +343,12 @@ try:
 
     if progress_resp.status_code == 200:
         progress_data = progress_resp.json()
-        total_flashcards = progress_data.get('flashcard_reviews', 0)
-        total_quizzes = progress_data.get('quiz_attempts', 0)
-        current_streak = progress_data.get('current_streak', 0)
+        # Get stats from correct nested paths
+        overall_stats = progress_data.get('overall_stats', {})
+        streak_info = progress_data.get('streak', {})
+        total_flashcards = overall_stats.get('total_flashcards_reviewed', 0)
+        total_quizzes = overall_stats.get('total_quizzes_completed', 0)
+        current_streak = streak_info.get('current_streak', 0)
     else:
         total_flashcards = 0
         total_quizzes = 0
@@ -524,7 +557,9 @@ with tab1:
 
     # Output Length Selection - ONLY shown for Paragraph Summary
     output_length = "auto"  # Default value
-    if summarization_mode == "paragraph_summary":
+    # Get the actual selected mode from session state to ensure consistency
+    current_mode = st.session_state.get("summarization_mode_selector", "paragraph_summary")
+    if current_mode == "paragraph_summary":
         st.markdown("#### 📏 Summary Length")
         output_length = st.radio(
             "Choose the desired length of your summary:",
@@ -559,6 +594,14 @@ with tab1:
 
     # Generate button
     if st.button("🚀 Generate Notes", type="primary"):
+        # Check for conflict: both PDF and text provided
+        if uploaded_file and query_input and query_input.strip():
+            st.warning("⚠️ **Please choose one input method**")
+            st.info("You have both a PDF attached and text entered. Please either:\n"
+                    "- **Remove the PDF** (click ✕ on the file) to use text input, OR\n"
+                    "- **Clear the text box** to process the PDF")
+            st.stop()
+
         # Check if either query or PDF is provided
         if uploaded_file:
             # Process PDF file
@@ -611,6 +654,17 @@ with tab1:
                         if result['success']:
                             st.success(f"✅ Notes generated from PDF: {uploaded_file.name}")
 
+                            # Update LLM provider info in session state
+                            try:
+                                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
+                                if stats_resp.status_code == 200:
+                                    stats = stats_resp.json()
+                                    llm_info = stats.get('llm', {})
+                                    st.session_state.last_llm_provider = llm_info.get('provider', 'unknown')
+                                    st.session_state.last_llm_model = llm_info.get('model', 'unknown')
+                            except:
+                                pass  # Don't fail generation if stats fetch fails
+
                             # Save to history
                             note_entry = {
                                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M'),
@@ -621,8 +675,18 @@ with tab1:
                                 'from_kb': False
                             }
                             st.session_state.note_history.append(note_entry)
-                            if len(st.session_state.note_history) > 10:
+                            if len(st.session_state.note_history) > 6:
                                 st.session_state.note_history.pop(0)
+
+                            # Store for persistence across reruns
+                            st.session_state.last_generated_notes = result['notes']
+                            st.session_state.notes_generated_time = datetime.now()
+                            st.session_state.last_generation_metadata = {
+                                'query': f"PDF: {uploaded_file.name}",
+                                'type': 'pdf',
+                                'sources_used': result.get('sources_used', 0),
+                                'file_size': f"{file_size_mb:.2f} MB"
+                            }
 
                             # Display metadata
                             col1, col2, col3 = st.columns(3)
@@ -729,7 +793,18 @@ with tab1:
                     if result['success']:
                         st.success("✅ Notes generated successfully!")
 
-                        # Save to history (keep last 10)
+                        # Update LLM provider info in session state
+                        try:
+                            stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
+                            if stats_resp.status_code == 200:
+                                stats = stats_resp.json()
+                                llm_info = stats.get('llm', {})
+                                st.session_state.last_llm_provider = llm_info.get('provider', 'unknown')
+                                st.session_state.last_llm_model = llm_info.get('model', 'unknown')
+                        except:
+                            pass  # Don't fail generation if stats fetch fails
+
+                        # Save to history (keep last 6)
                         note_entry = {
                             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M'),
                             'query': query_input,
@@ -739,8 +814,18 @@ with tab1:
                             'from_kb': result['from_kb']
                         }
                         st.session_state.note_history.append(note_entry)
-                        if len(st.session_state.note_history) > 10:
+                        if len(st.session_state.note_history) > 6:
                             st.session_state.note_history.pop(0)
+
+                        # Store for persistence across reruns
+                        st.session_state.last_generated_notes = result['notes']
+                        st.session_state.notes_generated_time = datetime.now()
+                        st.session_state.last_generation_metadata = {
+                            'query': query_input[:100] + '...' if len(query_input) > 100 else query_input,
+                            'type': result['query_type'],
+                            'sources_used': result['sources_used'],
+                            'from_kb': result['from_kb']
+                        }
 
                         # Display metadata
                         col1, col2, col3 = st.columns(3)

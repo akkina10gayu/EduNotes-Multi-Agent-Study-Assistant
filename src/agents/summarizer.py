@@ -408,16 +408,19 @@ class SummarizerAgent(BaseAgent):
 
     def get_provider_info(self) -> Dict[str, Any]:
         """Get information about current provider."""
-        if self.use_local:
+        # First check if we have an LLM client and what mode it's in
+        if self.llm_client:
+            client_info = self.llm_client.get_provider_info()
+            # Return the actual client info (could be groq, huggingface, or local fallback)
+            return client_info
+        elif self.use_local:
             return {
                 'provider': 'local',
                 'model': settings.SUMMARIZATION_MODEL,
                 'is_local': True
             }
-        elif self.llm_client:
-            return self.llm_client.get_provider_info()
         else:
-            return {'provider': 'unknown', 'is_local': True}
+            return {'provider': 'unknown', 'model': 'unknown', 'is_local': True}
 
 
 # =============================================================================

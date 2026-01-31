@@ -439,8 +439,14 @@ class Orchestrator:
         """Get system statistics"""
         kb_stats = self.retriever.get_stats()
 
-        # Get LLM provider info from summarizer
-        llm_info = self.summarizer.get_provider_info()
+        # Get LLM provider info directly from the LLM client singleton for accuracy
+        try:
+            from src.utils.llm_client import get_llm_client
+            llm_client = get_llm_client()
+            llm_info = llm_client.get_provider_info() if llm_client else {}
+        except Exception:
+            # Fallback to summarizer if direct access fails
+            llm_info = self.summarizer.get_provider_info()
 
         return {
             'knowledge_base': kb_stats,
@@ -453,6 +459,6 @@ class Orchestrator:
             'llm': {
                 'provider': llm_info.get('provider', 'unknown'),
                 'model': llm_info.get('model', 'unknown'),
-                'is_local': llm_info.get('is_local', True)
+                'is_local': llm_info.get('is_local', False)
             }
         }

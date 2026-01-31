@@ -21,6 +21,7 @@ from src.knowledge_base.vector_store import VectorStore
 from src.knowledge_base.document_processor import DocumentProcessor
 from src.utils.logger import get_logger
 from src.utils.pdf_processor import get_pdf_processor
+from src.utils.progress_store import get_progress_store
 from src.api.study_routes import router as study_router
 from config import settings
 
@@ -174,6 +175,20 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
             output_length=body.summary_length
         )
 
+        # Record activity for progress tracking (updates streak)
+        if result.get('success', False):
+            try:
+                progress_store = get_progress_store()
+                # Use query type as topic, or first 50 chars of query
+                topic = result.get('query_type', 'general')
+                if topic == 'text':
+                    topic = query[:50].strip() if len(query) > 50 else query.strip()
+                progress_store.record_note_generated(topic)
+                logger.debug(f"Recorded note generation activity for topic: {topic}")
+            except Exception as e:
+                logger.warning(f"Failed to record activity: {e}")
+                # Don't fail the request if activity recording fails
+
         return GenerateNotesResponse(**result)
 
     except HTTPException:
@@ -325,9 +340,17 @@ async def process_pdf(
 
         logger.info(f"PDF processing completed - Success: {result.get('success', False)}")
 
-        # Add PDF filename to result
+        # Add PDF filename to result and record activity
         if result.get('success'):
             result['source_file'] = file.filename
+            # Record activity for progress tracking (updates streak)
+            try:
+                progress_store = get_progress_store()
+                topic = f"PDF: {file.filename[:30]}"
+                progress_store.record_note_generated(topic)
+                logger.debug(f"Recorded PDF note generation activity")
+            except Exception as e:
+                logger.warning(f"Failed to record activity: {e}")
 
         return GenerateNotesResponse(**result)
 
