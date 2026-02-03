@@ -14,6 +14,90 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# API configuration (defined early for cached functions)
+API_BASE_URL = "http://localhost:8000/api/v1"
+
+# =============================================================================
+# CACHED FUNCTIONS FOR PERFORMANCE OPTIMIZATION (Phase 1)
+# =============================================================================
+
+@st.cache_resource
+def get_api_session():
+    """Create a reusable requests session for connection pooling.
+    This reduces TCP handshake overhead for multiple API calls.
+    """
+    session = requests.Session()
+    return session
+
+
+@st.cache_data(ttl=30)
+def check_api_health():
+    """Check if API is healthy - cached for 30 seconds.
+    Reduces health check calls from every rerun to once per 30 seconds.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/health", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
+@st.cache_data(ttl=300)
+def fetch_topics():
+    """Fetch topics from API - cached for 5 minutes.
+    Topics rarely change, so 5 minute cache is appropriate.
+    Returns list of topic strings or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/topics", timeout=3)
+        if response.status_code == 200:
+            return response.json().get('topics', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=60)
+def fetch_study_stats():
+    """Fetch study progress and flashcard stats - cached for 60 seconds.
+    Combines two API calls into one cached result.
+    Returns dict with stats or None on failure.
+    """
+    try:
+        session = get_api_session()
+        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=3)
+        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)
+
+        result = {
+            'total_flashcards': 0,
+            'total_quizzes': 0,
+            'current_streak': 0,
+            'flashcard_sets': 0
+        }
+
+        if progress_resp.status_code == 200:
+            progress_data = progress_resp.json()
+            overall_stats = progress_data.get('overall_stats', {})
+            streak_info = progress_data.get('streak', {})
+            result['total_flashcards'] = overall_stats.get('total_flashcards_reviewed', 0)
+            result['total_quizzes'] = overall_stats.get('total_quizzes_completed', 0)
+            result['current_streak'] = streak_info.get('current_streak', 0)
+
+        if flashcard_resp.status_code == 200:
+            flashcard_data = flashcard_resp.json()
+            result['flashcard_sets'] = len(flashcard_data.get('sets', []))
+
+        return result
+    except:
+        return None
+
+
+# =============================================================================
+# PAGE CONFIGURATION
+# =============================================================================
+
 # Page configuration
 st.set_page_config(
     page_title="EduNotes - Study Assistant",
@@ -21,9 +105,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# API configuration
-API_BASE_URL = "http://localhost:8000/api/v1"
 
 # Initialize session state for note history and UI controls
 if 'note_history' not in st.session_state:
@@ -121,14 +202,10 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    # API Status Check - Simple connection status
-    try:
-        response = requests.get(f"{API_BASE_URL}/health", timeout=2)
-        if response.status_code == 200:
-            st.success("✅ API Connected")
-        else:
-            st.error("❌ API Error")
-    except:
+    # API Status Check - Using cached function (30 sec TTL)
+    if check_api_health():
+        st.success("✅ API Connected")
+    else:
         st.error("❌ API Offline")
         st.caption("Start API: uvicorn src.api.app:app --reload")
 
@@ -330,48 +407,25 @@ if st.session_state.first_time_user and not st.session_state.dismissed_welcome:
             st.session_state.first_time_user = False
             st.rerun()
 
-# Quick Stats Dashboard
+# Quick Stats Dashboard - Using cached function (60 sec TTL)
 st.markdown("### 📊 Your Study Stats")
 stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
 
-try:
-    # Get progress data
-    progress_resp = requests.get(f"{API_BASE_URL}/study/progress", timeout=3)
-    flashcard_resp = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)
+notes_generated = len(st.session_state.get('note_history', []))
+study_stats = fetch_study_stats()
 
-    notes_generated = len(st.session_state.get('note_history', []))
-
-    if progress_resp.status_code == 200:
-        progress_data = progress_resp.json()
-        # Get stats from correct nested paths
-        overall_stats = progress_data.get('overall_stats', {})
-        streak_info = progress_data.get('streak', {})
-        total_flashcards = overall_stats.get('total_flashcards_reviewed', 0)
-        total_quizzes = overall_stats.get('total_quizzes_completed', 0)
-        current_streak = streak_info.get('current_streak', 0)
-    else:
-        total_flashcards = 0
-        total_quizzes = 0
-        current_streak = 0
-
-    if flashcard_resp.status_code == 200:
-        flashcard_data = flashcard_resp.json()
-        flashcard_sets = len(flashcard_data.get('sets', []))
-    else:
-        flashcard_sets = 0
-
+if study_stats:
     with stat_col1:
         st.metric("📝 Notes Generated", notes_generated)
     with stat_col2:
-        st.metric("🃏 Flashcard Sets", flashcard_sets)
+        st.metric("🃏 Flashcard Sets", study_stats['flashcard_sets'])
     with stat_col3:
-        st.metric("📋 Quizzes Taken", total_quizzes)
+        st.metric("📋 Quizzes Taken", study_stats['total_quizzes'])
     with stat_col4:
-        st.metric("🔥 Study Streak", f"{current_streak} days")
-
-except:
+        st.metric("🔥 Study Streak", f"{study_stats['current_streak']} days")
+else:
     with stat_col1:
-        st.metric("📝 Notes Generated", len(st.session_state.get('note_history', [])))
+        st.metric("📝 Notes Generated", notes_generated)
     with stat_col2:
         st.metric("🃏 Flashcard Sets", "—")
     with stat_col3:
@@ -437,53 +491,47 @@ with tab1:
 
         st.divider()
 
-    # Topic Suggestions
+    # Topic Suggestions - Using cached function (5 min TTL)
     st.markdown("#### 💡 Quick Topics from Knowledge Base")
-    try:
-        topics_resp = requests.get(f"{API_BASE_URL}/topics", timeout=3)
-        if topics_resp.status_code == 200:
-            topics_data = topics_resp.json()
-            if topics_data.get('topics'):
-                all_topics = topics_data['topics']
+    all_topics = fetch_topics()
 
-                # Featured/priority topics (commonly useful, shown first)
-                featured_topics = [
-                    "Machine Learning", "Deep Learning", "Neural Networks",
-                    "Natural Language Processing", "Python", "Data Science",
-                    "Statistics", "Artificial Intelligence"
-                ]
+    if all_topics:
+        # Featured/priority topics (commonly useful, shown first)
+        featured_topics = [
+            "Machine Learning", "Deep Learning", "Neural Networks",
+            "Natural Language Processing", "Python", "Data Science",
+            "Statistics", "Artificial Intelligence"
+        ]
 
-                # Build curated list: featured topics first, then others
-                curated_topics = []
-                remaining_topics = []
+        # Build curated list: featured topics first, then others
+        curated_topics = []
+        remaining_topics = []
 
-                for topic in all_topics:
-                    if topic in featured_topics and topic not in curated_topics:
-                        curated_topics.append(topic)
-                    elif topic not in featured_topics:
-                        remaining_topics.append(topic)
+        for topic in all_topics:
+            if topic in featured_topics and topic not in curated_topics:
+                curated_topics.append(topic)
+            elif topic not in featured_topics:
+                remaining_topics.append(topic)
 
-                # Sort featured by their priority order
-                curated_topics.sort(key=lambda x: featured_topics.index(x) if x in featured_topics else 999)
+        # Sort featured by their priority order
+        curated_topics.sort(key=lambda x: featured_topics.index(x) if x in featured_topics else 999)
 
-                # Add remaining topics to fill up to 8 total
-                max_topics = 8
-                if len(curated_topics) < max_topics:
-                    curated_topics.extend(remaining_topics[:max_topics - len(curated_topics)])
+        # Add remaining topics to fill up to 8 total
+        max_topics = 8
+        if len(curated_topics) < max_topics:
+            curated_topics.extend(remaining_topics[:max_topics - len(curated_topics)])
 
-                # Limit to max topics
-                topics = curated_topics[:max_topics]
+        # Limit to max topics
+        topics = curated_topics[:max_topics]
 
-                # Display as clickable chips
-                chip_cols = st.columns(4)
-                for idx, topic in enumerate(topics):
-                    col_idx = idx % 4
-                    with chip_cols[col_idx]:
-                        if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
-                            st.session_state.suggested_topic = topic
-                            st.rerun()
-    except:
-        pass
+        # Display as clickable chips
+        chip_cols = st.columns(4)
+        for idx, topic in enumerate(topics):
+            col_idx = idx % 4
+            with chip_cols[col_idx]:
+                if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
+                    st.session_state.suggested_topic = topic
+                    st.rerun()
 
     st.markdown("---")
 
