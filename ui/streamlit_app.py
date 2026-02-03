@@ -95,6 +95,60 @@ def fetch_study_stats():
 
 
 # =============================================================================
+# PHASE 2 - CACHED FUNCTIONS FOR STUDY MODE (Lazy Loading)
+# =============================================================================
+
+@st.cache_data(ttl=30)
+def fetch_flashcard_sets():
+    """Fetch flashcard sets - cached for 30 seconds.
+    Used by both 'Load Existing Set' and 'Export to Anki' sections.
+    Eliminates duplicate API calls within Flashcards sub-tab.
+    Returns list of sets or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
+        if response.status_code == 200:
+            return response.json().get('sets', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=30)
+def fetch_quizzes_list():
+    """Fetch quizzes list - cached for 30 seconds.
+    Used by 'Load Existing Quiz' section.
+    Returns list of quizzes or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=5)
+        if response.status_code == 200:
+            return response.json().get('quizzes', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=60)
+def fetch_detailed_progress():
+    """Fetch detailed study progress - cached for 60 seconds.
+    Returns full progress data for Progress Dashboard.
+    Includes: overall_stats, streak, topic_rankings, weekly_summary, recent_activities.
+    Returns dict or None on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/progress", timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except:
+        pass
+    return None
+
+
+# =============================================================================
 # PAGE CONFIGURATION
 # =============================================================================
 
@@ -1081,57 +1135,52 @@ with tab4:
 
             st.divider()
 
-            # Load existing flashcard sets
+            # Load existing flashcard sets - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Set")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['sets']:
-                        set_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in result['sets']}
-                        selected = st.selectbox("Select a set:", [""] + list(set_options.keys()))
-                        if selected and st.button("Load Set"):
-                            set_id = set_options[selected]
-                            resp = requests.get(f"{API_BASE_URL}/study/flashcards/sets/{set_id}")
-                            if resp.status_code == 200:
-                                st.session_state.current_flashcard_set = resp.json()['flashcard_set']
-                                st.session_state.current_card_index = 0
-                                st.session_state.show_answer = False
-                                st.rerun()
-                    else:
-                        st.info("No flashcard sets yet. Generate some!")
-            except:
-                pass
+            flashcard_sets = fetch_flashcard_sets()
+            if flashcard_sets:
+                set_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in flashcard_sets}
+                selected = st.selectbox("Select a set:", [""] + list(set_options.keys()))
+                if selected and st.button("Load Set"):
+                    set_id = set_options[selected]
+                    try:
+                        session = get_api_session()
+                        resp = session.get(f"{API_BASE_URL}/study/flashcards/sets/{set_id}")
+                        if resp.status_code == 200:
+                            st.session_state.current_flashcard_set = resp.json()['flashcard_set']
+                            st.session_state.current_card_index = 0
+                            st.session_state.show_answer = False
+                            st.rerun()
+                    except:
+                        st.error("Failed to load flashcard set")
+            else:
+                st.info("No flashcard sets yet. Generate some!")
 
             st.divider()
 
-            # Export to Anki
+            # Export to Anki - Reuses cached flashcard_sets (no duplicate API call)
             st.markdown("#### 📤 Export to Anki")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['sets']:
-                        # Export specific set
-                        st.markdown("**Export a specific set:**")
-                        export_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in result['sets']}
-                        selected_export = st.selectbox("Choose set to export:", [""] + list(export_options.keys()), key="export_select")
+            # Reuse the same cached data from fetch_flashcard_sets()
+            export_sets = fetch_flashcard_sets()
+            if export_sets:
+                # Export specific set
+                st.markdown("**Export a specific set:**")
+                export_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in export_sets}
+                selected_export = st.selectbox("Choose set to export:", [""] + list(export_options.keys()), key="export_select")
 
-                        if selected_export:
-                            set_id = export_options[selected_export]
-                            export_url = f"{API_BASE_URL}/study/flashcards/export/{set_id}/anki"
-                            st.markdown(f"[⬇️ Download {selected_export.split(' (')[0]} for Anki]({export_url})", unsafe_allow_html=False)
+                if selected_export:
+                    set_id = export_options[selected_export]
+                    export_url = f"{API_BASE_URL}/study/flashcards/export/{set_id}/anki"
+                    st.markdown(f"[⬇️ Download {selected_export.split(' (')[0]} for Anki]({export_url})", unsafe_allow_html=False)
 
-                        # Export all sets
-                        st.markdown("**Or export all sets:**")
-                        all_export_url = f"{API_BASE_URL}/study/flashcards/export/all/anki"
-                        total_cards = sum(s['card_count'] for s in result['sets'])
-                        st.markdown(f"[⬇️ Download All Flashcards ({total_cards} cards)]({all_export_url})", unsafe_allow_html=False)
-                        st.caption("💡 Import the .txt file into Anki to study anywhere!")
-                    else:
-                        st.info("No flashcards to export yet")
-            except:
-                pass
+                # Export all sets
+                st.markdown("**Or export all sets:**")
+                all_export_url = f"{API_BASE_URL}/study/flashcards/export/all/anki"
+                total_cards = sum(s['card_count'] for s in export_sets)
+                st.markdown(f"[⬇️ Download All Flashcards ({total_cards} cards)]({all_export_url})", unsafe_allow_html=False)
+                st.caption("💡 Import the .txt file into Anki to study anywhere!")
+            else:
+                st.info("No flashcards to export yet")
 
         with col2:
             st.markdown("#### Study Cards")
@@ -1296,31 +1345,30 @@ with tab4:
 
             st.divider()
 
-            # Load existing quizzes
+            # Load existing quizzes - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Quiz")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/quizzes", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['quizzes']:
-                        quiz_options = {f"{q['title']} ({q['question_count']} Q)": q['id'] for q in result['quizzes']}
-                        selected = st.selectbox("Select a quiz:", [""] + list(quiz_options.keys()), key="load_quiz")
-                        if selected and st.button("Load Quiz"):
-                            quiz_id = quiz_options[selected]
-                            resp = requests.get(f"{API_BASE_URL}/study/quizzes/{quiz_id}")
-                            if resp.status_code == 200:
-                                quiz_data = resp.json()['quiz']
-                                start_resp = requests.post(f"{API_BASE_URL}/study/quizzes/{quiz_id}/start")
-                                if start_resp.status_code == 200:
-                                    st.session_state.current_quiz = quiz_data
-                                    st.session_state.quiz_attempt_id = start_resp.json()['attempt_id']
-                                    st.session_state.quiz_answers = {}
-                                    st.session_state.quiz_submitted = False
-                                    st.rerun()
-                    else:
-                        st.info("No quizzes yet. Generate one!")
-            except:
-                pass
+            quizzes_list = fetch_quizzes_list()
+            if quizzes_list:
+                quiz_options = {f"{q['title']} ({q['question_count']} Q)": q['id'] for q in quizzes_list}
+                selected = st.selectbox("Select a quiz:", [""] + list(quiz_options.keys()), key="load_quiz")
+                if selected and st.button("Load Quiz"):
+                    quiz_id = quiz_options[selected]
+                    try:
+                        session = get_api_session()
+                        resp = session.get(f"{API_BASE_URL}/study/quizzes/{quiz_id}")
+                        if resp.status_code == 200:
+                            quiz_data = resp.json()['quiz']
+                            start_resp = session.post(f"{API_BASE_URL}/study/quizzes/{quiz_id}/start")
+                            if start_resp.status_code == 200:
+                                st.session_state.current_quiz = quiz_data
+                                st.session_state.quiz_attempt_id = start_resp.json()['attempt_id']
+                                st.session_state.quiz_answers = {}
+                                st.session_state.quiz_submitted = False
+                                st.rerun()
+                    except:
+                        st.error("Failed to load quiz")
+            else:
+                st.info("No quizzes yet. Generate one!")
 
         with col2:
             st.markdown("#### Quiz Questions")
@@ -1473,90 +1521,84 @@ with tab4:
             else:
                 st.info("Generate a quiz or load an existing one to start!")
 
-    # Progress Sub-tab
+    # Progress Sub-tab - Using cached function (60 sec TTL)
     with study_tab3:
         st.subheader("Study Progress Dashboard")
 
-        try:
-            response = requests.get(f"{API_BASE_URL}/study/progress", timeout=5)
+        progress = fetch_detailed_progress()
 
-            if response.status_code == 200:
-                progress = response.json()
+        if progress:
+            # Overall Stats
+            st.markdown("#### Overall Statistics")
+            stats = progress.get('overall_stats', {})
 
-                # Overall Stats
-                st.markdown("#### Overall Statistics")
-                stats = progress.get('overall_stats', {})
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Notes Generated", stats.get('total_notes_generated', 0))
+            with col2:
+                st.metric("Flashcards Reviewed", stats.get('total_flashcards_reviewed', 0))
+            with col3:
+                st.metric("Quizzes Completed", stats.get('total_quizzes_completed', 0))
+            with col4:
+                st.metric("Topics Studied", stats.get('topics_studied', 0))
 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Notes Generated", stats.get('total_notes_generated', 0))
-                with col2:
-                    st.metric("Flashcards Reviewed", stats.get('total_flashcards_reviewed', 0))
-                with col3:
-                    st.metric("Quizzes Completed", stats.get('total_quizzes_completed', 0))
-                with col4:
-                    st.metric("Topics Studied", stats.get('topics_studied', 0))
+            st.divider()
 
-                st.divider()
+            # Streak Information
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### 🔥 Study Streak")
+                streak = progress.get('streak', {})
+                st.metric("Current Streak", f"{streak.get('current_streak', 0)} days")
+                st.metric("Longest Streak", f"{streak.get('longest_streak', 0)} days")
 
-                # Streak Information
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("#### 🔥 Study Streak")
-                    streak = progress.get('streak', {})
-                    st.metric("Current Streak", f"{streak.get('current_streak', 0)} days")
-                    st.metric("Longest Streak", f"{streak.get('longest_streak', 0)} days")
+            with col2:
+                st.markdown("#### 📈 Accuracy")
+                st.metric("Flashcard Accuracy", f"{stats.get('flashcard_accuracy', 0):.1f}%")
+                st.metric("Quiz Accuracy", f"{stats.get('quiz_accuracy', 0):.1f}%")
 
-                with col2:
-                    st.markdown("#### 📈 Accuracy")
-                    st.metric("Flashcard Accuracy", f"{stats.get('flashcard_accuracy', 0):.1f}%")
-                    st.metric("Quiz Accuracy", f"{stats.get('quiz_accuracy', 0):.1f}%")
+            st.divider()
 
-                st.divider()
-
-                # Topic Rankings
-                st.markdown("#### 🏆 Topic Mastery")
-                rankings = progress.get('topic_rankings', [])
-                if rankings:
-                    for rank in rankings[:5]:
-                        col1, col2, col3 = st.columns([2, 1, 1])
-                        with col1:
-                            st.write(f"**{rank['topic']}**")
-                        with col2:
-                            st.write(f"Level: {rank['mastery_level']}")
-                        with col3:
-                            st.write(f"Notes: {rank['notes_generated']}")
-                else:
-                    st.info("No topics studied yet. Start learning!")
-
-                st.divider()
-
-                # Weekly Summary
-                st.markdown("#### 📅 This Week")
-                weekly = progress.get('weekly_summary', {})
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Notes This Week", weekly.get('notes_generated', 0))
-                with col2:
-                    st.metric("Flashcards Reviewed", weekly.get('flashcards_reviewed', 0))
-                with col3:
-                    st.metric("Active Days", f"{weekly.get('active_days', 0)}/7")
-
-                st.divider()
-
-                # Recent Activities
-                st.markdown("#### 📝 Recent Activity")
-                activities = progress.get('recent_activities', [])
-                if activities:
-                    for act in activities[:5]:
-                        st.text(f"• {act.get('summary', 'Activity')} - {act.get('timestamp', '')[:10]}")
-                else:
-                    st.info("No recent activity")
+            # Topic Rankings
+            st.markdown("#### 🏆 Topic Mastery")
+            rankings = progress.get('topic_rankings', [])
+            if rankings:
+                for rank in rankings[:5]:
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        st.write(f"**{rank['topic']}**")
+                    with col2:
+                        st.write(f"Level: {rank['mastery_level']}")
+                    with col3:
+                        st.write(f"Notes: {rank['notes_generated']}")
             else:
-                st.error("Could not load progress data")
+                st.info("No topics studied yet. Start learning!")
 
-        except Exception as e:
-            st.error(f"Error loading progress: {str(e)}")
+            st.divider()
+
+            # Weekly Summary
+            st.markdown("#### 📅 This Week")
+            weekly = progress.get('weekly_summary', {})
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Notes This Week", weekly.get('notes_generated', 0))
+            with col2:
+                st.metric("Flashcards Reviewed", weekly.get('flashcards_reviewed', 0))
+            with col3:
+                st.metric("Active Days", f"{weekly.get('active_days', 0)}/7")
+
+            st.divider()
+
+            # Recent Activities
+            st.markdown("#### 📝 Recent Activity")
+            activities = progress.get('recent_activities', [])
+            if activities:
+                for act in activities[:5]:
+                    st.text(f"• {act.get('summary', 'Activity')} - {act.get('timestamp', '')[:10]}")
+            else:
+                st.info("No recent activity")
+        else:
+            st.error("Could not load progress data")
             st.info("Make sure the API server is running")
 
 # Footer
