@@ -209,6 +209,25 @@ class LLMClient:
 
         logger.info(f"Building prompt for style='{style}', output_length='{actual_length}', text_length={len(text)} chars")
 
+        # Optimize max_tokens based on style and output_length (Phase 3 optimization)
+        # This reduces token generation time significantly
+        if style == "important_points":
+            optimized_max_tokens = 1500  # 8-12 numbered points don't need 3072
+        elif style == "key_highlights":
+            optimized_max_tokens = 1500  # Bullet definitions are concise
+        elif style == "paragraph_summary":
+            # Vary based on requested output length
+            tokens_by_length = {
+                "brief": 512,
+                "medium": 1024,
+                "detailed": 2048
+            }
+            optimized_max_tokens = tokens_by_length.get(actual_length, 2048)
+        else:
+            optimized_max_tokens = max_length  # Fallback to passed value
+
+        logger.info(f"Optimized max_tokens: {optimized_max_tokens} (style={style}, length={actual_length})")
+
         # Build prompt based on style
         if style == "key_highlights":
             # KEY HIGHLIGHTS: Key terms, terminology, topics with very brief descriptions
@@ -395,10 +414,10 @@ CONTENT TO SUMMARIZE:
 NOW write the paragraph summary (flowing prose, no bullets, follow the length requirement):"""
 
         try:
-            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, Prompt length: {len(prompt)} chars")
+            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, max_tokens: {optimized_max_tokens}, Prompt length: {len(prompt)} chars")
             result = self.generate(
                 prompt=prompt,
-                max_tokens=max_length,
+                max_tokens=optimized_max_tokens,  # Use optimized value instead of max_length
                 temperature=0.7,
                 system_prompt=system_prompt
             )
