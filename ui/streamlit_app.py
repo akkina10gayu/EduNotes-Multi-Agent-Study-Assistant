@@ -51,7 +51,7 @@ def fetch_topics():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/topics", timeout=3)
+        response = session.get(f"{API_BASE_URL}/topics", timeout=2)  # Phase 4: reduced from 3s
         if response.status_code == 200:
             return response.json().get('topics', [])
     except:
@@ -67,8 +67,8 @@ def fetch_study_stats():
     """
     try:
         session = get_api_session()
-        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=3)
-        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)
+        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=2)  # Phase 4: reduced from 3s
+        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=2)  # Phase 4: reduced from 3s
 
         result = {
             'total_flashcards': 0,
@@ -107,7 +107,7 @@ def fetch_flashcard_sets():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
+        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)  # Phase 4: reduced from 5s
         if response.status_code == 200:
             return response.json().get('sets', [])
     except:
@@ -123,7 +123,7 @@ def fetch_quizzes_list():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=5)
+        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=3)  # Phase 4: reduced from 5s
         if response.status_code == 200:
             return response.json().get('quizzes', [])
     except:
@@ -140,7 +140,23 @@ def fetch_detailed_progress():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/progress", timeout=5)
+        response = session.get(f"{API_BASE_URL}/study/progress", timeout=3)  # Phase 4: reduced from 5s
+        if response.status_code == 200:
+            return response.json()
+    except:
+        pass
+    return None
+
+
+@st.cache_data(ttl=120)
+def fetch_system_stats():
+    """Fetch system stats - cached for 2 minutes (Phase 4 optimization).
+    System stats rarely change, so longer cache is appropriate.
+    Returns dict or None on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/stats", timeout=2)
         if response.status_code == 200:
             return response.json()
     except:
@@ -284,46 +300,39 @@ with st.sidebar:
 
     st.divider()
 
-    # System Stats - Using expander (no rerun, no content loss)
+    # System Stats - Using expander with cached function (Phase 4 optimization)
     with st.expander("📊 System Stats", expanded=False):
-        try:
-            response = requests.get(f"{API_BASE_URL}/stats", timeout=3)
-            if response.status_code == 200:
-                stats = response.json()
+        stats = fetch_system_stats()  # Uses cached function (2 min TTL)
 
-                # LLM Info - Read directly from environment variables for accurate display
-                use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+        if stats:
+            # LLM Info - Read directly from environment variables for accurate display
+            use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 
-                st.markdown("**🧠 LLM Model**")
-                if use_local_env:
-                    st.markdown("- Mode: 🖥️ Local (Offline)")
-                    st.markdown("- Model: Flan-T5")
-                else:
-                    st.markdown("- Mode: ☁️ Cloud API")
-                    st.markdown("- Provider: Groq")
-                    st.markdown("- Model: Llama-3.3-70B")
+            st.markdown("**🧠 LLM Model**")
+            if use_local_env:
+                st.markdown("- Mode: 🖥️ Local (Offline)")
+                st.markdown("- Model: Flan-T5")
+            else:
+                st.markdown("- Mode: ☁️ Cloud API")
+                st.markdown("- Provider: Groq")
+                st.markdown("- Model: Llama-3.3-70B")
 
-                # KB Info
-                kb_stats = stats.get('knowledge_base', {})
-                st.markdown("**📚 Knowledge Base**")
-                st.markdown(f"- Documents: {kb_stats.get('total_documents', 0):,}")
-                st.markdown(f"- Collection: {kb_stats.get('collection_name', 'N/A')}")
+            # KB Info
+            kb_stats = stats.get('knowledge_base', {})
+            st.markdown("**📚 Knowledge Base**")
+            st.markdown(f"- Documents: {kb_stats.get('total_documents', 0):,}")
+            st.markdown(f"- Collection: {kb_stats.get('collection_name', 'N/A')}")
 
-                # Agents Info
-                st.markdown("**🤖 AI Agents**")
-                agents = stats.get('agents', {})
-                for agent_name, status in agents.items():
-                    status_icon = "🟢" if status == "active" else "🔴"
-                    agent_display = agent_name.replace('_', ' ').title()
-                    st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
-
-        except requests.exceptions.ConnectionError:
-            st.error("⚠️ API Server Not Running")
-            st.caption("Run: uvicorn src.api.app:app --reload")
-        except requests.exceptions.Timeout:
-            st.error("⏱️ Request Timeout")
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)[:50]}")
+            # Agents Info
+            st.markdown("**🤖 AI Agents**")
+            agents = stats.get('agents', {})
+            for agent_name, status in agents.items():
+                status_icon = "🟢" if status == "active" else "🔴"
+                agent_display = agent_name.replace('_', ' ').title()
+                st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
+        else:
+            st.warning("⚠️ Could not load system stats")
+            st.caption("API may be offline. Run: uvicorn src.api.app:app --reload")
 
     st.divider()
 
