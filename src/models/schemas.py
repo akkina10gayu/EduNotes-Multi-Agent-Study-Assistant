@@ -22,6 +22,8 @@ class GenerateNotesResponse(BaseModel):
     from_kb: bool
     error: Optional[str] = None
     message: Optional[str] = None
+    source_file: Optional[str] = None  # PDF filename if from PDF
+    extracted_text: Optional[str] = None  # Phase 5: Extracted text for caching
 
 class UpdateKBRequest(BaseModel):
     """Request model for updating knowledge base"""

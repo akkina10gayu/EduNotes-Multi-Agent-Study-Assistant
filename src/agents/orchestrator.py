@@ -64,12 +64,13 @@ class Orchestrator:
                 # Extract content from results
                 documents = [doc['content'] for doc in retrieval_result['results']]
 
-                # Remove duplicate sources by URL
+                # Remove duplicate sources by URL - filter out empty/invalid URLs
                 seen_urls = set()
                 sources = []
                 for doc in retrieval_result['results']:
-                    url = doc['metadata'].get('url', '#')
-                    if url not in seen_urls and url != '#':
+                    url = doc['metadata'].get('url', '')
+                    # Only include sources with valid, non-empty URLs that start with http
+                    if url and url not in seen_urls and url.startswith(('http://', 'https://')):
                         seen_urls.add(url)
                         sources.append({
                             'title': doc['metadata'].get('title', 'Unknown'),
