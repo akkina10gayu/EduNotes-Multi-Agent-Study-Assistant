@@ -209,6 +209,25 @@ class LLMClient:
 
         logger.info(f"Building prompt for style='{style}', output_length='{actual_length}', text_length={len(text)} chars")
 
+        # Optimize max_tokens based on style and output_length (Phase 3 optimization)
+        # This reduces token generation time significantly
+        if style == "important_points":
+            optimized_max_tokens = 1500  # 8-12 numbered points don't need 3072
+        elif style == "key_highlights":
+            optimized_max_tokens = 1500  # Bullet definitions are concise
+        elif style == "paragraph_summary":
+            # Vary based on requested output length
+            tokens_by_length = {
+                "brief": 512,
+                "medium": 1024,
+                "detailed": 2048
+            }
+            optimized_max_tokens = tokens_by_length.get(actual_length, 2048)
+        else:
+            optimized_max_tokens = max_length  # Fallback to passed value
+
+        logger.info(f"Optimized max_tokens: {optimized_max_tokens} (style={style}, length={actual_length})")
+
         # Build prompt based on style
         if style == "key_highlights":
             # KEY HIGHLIGHTS: Key terms, terminology, topics with very brief descriptions
@@ -261,17 +280,22 @@ START WITH "•" NOW (no introduction):"""
 
         elif style == "important_points":
             # IMPORTANT POINTS: Independent key points, numbered, no duplicates
-            system_prompt = """You are an expert at extracting key information. You ONLY output numbered lists. You NEVER write introductions, headers, or explanations. You start your response directly with "1." and continue with numbered points only."""
+            system_prompt = """You are an expert at extracting key information. You ONLY output numbered lists. You NEVER write introductions, headers, or explanations. You create your own fresh numbering starting from 1, completely ignoring any existing numbers in the source. You start your response directly with "1." and continue with numbered points only."""
 
             prompt = f"""Extract the important points from this content as a numbered list.
 
 CRITICAL RULES:
 - START YOUR RESPONSE DIRECTLY WITH "1." - no introduction, no headers, no preamble
+- IGNORE any existing numbering, section numbers, or list numbers in the source content
+- Create YOUR OWN fresh numbering: 1, 2, 3, 4... (independent of source)
 - ONLY output numbered points (1. 2. 3. etc.)
 - Each point: 1-3 sentences, independent, self-contained
 - NO duplicates - each point must be unique information
 - Extract 8-12 points
 - DO NOT write any text before "1." or after the last point
+
+IMPORTANT: The source content may have its own numbered sections (like "Section 1", "Chapter 2", etc.).
+COMPLETELY IGNORE those numbers. Your output numbering is SEPARATE and must start from 1.
 
 OUTPUT FORMAT (START EXACTLY LIKE THIS):
 1. [First point here]
@@ -281,12 +305,13 @@ OUTPUT FORMAT (START EXACTLY LIKE THIS):
 3. [Third point here]
 
 WRONG (DO NOT DO THIS):
-"Here are the important points:"
-"The key points from this content are:"
-"Important Points:"
-[Any text before the numbered list is WRONG]
+- Starting from 13. or any number other than 1.
+- "Here are the important points:"
+- "The key points from this content are:"
+- Continuing numbering from the source document
+[Any text before "1." is WRONG]
 
-CORRECT (DO THIS):
+CORRECT (DO THIS - always start from 1):
 1. Machine learning algorithms improve their performance automatically through experience, without being explicitly programmed for specific tasks.
 
 2. Supervised learning requires labeled training data where each input is paired with the correct output.
@@ -298,7 +323,8 @@ CONTENT:
 {text}
 
 ---
-START YOUR RESPONSE WITH "1." NOW:"""
+YOUR NUMBERED LIST (start fresh from 1, ignore any numbers in the content above):
+1."""
 
         else:  # paragraph_summary (default)
             # PARAGRAPH SUMMARY: Overview in flowing paragraphs with length control
@@ -388,10 +414,10 @@ CONTENT TO SUMMARIZE:
 NOW write the paragraph summary (flowing prose, no bullets, follow the length requirement):"""
 
         try:
-            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, Prompt length: {len(prompt)} chars")
+            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, max_tokens: {optimized_max_tokens}, Prompt length: {len(prompt)} chars")
             result = self.generate(
                 prompt=prompt,
-                max_tokens=max_length,
+                max_tokens=optimized_max_tokens,  # Use optimized value instead of max_length
                 temperature=0.7,
                 system_prompt=system_prompt
             )

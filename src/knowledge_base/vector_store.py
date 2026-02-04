@@ -9,11 +9,15 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
+import time
 
 from config import settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Cache TTL for topics (5 minutes) - Phase 3 optimization
+TOPICS_CACHE_TTL = 300
 
 class VectorStore:
     """Manages ChromaDB vector store for document embeddings"""
@@ -70,6 +74,10 @@ class VectorStore:
             persist_directory=str(settings.CHROMA_PERSIST_DIR),
             client=self.client
         )
+
+        # Topics cache (Phase 3 optimization)
+        self._topics_cache = None
+        self._topics_cache_time = 0
     
     def add_documents(self, documents: List[Dict[str, Any]], batch_size: int = None) -> bool:
         """Add documents to vector store"""
@@ -110,8 +118,14 @@ class VectorStore:
             
             # Persist changes
             self.vectorstore.persist()
+
+            # Invalidate topics cache (Phase 3 optimization)
+            self._topics_cache = None
+            self._topics_cache_time = 0
+            logger.debug("Topics cache invalidated after adding documents")
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error adding documents: {e}")
             return False
@@ -167,12 +181,23 @@ class VectorStore:
             return {}
 
     def get_unique_topics(self) -> List[str]:
-        """Get list of unique topics from the knowledge base"""
+        """Get list of unique topics from the knowledge base (with caching)"""
         try:
+            # Phase 3 optimization: Check cache first
+            current_time = time.time()
+            if self._topics_cache is not None and (current_time - self._topics_cache_time) < TOPICS_CACHE_TTL:
+                logger.debug(f"Returning cached topics ({len(self._topics_cache)} topics)")
+                return self._topics_cache
+
+            # Cache miss or expired - fetch from database
+            logger.info("Topics cache miss/expired, fetching from database...")
+
             # Get all documents with metadata
             results = self.collection.get()
 
             if not results or not results.get('metadatas'):
+                self._topics_cache = []
+                self._topics_cache_time = current_time
                 return []
 
             # Extract unique topics
@@ -187,7 +212,12 @@ class VectorStore:
 
             # Sort alphabetically
             sorted_topics = sorted(list(topics))
-            logger.info(f"Found {len(sorted_topics)} unique topics in KB")
+
+            # Update cache
+            self._topics_cache = sorted_topics
+            self._topics_cache_time = current_time
+
+            logger.info(f"Found {len(sorted_topics)} unique topics in KB (cached for {TOPICS_CACHE_TTL}s)")
             return sorted_topics
 
         except Exception as e:

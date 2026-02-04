@@ -14,6 +14,162 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# API configuration (defined early for cached functions)
+API_BASE_URL = "http://localhost:8000/api/v1"
+
+# =============================================================================
+# CACHED FUNCTIONS FOR PERFORMANCE OPTIMIZATION (Phase 1)
+# =============================================================================
+
+@st.cache_resource
+def get_api_session():
+    """Create a reusable requests session for connection pooling.
+    This reduces TCP handshake overhead for multiple API calls.
+    """
+    session = requests.Session()
+    return session
+
+
+@st.cache_data(ttl=30)
+def check_api_health():
+    """Check if API is healthy - cached for 30 seconds.
+    Reduces health check calls from every rerun to once per 30 seconds.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/health", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
+@st.cache_data(ttl=300)
+def fetch_topics():
+    """Fetch topics from API - cached for 5 minutes.
+    Topics rarely change, so 5 minute cache is appropriate.
+    Returns list of topic strings or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/topics", timeout=2)  # Phase 4: reduced from 3s
+        if response.status_code == 200:
+            return response.json().get('topics', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=60)
+def fetch_study_stats():
+    """Fetch study progress and flashcard stats - cached for 60 seconds.
+    Combines two API calls into one cached result.
+    Returns dict with stats or None on failure.
+    """
+    try:
+        session = get_api_session()
+        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=2)  # Phase 4: reduced from 3s
+        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=2)  # Phase 4: reduced from 3s
+
+        result = {
+            'total_flashcards': 0,
+            'total_quizzes': 0,
+            'current_streak': 0,
+            'longest_streak': 0,
+            'flashcard_sets': 0
+        }
+
+        if progress_resp.status_code == 200:
+            progress_data = progress_resp.json()
+            overall_stats = progress_data.get('overall_stats', {})
+            streak_info = progress_data.get('streak', {})
+            result['total_flashcards'] = overall_stats.get('total_flashcards_reviewed', 0)
+            result['total_quizzes'] = overall_stats.get('total_quizzes_completed', 0)
+            result['current_streak'] = streak_info.get('current_streak', 0)
+            result['longest_streak'] = streak_info.get('longest_streak', 0)
+
+        if flashcard_resp.status_code == 200:
+            flashcard_data = flashcard_resp.json()
+            result['flashcard_sets'] = len(flashcard_data.get('sets', []))
+
+        return result
+    except:
+        return None
+
+
+# =============================================================================
+# PHASE 2 - CACHED FUNCTIONS FOR STUDY MODE (Lazy Loading)
+# =============================================================================
+
+@st.cache_data(ttl=30)
+def fetch_flashcard_sets():
+    """Fetch flashcard sets - cached for 30 seconds.
+    Used by both 'Load Existing Set' and 'Export to Anki' sections.
+    Eliminates duplicate API calls within Flashcards sub-tab.
+    Returns list of sets or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)  # Phase 4: reduced from 5s
+        if response.status_code == 200:
+            return response.json().get('sets', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=30)
+def fetch_quizzes_list():
+    """Fetch quizzes list - cached for 30 seconds.
+    Used by 'Load Existing Quiz' section.
+    Returns list of quizzes or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=3)  # Phase 4: reduced from 5s
+        if response.status_code == 200:
+            return response.json().get('quizzes', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=60)
+def fetch_detailed_progress():
+    """Fetch detailed study progress - cached for 60 seconds.
+    Returns full progress data for Progress Dashboard.
+    Includes: overall_stats, streak, topic_rankings, weekly_summary, recent_activities.
+    Returns dict or None on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/study/progress", timeout=3)  # Phase 4: reduced from 5s
+        if response.status_code == 200:
+            return response.json()
+    except:
+        pass
+    return None
+
+
+@st.cache_data(ttl=120)
+def fetch_system_stats():
+    """Fetch system stats - cached for 2 minutes (Phase 4 optimization).
+    System stats rarely change, so longer cache is appropriate.
+    Returns dict or None on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/stats", timeout=2)
+        if response.status_code == 200:
+            return response.json()
+    except:
+        pass
+    return None
+
+
+# =============================================================================
+# PAGE CONFIGURATION
+# =============================================================================
+
 # Page configuration
 st.set_page_config(
     page_title="EduNotes - Study Assistant",
@@ -21,9 +177,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# API configuration
-API_BASE_URL = "http://localhost:8000/api/v1"
 
 # Initialize session state for note history and UI controls
 if 'note_history' not in st.session_state:
@@ -54,6 +207,14 @@ if 'last_llm_provider' not in st.session_state:
     st.session_state.last_llm_provider = None  # Track last used LLM provider
 if 'last_llm_model' not in st.session_state:
     st.session_state.last_llm_model = None  # Track last used LLM model
+
+# Phase 5: PDF caching - store last processed PDF to avoid re-extraction
+if 'last_pdf_name' not in st.session_state:
+    st.session_state.last_pdf_name = None
+if 'last_pdf_size' not in st.session_state:
+    st.session_state.last_pdf_size = None
+if 'last_pdf_text' not in st.session_state:
+    st.session_state.last_pdf_text = None  # Extracted text from PDF
 
 # Font size mapping
 font_sizes = {
@@ -121,14 +282,10 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    # API Status Check - Simple connection status
-    try:
-        response = requests.get(f"{API_BASE_URL}/health", timeout=2)
-        if response.status_code == 200:
-            st.success("✅ API Connected")
-        else:
-            st.error("❌ API Error")
-    except:
+    # API Status Check - Using cached function (30 sec TTL)
+    if check_api_health():
+        st.success("✅ API Connected")
+    else:
         st.error("❌ API Offline")
         st.caption("Start API: uvicorn src.api.app:app --reload")
 
@@ -153,102 +310,66 @@ with st.sidebar:
 
     st.divider()
 
-    # System Stats - Using expander (no rerun, no content loss)
+    # System Stats - Using expander with cached function (Phase 4 optimization)
     with st.expander("📊 System Stats", expanded=False):
-        try:
-            response = requests.get(f"{API_BASE_URL}/stats", timeout=3)
-            if response.status_code == 200:
-                stats = response.json()
+        stats = fetch_system_stats()  # Uses cached function (2 min TTL)
 
-                # LLM Info - Read directly from environment variables for accurate display
-                use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+        if stats:
+            # LLM Info - Read directly from environment variables for accurate display
+            use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 
-                st.markdown("**🧠 LLM Model**")
-                if use_local_env:
-                    st.markdown("- Mode: 🖥️ Local (Offline)")
-                    st.markdown("- Model: Flan-T5")
-                else:
-                    st.markdown("- Mode: ☁️ Cloud API")
-                    st.markdown("- Provider: Groq")
-                    st.markdown("- Model: Llama-3.3-70B")
+            st.markdown("**🧠 LLM Model**")
+            if use_local_env:
+                st.markdown("- Mode: 🖥️ Local (Offline)")
+                st.markdown("- Model: Flan-T5")
+            else:
+                st.markdown("- Mode: ☁️ Cloud API")
+                st.markdown("- Provider: Groq")
+                st.markdown("- Model: Llama-3.3-70B")
 
-                # KB Info
-                kb_stats = stats.get('knowledge_base', {})
-                st.markdown("**📚 Knowledge Base**")
-                st.markdown(f"- Documents: {kb_stats.get('total_documents', 0):,}")
-                st.markdown(f"- Collection: {kb_stats.get('collection_name', 'N/A')}")
+            # KB Info
+            kb_stats = stats.get('knowledge_base', {})
+            st.markdown("**📚 Knowledge Base**")
+            st.markdown(f"- Documents: {kb_stats.get('total_documents', 0):,}")
+            st.markdown(f"- Collection: {kb_stats.get('collection_name', 'N/A')}")
 
-                # Agents Info
-                st.markdown("**🤖 AI Agents**")
-                agents = stats.get('agents', {})
-                for agent_name, status in agents.items():
-                    status_icon = "🟢" if status == "active" else "🔴"
-                    agent_display = agent_name.replace('_', ' ').title()
-                    st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
-
-        except requests.exceptions.ConnectionError:
-            st.error("⚠️ API Server Not Running")
-            st.caption("Run: uvicorn src.api.app:app --reload")
-        except requests.exceptions.Timeout:
-            st.error("⏱️ Request Timeout")
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)[:50]}")
+            # Agents Info
+            st.markdown("**🤖 AI Agents**")
+            agents = stats.get('agents', {})
+            for agent_name, status in agents.items():
+                status_icon = "🟢" if status == "active" else "🔴"
+                agent_display = agent_name.replace('_', ' ').title()
+                st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
+        else:
+            st.warning("⚠️ Could not load system stats")
+            st.caption("API may be offline. Run: uvicorn src.api.app:app --reload")
 
     st.divider()
 
-    # Note History - Collapsible with scrollable container
+    # Note History - Collapsible with native Streamlit components
     with st.expander("📜 Note History", expanded=False):
         if st.session_state.note_history:
-            st.markdown(f"*Last {len(st.session_state.note_history)} notes*")
-            # Scrollable container for history items (180px height, ~3 items visible)
-            st.markdown("""
-            <style>
-            .history-scroll-container {
-                max-height: 180px;
-                overflow-y: auto;
-                padding-right: 10px;
-            }
-            .history-scroll-container::-webkit-scrollbar {
-                width: 6px;
-            }
-            .history-scroll-container::-webkit-scrollbar-track {
-                background: #1E1E1E;
-                border-radius: 3px;
-            }
-            .history-scroll-container::-webkit-scrollbar-thumb {
-                background: #4A4A4A;
-                border-radius: 3px;
-            }
-            .history-scroll-container::-webkit-scrollbar-thumb:hover {
-                background: #6A6A6A;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            st.caption(f"Last {len(st.session_state.note_history)} notes")
 
-            # Create scrollable container
-            history_html = '<div class="history-scroll-container">'
+            # Display history items using native Streamlit (most recent first)
             for idx, note_item in enumerate(reversed(st.session_state.note_history)):
-                history_html += f'''
-                <details style="margin-bottom: 8px; background: #2D2D2D; padding: 8px; border-radius: 5px; border-left: 3px solid #6CA0DC;">
-                    <summary style="cursor: pointer; font-weight: 500;">{note_item['timestamp']} - {note_item['query'][:30]}...</summary>
-                    <div style="padding: 8px 0; font-size: 0.9em;">
-                        <p><strong>Query:</strong> {note_item['query'][:100]}...</p>
-                        <p><strong>Type:</strong> {note_item['type']}</p>
-                    </div>
-                </details>
-                '''
-            history_html += '</div>'
-            st.markdown(history_html, unsafe_allow_html=True)
+                # Truncate query for display
+                query_short = note_item['query'][:35] + "..." if len(note_item['query']) > 35 else note_item['query']
+                type_icon = {"topic": "🎯", "url": "🔗", "text": "📄", "pdf": "📑"}.get(note_item['type'], "📝")
 
-            # View buttons need to be outside HTML for Streamlit interactivity
-            st.markdown("---")
-            st.markdown("**Quick View:**")
-            cols = st.columns(3)
-            for idx, note_item in enumerate(reversed(st.session_state.note_history[:3])):
-                with cols[idx % 3]:
-                    if st.button(f"📄 {idx+1}", key=f"history_btn_{idx}", help=f"View: {note_item['query'][:20]}..."):
+                # Create a compact display for each history item
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"**{type_icon} {query_short}**")
+                    st.caption(f"{note_item['timestamp']} • {note_item['type'].upper()}")
+                with col2:
+                    if st.button("View", key=f"history_view_{idx}", use_container_width=True):
                         st.session_state.selected_history = note_item
                         st.rerun()
+
+                # Add separator between items (except last)
+                if idx < len(st.session_state.note_history) - 1:
+                    st.markdown("---")
         else:
             st.info("📝 No notes yet. Generate a note to see it here!")
 
@@ -330,54 +451,35 @@ if st.session_state.first_time_user and not st.session_state.dismissed_welcome:
             st.session_state.first_time_user = False
             st.rerun()
 
-# Quick Stats Dashboard
+# Quick Stats Dashboard - Using cached function (60 sec TTL)
 st.markdown("### 📊 Your Study Stats")
 stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
 
-try:
-    # Get progress data
-    progress_resp = requests.get(f"{API_BASE_URL}/study/progress", timeout=3)
-    flashcard_resp = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)
+notes_generated = len(st.session_state.get('note_history', []))
+study_stats = fetch_study_stats()
 
-    notes_generated = len(st.session_state.get('note_history', []))
-
-    if progress_resp.status_code == 200:
-        progress_data = progress_resp.json()
-        # Get stats from correct nested paths
-        overall_stats = progress_data.get('overall_stats', {})
-        streak_info = progress_data.get('streak', {})
-        total_flashcards = overall_stats.get('total_flashcards_reviewed', 0)
-        total_quizzes = overall_stats.get('total_quizzes_completed', 0)
-        current_streak = streak_info.get('current_streak', 0)
-    else:
-        total_flashcards = 0
-        total_quizzes = 0
-        current_streak = 0
-
-    if flashcard_resp.status_code == 200:
-        flashcard_data = flashcard_resp.json()
-        flashcard_sets = len(flashcard_data.get('sets', []))
-    else:
-        flashcard_sets = 0
-
+if study_stats:
     with stat_col1:
-        st.metric("📝 Notes Generated", notes_generated)
+        st.metric("📝 Notes", notes_generated, help="Session")
     with stat_col2:
-        st.metric("🃏 Flashcard Sets", flashcard_sets)
+        st.metric("🃏 Flashcards", study_stats['flashcard_sets'], help="Total sets")
     with stat_col3:
-        st.metric("📋 Quizzes Taken", total_quizzes)
+        st.metric("📋 Quizzes", study_stats['total_quizzes'], help="Total taken")
     with stat_col4:
-        st.metric("🔥 Study Streak", f"{current_streak} days")
-
-except:
+        # Show current streak with best streak as delta indicator
+        current = study_stats['current_streak']
+        best = study_stats['longest_streak']
+        streak_display = f"{current}" if current == best else f"{current}"
+        st.metric("🔥 Streak", f"{streak_display} days", delta=f"Best: {best}", delta_color="off")
+else:
     with stat_col1:
-        st.metric("📝 Notes Generated", len(st.session_state.get('note_history', [])))
+        st.metric("📝 Notes", notes_generated, help="Session")
     with stat_col2:
-        st.metric("🃏 Flashcard Sets", "—")
+        st.metric("🃏 Flashcards", "—", help="Total sets")
     with stat_col3:
-        st.metric("📋 Quizzes Taken", "—")
+        st.metric("📋 Quizzes", "—", help="Total taken")
     with stat_col4:
-        st.metric("🔥 Study Streak", "—")
+        st.metric("🔥 Streak", "— days", delta="Best: —", delta_color="off")
 
 st.divider()
 
@@ -388,102 +490,56 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "🔍 Search Knowledge 
 with tab1:
     st.header("Generate Study Notes")
 
-    # Show selected history note if any
-    if 'selected_history' in st.session_state and st.session_state.selected_history:
-        hist = st.session_state.selected_history
-        st.info(f"📜 Viewing note from history: {hist['timestamp']}")
+    # Topic Suggestions - Using cached function (5 min TTL)
+    st.markdown("#### 💡 Quick Topics")
 
-        # Display metadata
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Query Type", hist['type'].upper())
-        with col2:
-            st.metric("Sources Used", hist['sources_used'])
-        with col3:
-            st.metric("From KB", "Yes" if hist['from_kb'] else "No")
+    # Initialize show_more_topics state
+    if 'show_more_topics' not in st.session_state:
+        st.session_state.show_more_topics = False
 
-        # Display notes
-        st.markdown("### 📚 Historical Note")
-        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
-        st.markdown(hist['notes'])
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Default popular topics (always available as fallback)
+    default_topics = [
+        "Machine Learning", "Deep Learning", "Neural Networks",
+        "Natural Language Processing", "Python", "Data Science",
+        "Statistics", "Artificial Intelligence"
+    ]
 
-        # Action buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.download_button(
-                label="📥 Download",
-                data=hist['notes'],
-                file_name=f"notes_history_{hist['timestamp'].replace(':', '-')}.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
-        with col2:
-            if st.button("📋 Copy", use_container_width=True, key="copy_history"):
-                st.session_state.show_copy_box_history = True
-        with col3:
-            if st.button("🔄 New Query", use_container_width=True):
-                st.session_state.selected_history = None
+    # Fetch topics from KB (cached)
+    kb_topics = fetch_topics()
+
+    # Merge: KB topics first, then fill with defaults (no duplicates)
+    all_topics = []
+    seen = set()
+    for topic in kb_topics + default_topics:
+        if topic not in seen:
+            all_topics.append(topic)
+            seen.add(topic)
+
+    # Determine how many to show (4 default, 8 if expanded)
+    initial_count = 4
+    expanded_count = 8
+    show_count = expanded_count if st.session_state.show_more_topics else initial_count
+    topics_to_show = all_topics[:show_count]
+
+    # Display as clickable chips
+    chip_cols = st.columns(4)
+    for idx, topic in enumerate(topics_to_show):
+        col_idx = idx % 4
+        with chip_cols[col_idx]:
+            if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
+                st.session_state.suggested_topic = topic
                 st.rerun()
 
-        # Show copyable text area
-        if st.session_state.get('show_copy_box_history', False):
-            st.text_area(
-                "Copy this text:",
-                value=hist['notes'],
-                height=150,
-                key="copy_history_text"
-            )
-
-        st.divider()
-
-    # Topic Suggestions
-    st.markdown("#### 💡 Quick Topics from Knowledge Base")
-    try:
-        topics_resp = requests.get(f"{API_BASE_URL}/topics", timeout=3)
-        if topics_resp.status_code == 200:
-            topics_data = topics_resp.json()
-            if topics_data.get('topics'):
-                all_topics = topics_data['topics']
-
-                # Featured/priority topics (commonly useful, shown first)
-                featured_topics = [
-                    "Machine Learning", "Deep Learning", "Neural Networks",
-                    "Natural Language Processing", "Python", "Data Science",
-                    "Statistics", "Artificial Intelligence"
-                ]
-
-                # Build curated list: featured topics first, then others
-                curated_topics = []
-                remaining_topics = []
-
-                for topic in all_topics:
-                    if topic in featured_topics and topic not in curated_topics:
-                        curated_topics.append(topic)
-                    elif topic not in featured_topics:
-                        remaining_topics.append(topic)
-
-                # Sort featured by their priority order
-                curated_topics.sort(key=lambda x: featured_topics.index(x) if x in featured_topics else 999)
-
-                # Add remaining topics to fill up to 8 total
-                max_topics = 8
-                if len(curated_topics) < max_topics:
-                    curated_topics.extend(remaining_topics[:max_topics - len(curated_topics)])
-
-                # Limit to max topics
-                topics = curated_topics[:max_topics]
-
-                # Display as clickable chips
-                chip_cols = st.columns(4)
-                for idx, topic in enumerate(topics):
-                    col_idx = idx % 4
-                    with chip_cols[col_idx]:
-                        if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
-                            st.session_state.suggested_topic = topic
-                            st.rerun()
-    except:
-        pass
+    # Show more/less button if there are more topics
+    if len(all_topics) > initial_count:
+        if st.session_state.show_more_topics:
+            if st.button("Show less", key="show_less_topics"):
+                st.session_state.show_more_topics = False
+                st.rerun()
+        else:
+            if st.button("Show more", key="show_more_topics_btn"):
+                st.session_state.show_more_topics = True
+                st.rerun()
 
     st.markdown("---")
 
@@ -610,35 +666,66 @@ with tab1:
 
             try:
                 # Validate file size
-                file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+                pdf_content = uploaded_file.getvalue()
+                file_size_mb = len(pdf_content) / (1024 * 1024)
+                current_pdf_name = uploaded_file.name
+                current_pdf_size = len(pdf_content)
+
                 if file_size_mb > 10:
                     st.error(f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB.")
                 else:
-                    progress_placeholder.progress(0.2)
-                    status_placeholder.info("📄 Extracting text from PDF...")
-                    time.sleep(0.3)
+                    # Phase 5: Check if same PDF as last time (use cached text)
+                    cached_text = st.session_state.last_pdf_text
+                    use_cached_text = (
+                        st.session_state.last_pdf_name == current_pdf_name and
+                        st.session_state.last_pdf_size == current_pdf_size and
+                        cached_text is not None
+                    )
 
-                    # Upload PDF to API
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
-
-                    progress_placeholder.progress(0.5)
                     mode_text_map = {
                         "paragraph_summary": "paragraph summary",
                         "important_points": "important points",
                         "key_highlights": "key highlights"
                     }
                     mode_text = mode_text_map.get(summarization_mode, "summary")
-                    status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
 
-                    response = requests.post(
-                        f"{API_BASE_URL}/process-pdf",
-                        files=files,
-                        params={
-                            "summarization_mode": summarization_mode,
-                            "output_length": output_length
-                        },
-                        timeout=120
-                    )
+                    if use_cached_text:
+                        # Use cached extracted text - skip PDF extraction (internal optimization)
+                        progress_placeholder.progress(0.3)
+                        status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
+
+                        # Send cached text to /process-pdf as form data (skips extraction)
+                        response = requests.post(
+                            f"{API_BASE_URL}/process-pdf",
+                            data={
+                                "summarization_mode": summarization_mode,
+                                "output_length": output_length,
+                                "cached_text": cached_text,
+                                "cached_filename": current_pdf_name
+                            },
+                            timeout=120
+                        )
+                    else:
+                        # New PDF - need to extract text
+                        progress_placeholder.progress(0.2)
+                        status_placeholder.info("📄 Extracting text from PDF...")
+                        time.sleep(0.3)
+
+                        # Upload PDF to API with form data
+                        files = {"file": (uploaded_file.name, pdf_content, "application/pdf")}
+
+                        progress_placeholder.progress(0.5)
+                        status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
+
+                        response = requests.post(
+                            f"{API_BASE_URL}/process-pdf",
+                            files=files,
+                            data={
+                                "summarization_mode": summarization_mode,
+                                "output_length": output_length
+                            },
+                            timeout=120
+                        )
 
                     progress_placeholder.progress(0.9)
                     status_placeholder.info("📝 Formatting structured notes...")
@@ -650,6 +737,12 @@ with tab1:
 
                     if response.status_code == 200:
                         result = response.json()
+
+                        # Phase 5: Cache extracted text for future use (only from /process-pdf)
+                        if not use_cached_text and result.get('extracted_text'):
+                            st.session_state.last_pdf_name = current_pdf_name
+                            st.session_state.last_pdf_size = current_pdf_size
+                            st.session_state.last_pdf_text = result['extracted_text']
 
                         if result['success']:
                             st.success(f"✅ Notes generated from PDF: {uploaded_file.name}")
@@ -687,44 +780,7 @@ with tab1:
                                 'sources_used': result.get('sources_used', 0),
                                 'file_size': f"{file_size_mb:.2f} MB"
                             }
-
-                            # Display metadata
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Source", "PDF Upload")
-                            with col2:
-                                st.metric("File Size", f"{file_size_mb:.2f} MB")
-                            with col3:
-                                st.metric("Filename", uploaded_file.name[:20])
-
-                            # Display notes
-                            st.markdown("### 📚 Generated Notes")
-                            st.markdown('<div class="notes-container">', unsafe_allow_html=True)
-                            st.markdown(result['notes'])
-                            st.markdown('</div>', unsafe_allow_html=True)
-
-                            # Action buttons
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.download_button(
-                                    label="📥 Download Notes",
-                                    data=result['notes'],
-                                    file_name=f"notes_{uploaded_file.name.replace('.pdf', '')}.md",
-                                    mime="text/markdown",
-                                    use_container_width=True
-                                )
-                            with col2:
-                                if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_pdf"):
-                                    st.session_state.show_copy_box = True
-
-                            if st.session_state.get('show_copy_box', False):
-                                st.markdown("**📋 Copy the text below:**")
-                                st.text_area(
-                                    "Select all (Ctrl+A) and copy (Ctrl+C):",
-                                    value=result['notes'],
-                                    height=200,
-                                    key="copy_pdf_text"
-                                )
+                            st.session_state.show_copy_box = False  # Reset copy box state
                         else:
                             st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
                     else:
@@ -826,45 +882,7 @@ with tab1:
                             'sources_used': result['sources_used'],
                             'from_kb': result['from_kb']
                         }
-
-                        # Display metadata
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Query Type", result['query_type'].upper())
-                        with col2:
-                            st.metric("Sources Used", result['sources_used'])
-                        with col3:
-                            st.metric("From KB", "Yes" if result['from_kb'] else "No")
-
-                        # Display notes
-                        st.markdown("### 📚 Generated Notes")
-                        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
-                        st.markdown(result['notes'])
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-                        # Action buttons
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.download_button(
-                                label="📥 Download Notes",
-                                data=result['notes'],
-                                file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                                mime="text/markdown",
-                                use_container_width=True
-                            )
-                        with col2:
-                            if st.button("📋 Copy to Clipboard", use_container_width=True):
-                                st.session_state.show_copy_box = True
-
-                        # Show copyable text area when button clicked
-                        if st.session_state.get('show_copy_box', False):
-                            st.markdown("**📋 Copy the text below:**")
-                            st.text_area(
-                                "Select all (Ctrl+A) and copy (Ctrl+C):",
-                                value=result['notes'],
-                                height=200,
-                                key="copy_text_area"
-                            )
+                        st.session_state.show_copy_box = False  # Reset copy box state
                     else:
                         st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
                 else:
@@ -880,6 +898,119 @@ with tab1:
                 st.error(f"❌ Error: {str(e)}")
         else:
             st.warning("⚠️ Please enter a query")
+
+    # ==========================================================================
+    # SECTION: Recently Generated Notes (Independent, Persistent)
+    # ==========================================================================
+    if st.session_state.get('last_generated_notes'):
+        st.divider()
+
+        # Header with close button
+        header_col1, header_col2 = st.columns([6, 1])
+        with header_col1:
+            st.markdown("### 📚 Recently Generated Notes")
+        with header_col2:
+            if st.button("✕", key="close_generated_notes", help="Close this section"):
+                st.session_state.last_generated_notes = None
+                st.session_state.last_generation_metadata = None
+                st.session_state.show_copy_box = False
+                st.rerun()
+
+        # Display metadata if available
+        metadata = st.session_state.get('last_generation_metadata')
+        if metadata:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Query Type", metadata.get('type', 'N/A').upper())
+            with col2:
+                st.metric("Sources Used", metadata.get('sources_used', 0))
+            with col3:
+                st.metric("From KB", "Yes" if metadata.get('from_kb') else "No")
+
+        # Display notes
+        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+        st.markdown(st.session_state.last_generated_notes)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="📥 Download Notes",
+                data=st.session_state.last_generated_notes,
+                file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key="download_generated_persistent"
+            )
+        with col2:
+            if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_generated_persistent"):
+                st.session_state.show_copy_box = True
+
+        if st.session_state.get('show_copy_box', False):
+            st.markdown("**📋 Copy the text below:**")
+            st.text_area(
+                "Select all (Ctrl+A) and copy (Ctrl+C):",
+                value=st.session_state.last_generated_notes,
+                height=200,
+                key="copy_text_area_persistent"
+            )
+
+    # ==========================================================================
+    # SECTION: History Note Viewer (Independent)
+    # ==========================================================================
+    if st.session_state.get('selected_history'):
+        st.divider()
+        hist = st.session_state.selected_history
+
+        # Header with close button - prominent styling
+        st.markdown("---")
+        header_col1, header_col2 = st.columns([6, 1])
+        with header_col1:
+            st.markdown("### 📜 History Note Viewer")
+            st.info(f"Viewing: **{hist['query'][:50]}{'...' if len(hist['query']) > 50 else ''}** ({hist['timestamp']})")
+        with header_col2:
+            if st.button("✕", key="close_history_view", help="Close history view"):
+                st.session_state.selected_history = None
+                st.session_state.show_copy_box_history = False
+                st.rerun()
+
+        # Display metadata
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Query Type", hist['type'].upper())
+        with col2:
+            st.metric("Sources Used", hist['sources_used'])
+        with col3:
+            st.metric("From KB", "Yes" if hist['from_kb'] else "No")
+
+        # Display notes
+        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+        st.markdown(hist['notes'])
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="📥 Download",
+                data=hist['notes'],
+                file_name=f"notes_history_{hist['timestamp'].replace(':', '-')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key="download_history"
+            )
+        with col2:
+            if st.button("📋 Copy", use_container_width=True, key="copy_history"):
+                st.session_state.show_copy_box_history = True
+
+        if st.session_state.get('show_copy_box_history', False):
+            st.text_area(
+                "Copy this text:",
+                value=hist['notes'],
+                height=150,
+                key="copy_history_text"
+            )
 
 # Tab 2: Search Knowledge Base
 with tab2:
@@ -1033,57 +1164,52 @@ with tab4:
 
             st.divider()
 
-            # Load existing flashcard sets
+            # Load existing flashcard sets - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Set")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['sets']:
-                        set_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in result['sets']}
-                        selected = st.selectbox("Select a set:", [""] + list(set_options.keys()))
-                        if selected and st.button("Load Set"):
-                            set_id = set_options[selected]
-                            resp = requests.get(f"{API_BASE_URL}/study/flashcards/sets/{set_id}")
-                            if resp.status_code == 200:
-                                st.session_state.current_flashcard_set = resp.json()['flashcard_set']
-                                st.session_state.current_card_index = 0
-                                st.session_state.show_answer = False
-                                st.rerun()
-                    else:
-                        st.info("No flashcard sets yet. Generate some!")
-            except:
-                pass
+            flashcard_sets = fetch_flashcard_sets()
+            if flashcard_sets:
+                set_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in flashcard_sets}
+                selected = st.selectbox("Select a set:", [""] + list(set_options.keys()))
+                if selected and st.button("Load Set"):
+                    set_id = set_options[selected]
+                    try:
+                        session = get_api_session()
+                        resp = session.get(f"{API_BASE_URL}/study/flashcards/sets/{set_id}")
+                        if resp.status_code == 200:
+                            st.session_state.current_flashcard_set = resp.json()['flashcard_set']
+                            st.session_state.current_card_index = 0
+                            st.session_state.show_answer = False
+                            st.rerun()
+                    except:
+                        st.error("Failed to load flashcard set")
+            else:
+                st.info("No flashcard sets yet. Generate some!")
 
             st.divider()
 
-            # Export to Anki
+            # Export to Anki - Reuses cached flashcard_sets (no duplicate API call)
             st.markdown("#### 📤 Export to Anki")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['sets']:
-                        # Export specific set
-                        st.markdown("**Export a specific set:**")
-                        export_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in result['sets']}
-                        selected_export = st.selectbox("Choose set to export:", [""] + list(export_options.keys()), key="export_select")
+            # Reuse the same cached data from fetch_flashcard_sets()
+            export_sets = fetch_flashcard_sets()
+            if export_sets:
+                # Export specific set
+                st.markdown("**Export a specific set:**")
+                export_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in export_sets}
+                selected_export = st.selectbox("Choose set to export:", [""] + list(export_options.keys()), key="export_select")
 
-                        if selected_export:
-                            set_id = export_options[selected_export]
-                            export_url = f"{API_BASE_URL}/study/flashcards/export/{set_id}/anki"
-                            st.markdown(f"[⬇️ Download {selected_export.split(' (')[0]} for Anki]({export_url})", unsafe_allow_html=False)
+                if selected_export:
+                    set_id = export_options[selected_export]
+                    export_url = f"{API_BASE_URL}/study/flashcards/export/{set_id}/anki"
+                    st.markdown(f"[⬇️ Download {selected_export.split(' (')[0]} for Anki]({export_url})", unsafe_allow_html=False)
 
-                        # Export all sets
-                        st.markdown("**Or export all sets:**")
-                        all_export_url = f"{API_BASE_URL}/study/flashcards/export/all/anki"
-                        total_cards = sum(s['card_count'] for s in result['sets'])
-                        st.markdown(f"[⬇️ Download All Flashcards ({total_cards} cards)]({all_export_url})", unsafe_allow_html=False)
-                        st.caption("💡 Import the .txt file into Anki to study anywhere!")
-                    else:
-                        st.info("No flashcards to export yet")
-            except:
-                pass
+                # Export all sets
+                st.markdown("**Or export all sets:**")
+                all_export_url = f"{API_BASE_URL}/study/flashcards/export/all/anki"
+                total_cards = sum(s['card_count'] for s in export_sets)
+                st.markdown(f"[⬇️ Download All Flashcards ({total_cards} cards)]({all_export_url})", unsafe_allow_html=False)
+                st.caption("💡 Import the .txt file into Anki to study anywhere!")
+            else:
+                st.info("No flashcards to export yet")
 
         with col2:
             st.markdown("#### Study Cards")
@@ -1248,31 +1374,30 @@ with tab4:
 
             st.divider()
 
-            # Load existing quizzes
+            # Load existing quizzes - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Quiz")
-            try:
-                response = requests.get(f"{API_BASE_URL}/study/quizzes", timeout=5)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result['quizzes']:
-                        quiz_options = {f"{q['title']} ({q['question_count']} Q)": q['id'] for q in result['quizzes']}
-                        selected = st.selectbox("Select a quiz:", [""] + list(quiz_options.keys()), key="load_quiz")
-                        if selected and st.button("Load Quiz"):
-                            quiz_id = quiz_options[selected]
-                            resp = requests.get(f"{API_BASE_URL}/study/quizzes/{quiz_id}")
-                            if resp.status_code == 200:
-                                quiz_data = resp.json()['quiz']
-                                start_resp = requests.post(f"{API_BASE_URL}/study/quizzes/{quiz_id}/start")
-                                if start_resp.status_code == 200:
-                                    st.session_state.current_quiz = quiz_data
-                                    st.session_state.quiz_attempt_id = start_resp.json()['attempt_id']
-                                    st.session_state.quiz_answers = {}
-                                    st.session_state.quiz_submitted = False
-                                    st.rerun()
-                    else:
-                        st.info("No quizzes yet. Generate one!")
-            except:
-                pass
+            quizzes_list = fetch_quizzes_list()
+            if quizzes_list:
+                quiz_options = {f"{q['title']} ({q['question_count']} Q)": q['id'] for q in quizzes_list}
+                selected = st.selectbox("Select a quiz:", [""] + list(quiz_options.keys()), key="load_quiz")
+                if selected and st.button("Load Quiz"):
+                    quiz_id = quiz_options[selected]
+                    try:
+                        session = get_api_session()
+                        resp = session.get(f"{API_BASE_URL}/study/quizzes/{quiz_id}")
+                        if resp.status_code == 200:
+                            quiz_data = resp.json()['quiz']
+                            start_resp = session.post(f"{API_BASE_URL}/study/quizzes/{quiz_id}/start")
+                            if start_resp.status_code == 200:
+                                st.session_state.current_quiz = quiz_data
+                                st.session_state.quiz_attempt_id = start_resp.json()['attempt_id']
+                                st.session_state.quiz_answers = {}
+                                st.session_state.quiz_submitted = False
+                                st.rerun()
+                    except:
+                        st.error("Failed to load quiz")
+            else:
+                st.info("No quizzes yet. Generate one!")
 
         with col2:
             st.markdown("#### Quiz Questions")
@@ -1425,90 +1550,84 @@ with tab4:
             else:
                 st.info("Generate a quiz or load an existing one to start!")
 
-    # Progress Sub-tab
+    # Progress Sub-tab - Using cached function (60 sec TTL)
     with study_tab3:
         st.subheader("Study Progress Dashboard")
 
-        try:
-            response = requests.get(f"{API_BASE_URL}/study/progress", timeout=5)
+        progress = fetch_detailed_progress()
 
-            if response.status_code == 200:
-                progress = response.json()
+        if progress:
+            # Overall Stats
+            st.markdown("#### Overall Statistics")
+            stats = progress.get('overall_stats', {})
 
-                # Overall Stats
-                st.markdown("#### Overall Statistics")
-                stats = progress.get('overall_stats', {})
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Notes Generated", stats.get('total_notes_generated', 0))
+            with col2:
+                st.metric("Flashcards Reviewed", stats.get('total_flashcards_reviewed', 0))
+            with col3:
+                st.metric("Quizzes Completed", stats.get('total_quizzes_completed', 0))
+            with col4:
+                st.metric("Topics Studied", stats.get('topics_studied', 0))
 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Notes Generated", stats.get('total_notes_generated', 0))
-                with col2:
-                    st.metric("Flashcards Reviewed", stats.get('total_flashcards_reviewed', 0))
-                with col3:
-                    st.metric("Quizzes Completed", stats.get('total_quizzes_completed', 0))
-                with col4:
-                    st.metric("Topics Studied", stats.get('topics_studied', 0))
+            st.divider()
 
-                st.divider()
+            # Streak Information
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### 🔥 Study Streak")
+                streak = progress.get('streak', {})
+                st.metric("Current Streak", f"{streak.get('current_streak', 0)} days")
+                st.metric("Longest Streak", f"{streak.get('longest_streak', 0)} days")
 
-                # Streak Information
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("#### 🔥 Study Streak")
-                    streak = progress.get('streak', {})
-                    st.metric("Current Streak", f"{streak.get('current_streak', 0)} days")
-                    st.metric("Longest Streak", f"{streak.get('longest_streak', 0)} days")
+            with col2:
+                st.markdown("#### 📈 Accuracy")
+                st.metric("Flashcard Accuracy", f"{stats.get('flashcard_accuracy', 0):.1f}%")
+                st.metric("Quiz Accuracy", f"{stats.get('quiz_accuracy', 0):.1f}%")
 
-                with col2:
-                    st.markdown("#### 📈 Accuracy")
-                    st.metric("Flashcard Accuracy", f"{stats.get('flashcard_accuracy', 0):.1f}%")
-                    st.metric("Quiz Accuracy", f"{stats.get('quiz_accuracy', 0):.1f}%")
+            st.divider()
 
-                st.divider()
-
-                # Topic Rankings
-                st.markdown("#### 🏆 Topic Mastery")
-                rankings = progress.get('topic_rankings', [])
-                if rankings:
-                    for rank in rankings[:5]:
-                        col1, col2, col3 = st.columns([2, 1, 1])
-                        with col1:
-                            st.write(f"**{rank['topic']}**")
-                        with col2:
-                            st.write(f"Level: {rank['mastery_level']}")
-                        with col3:
-                            st.write(f"Notes: {rank['notes_generated']}")
-                else:
-                    st.info("No topics studied yet. Start learning!")
-
-                st.divider()
-
-                # Weekly Summary
-                st.markdown("#### 📅 This Week")
-                weekly = progress.get('weekly_summary', {})
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Notes This Week", weekly.get('notes_generated', 0))
-                with col2:
-                    st.metric("Flashcards Reviewed", weekly.get('flashcards_reviewed', 0))
-                with col3:
-                    st.metric("Active Days", f"{weekly.get('active_days', 0)}/7")
-
-                st.divider()
-
-                # Recent Activities
-                st.markdown("#### 📝 Recent Activity")
-                activities = progress.get('recent_activities', [])
-                if activities:
-                    for act in activities[:5]:
-                        st.text(f"• {act.get('summary', 'Activity')} - {act.get('timestamp', '')[:10]}")
-                else:
-                    st.info("No recent activity")
+            # Topic Rankings
+            st.markdown("#### 🏆 Topic Mastery")
+            rankings = progress.get('topic_rankings', [])
+            if rankings:
+                for rank in rankings[:5]:
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        st.write(f"**{rank['topic']}**")
+                    with col2:
+                        st.write(f"Level: {rank['mastery_level']}")
+                    with col3:
+                        st.write(f"Notes: {rank['notes_generated']}")
             else:
-                st.error("Could not load progress data")
+                st.info("No topics studied yet. Start learning!")
 
-        except Exception as e:
-            st.error(f"Error loading progress: {str(e)}")
+            st.divider()
+
+            # Weekly Summary
+            st.markdown("#### 📅 This Week")
+            weekly = progress.get('weekly_summary', {})
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Notes This Week", weekly.get('notes_generated', 0))
+            with col2:
+                st.metric("Flashcards Reviewed", weekly.get('flashcards_reviewed', 0))
+            with col3:
+                st.metric("Active Days", f"{weekly.get('active_days', 0)}/7")
+
+            st.divider()
+
+            # Recent Activities
+            st.markdown("#### 📝 Recent Activity")
+            activities = progress.get('recent_activities', [])
+            if activities:
+                for act in activities[:5]:
+                    st.text(f"• {act.get('summary', 'Activity')} - {act.get('timestamp', '')[:10]}")
+            else:
+                st.info("No recent activity")
+        else:
+            st.error("Could not load progress data")
             st.info("Make sure the API server is running")
 
 # Footer
