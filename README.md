@@ -1,16 +1,20 @@
 # EduNotes
 
+![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+
 A smart study assistant that transforms topics, articles, and documents into structured notes, flashcards, and quizzes.
 
 ## What It Does
 
 EduNotes takes your learning materials and creates study-ready content automatically:
 
-- **Generate Notes** from any topic, URL, or text with customizable formats
-- **Create Flashcards** for active recall practice
+- **Generate Notes** from any topic, URL, PDF, or pasted text (articles, research content, lengthy paragraphs) with customizable formats
+- **Create Flashcards** for active recall practice (exportable to Anki)
 - **Take Quizzes** to test your understanding
 - **Build a Knowledge Base** that grows with your learning
 - **Track Progress** with streaks and performance stats
+- **Works Offline** using local models when no API key is configured
 
 ## Quick Start
 
@@ -66,6 +70,25 @@ Visit [localhost:8501](http://localhost:8501) to start using the app.
 2. **Search Knowledge Base** - Find relevant information from previously processed content.
 
 3. **Study Mode** - Create flashcards from your notes, take quizzes, and monitor your learning streak.
+
+## Output Formats
+
+| Format | Description |
+|--------|-------------|
+| Paragraph Summary | Flowing paragraphs (brief, medium, or detailed) |
+| Important Points | Numbered key points, each self-contained |
+| Key Highlights | Essential terms with concise definitions |
+
+## Architecture
+
+EduNotes uses a multi-agent system where specialized agents handle different tasks:
+
+| Agent | Role |
+|-------|------|
+| Retriever | Searches knowledge base using semantic similarity |
+| Scraper | Extracts and processes content from URLs |
+| Summarizer | Generates summaries using LLM |
+| Note-Maker | Structures output into formatted notes |
 
 ## Tech Stack
 

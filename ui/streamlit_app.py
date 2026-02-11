@@ -30,17 +30,41 @@ def get_api_session():
     return session
 
 
-@st.cache_data(ttl=30)
 def check_api_health():
-    """Check if API is healthy - cached for 30 seconds.
-    Reduces health check calls from every rerun to once per 30 seconds.
+    """Check if API is healthy with smart caching.
+    - Successful results cached for 30 seconds
+    - Failed results cached for only 5 seconds (quick retry)
+    This prevents long-cached failures from showing 'offline' when API is actually running.
     """
+    cache_key = '_api_health_cache'
+    cache_time_key = '_api_health_cache_time'
+
+    current_time = time.time()
+
+    # Check if we have a valid cached result
+    if cache_key in st.session_state and cache_time_key in st.session_state:
+        cached_value = st.session_state[cache_key]
+        cached_time = st.session_state[cache_time_key]
+
+        # Different TTL: 30s for success, 5s for failure
+        ttl = 30 if cached_value else 5
+
+        if current_time - cached_time < ttl:
+            return cached_value
+
+    # Cache expired or not set - make the API call
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/health", timeout=2)
-        return response.status_code == 200
+        response = session.get(f"{API_BASE_URL}/health", timeout=3)  # Increased from 2s
+        result = response.status_code == 200
     except:
-        return False
+        result = False
+
+    # Cache the result
+    st.session_state[cache_key] = result
+    st.session_state[cache_time_key] = current_time
+
+    return result
 
 
 @st.cache_data(ttl=300)
@@ -59,16 +83,34 @@ def fetch_topics():
     return []
 
 
-@st.cache_data(ttl=60)
 def fetch_study_stats():
-    """Fetch study progress and flashcard stats - cached for 60 seconds.
+    """Fetch study progress and flashcard stats with smart caching.
+    - Successful results cached for 60 seconds
+    - Failed results cached for only 5 seconds (quick retry)
     Combines two API calls into one cached result.
     Returns dict with stats or None on failure.
     """
+    cache_key = '_study_stats_cache'
+    cache_time_key = '_study_stats_cache_time'
+
+    current_time = time.time()
+
+    # Check if we have a valid cached result
+    if cache_key in st.session_state and cache_time_key in st.session_state:
+        cached_value = st.session_state[cache_key]
+        cached_time = st.session_state[cache_time_key]
+
+        # Different TTL: 60s for success, 5s for failure
+        ttl = 60 if cached_value is not None else 5
+
+        if current_time - cached_time < ttl:
+            return cached_value
+
+    # Cache expired or not set - make the API calls
     try:
         session = get_api_session()
-        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=2)  # Phase 4: reduced from 3s
-        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=2)  # Phase 4: reduced from 3s
+        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=3)  # Increased from 2s
+        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)  # Increased from 2s
 
         result = {
             'total_flashcards': 0,
@@ -90,10 +132,14 @@ def fetch_study_stats():
         if flashcard_resp.status_code == 200:
             flashcard_data = flashcard_resp.json()
             result['flashcard_sets'] = len(flashcard_data.get('sets', []))
-
-        return result
     except:
-        return None
+        result = None
+
+    # Cache the result
+    st.session_state[cache_key] = result
+    st.session_state[cache_time_key] = current_time
+
+    return result
 
 
 # =============================================================================
@@ -150,20 +196,45 @@ def fetch_detailed_progress():
     return None
 
 
-@st.cache_data(ttl=120)
 def fetch_system_stats():
-    """Fetch system stats - cached for 2 minutes (Phase 4 optimization).
-    System stats rarely change, so longer cache is appropriate.
+    """Fetch system stats with smart caching.
+    - Successful results cached for 2 minutes
+    - Failed results cached for only 5 seconds (quick retry)
+    System stats rarely change, so longer cache is appropriate for successes.
     Returns dict or None on failure.
     """
+    cache_key = '_system_stats_cache'
+    cache_time_key = '_system_stats_cache_time'
+
+    current_time = time.time()
+
+    # Check if we have a valid cached result
+    if cache_key in st.session_state and cache_time_key in st.session_state:
+        cached_value = st.session_state[cache_key]
+        cached_time = st.session_state[cache_time_key]
+
+        # Different TTL: 120s for success, 5s for failure
+        ttl = 120 if cached_value is not None else 5
+
+        if current_time - cached_time < ttl:
+            return cached_value
+
+    # Cache expired or not set - make the API call
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/stats", timeout=2)
+        response = session.get(f"{API_BASE_URL}/stats", timeout=3)  # Increased from 2s
         if response.status_code == 200:
-            return response.json()
+            result = response.json()
+        else:
+            result = None
     except:
-        pass
-    return None
+        result = None
+
+    # Cache the result
+    st.session_state[cache_key] = result
+    st.session_state[cache_time_key] = current_time
+
+    return result
 
 
 # =============================================================================
@@ -215,6 +286,20 @@ if 'last_pdf_size' not in st.session_state:
     st.session_state.last_pdf_size = None
 if 'last_pdf_text' not in st.session_state:
     st.session_state.last_pdf_text = None  # Extracted text from PDF
+
+# Summarization mode - initialize to ensure consistent state across reruns
+if 'summarization_mode_selector' not in st.session_state:
+    st.session_state.summarization_mode_selector = 'paragraph_summary'
+
+# Save to KB feature - show/hide form state and saved status
+if 'show_save_kb_recent' not in st.session_state:
+    st.session_state.show_save_kb_recent = False
+if 'show_save_kb_history' not in st.session_state:
+    st.session_state.show_save_kb_history = False
+if 'saved_to_kb_recent' not in st.session_state:
+    st.session_state.saved_to_kb_recent = False
+if 'saved_to_kb_history' not in st.session_state:
+    st.session_state.saved_to_kb_history = False
 
 # Font size mapping
 font_sizes = {
@@ -349,27 +434,46 @@ with st.sidebar:
     # Note History - Collapsible with native Streamlit components
     with st.expander("📜 Note History", expanded=False):
         if st.session_state.note_history:
-            st.caption(f"Last {len(st.session_state.note_history)} notes")
+            # Filter out notes that match what's currently displayed in "Recently Generated Notes"
+            # to avoid showing the same notes in both places
+            # Use content-based filtering instead of position-based to handle Streamlit's execution order
+            current_notes = st.session_state.get('last_generated_notes')
+            if current_notes is not None:
+                # Filter out entries where notes content matches the currently displayed notes
+                # This prevents duplication between "Recently Generated Notes" and history
+                filtered_history = [
+                    entry for entry in st.session_state.note_history
+                    if entry.get('notes') != current_notes
+                ]
+            else:
+                # No notes currently displayed, show all history
+                filtered_history = st.session_state.note_history
 
-            # Display history items using native Streamlit (most recent first)
-            for idx, note_item in enumerate(reversed(st.session_state.note_history)):
-                # Truncate query for display
-                query_short = note_item['query'][:35] + "..." if len(note_item['query']) > 35 else note_item['query']
-                type_icon = {"topic": "🎯", "url": "🔗", "text": "📄", "pdf": "📑"}.get(note_item['type'], "📝")
+            if filtered_history:
+                st.caption(f"Last {len(filtered_history)} notes")
 
-                # Create a compact display for each history item
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f"**{type_icon} {query_short}**")
-                    st.caption(f"{note_item['timestamp']} • {note_item['type'].upper()}")
-                with col2:
-                    if st.button("View", key=f"history_view_{idx}", use_container_width=True):
-                        st.session_state.selected_history = note_item
-                        st.rerun()
+                # Display history items using native Streamlit (most recent first)
+                for idx, note_item in enumerate(reversed(filtered_history)):
+                    # Truncate query for display
+                    query_short = note_item['query'][:35] + "..." if len(note_item['query']) > 35 else note_item['query']
+                    type_icon = {"topic": "🎯", "url": "🔗", "text": "📄", "pdf": "📑"}.get(note_item['type'], "📝")
 
-                # Add separator between items (except last)
-                if idx < len(st.session_state.note_history) - 1:
-                    st.markdown("---")
+                    # Create a compact display for each history item
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"**{type_icon} {query_short}**")
+                        st.caption(f"{note_item['timestamp']} • {note_item['type'].upper()}")
+                    with col2:
+                        if st.button("View", key=f"history_view_{idx}", use_container_width=True):
+                            st.session_state.selected_history = note_item
+                            st.session_state.saved_to_kb_history = False  # Reset save state for new selection
+                            st.rerun()
+
+                    # Add separator between items (except last)
+                    if idx < len(filtered_history) - 1:
+                        st.markdown("---")
+            else:
+                st.info("📝 Current notes are shown above. Close them to see history.")
         else:
             st.info("📝 No notes yet. Generate a note to see it here!")
 
@@ -609,9 +713,8 @@ with tab1:
 
     # Output Length Selection - ONLY shown for Paragraph Summary
     output_length = "auto"  # Default value
-    # Get the actual selected mode from session state to ensure consistency
-    current_mode = st.session_state.get("summarization_mode_selector", "paragraph_summary")
-    if current_mode == "paragraph_summary":
+    # Use session state directly after widget render to ensure correct value during reruns
+    if st.session_state.summarization_mode_selector == "paragraph_summary":
         st.markdown("#### 📏 Summary Length")
         output_length = st.radio(
             "Choose the desired length of your summary:",
@@ -777,6 +880,9 @@ with tab1:
                                 'file_size': f"{file_size_mb:.2f} MB"
                             }
                             st.session_state.show_copy_box = False  # Reset copy box state
+                            st.session_state.saved_to_kb_recent = False  # Reset save state for new notes
+                            # Rerun to update sidebar history immediately
+                            st.rerun()
                         else:
                             st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
                     else:
@@ -879,6 +985,9 @@ with tab1:
                             'from_kb': result['from_kb']
                         }
                         st.session_state.show_copy_box = False  # Reset copy box state
+                        st.session_state.saved_to_kb_recent = False  # Reset save state for new notes
+                        # Rerun to update sidebar history immediately
+                        st.rerun()
                     else:
                         st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
                 else:
@@ -910,6 +1019,8 @@ with tab1:
                 st.session_state.last_generated_notes = None
                 st.session_state.last_generation_metadata = None
                 st.session_state.show_copy_box = False
+                st.session_state.show_save_kb_recent = False
+                st.session_state.saved_to_kb_recent = False
                 st.rerun()
 
         # Display metadata if available
@@ -929,7 +1040,7 @@ with tab1:
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Action buttons
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.download_button(
                 label="📥 Download Notes",
@@ -942,6 +1053,59 @@ with tab1:
         with col2:
             if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_generated_persistent"):
                 st.session_state.show_copy_box = True
+        with col3:
+            if st.session_state.get('saved_to_kb_recent', False):
+                st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_recent", disabled=True)
+            else:
+                if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_recent"):
+                    if not st.session_state.show_save_kb_recent:
+                        # Initialize form values when opening (prevents input loss on rerun)
+                        meta = st.session_state.get('last_generation_metadata', {})
+                        query = meta.get('query', '')
+                        query_type = meta.get('type', 'topic')
+                        st.session_state.save_kb_title_recent = query[:80] if len(query) <= 80 else query[:77] + "..."
+                        st.session_state.save_kb_topic_recent = query if query_type == 'topic' and len(query) <= 50 else ""
+                        if query_type == 'pdf':
+                            st.session_state.save_kb_source_recent = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
+                        elif query_type == 'url':
+                            st.session_state.save_kb_source_recent = "Generated Notes - URL"
+                        elif query_type == 'text':
+                            st.session_state.save_kb_source_recent = "Generated Notes - Text Input"
+                        else:
+                            st.session_state.save_kb_source_recent = "Generated Notes - Topic Query"
+                        st.session_state.save_kb_url_recent = query if query_type == 'url' else ""
+                        st.session_state.save_kb_query_type_recent = query_type
+                        # Check for PDF duplicate when form opens (cache result in session state)
+                        st.session_state.save_kb_pdf_duplicate_recent = False
+                        if query_type == 'pdf':
+                            try:
+                                pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
+                                if pdf_name:
+                                    check_resp = requests.post(
+                                        f"{API_BASE_URL}/search-kb",
+                                        json={"query": pdf_name, "k": 5, "threshold": 0.8},
+                                        timeout=3
+                                    )
+                                    if check_resp.status_code == 200:
+                                        for doc in check_resp.json().get('results', []):
+                                            doc_source = doc.get('metadata', {}).get('source', '')
+                                            if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
+                                                st.session_state.save_kb_pdf_duplicate_recent = True
+                                                break
+                            except:
+                                pass
+                    st.session_state.show_save_kb_recent = not st.session_state.show_save_kb_recent
+                    st.rerun()
+
+        # Dismissible success message after saving to KB
+        if st.session_state.get('saved_to_kb_recent', False):
+            msg_col1, msg_col2 = st.columns([11, 1])
+            with msg_col1:
+                st.success("✅ Notes saved to Knowledge Base successfully!")
+            with msg_col2:
+                if st.button("✕", key="close_save_success_recent", help="Dismiss"):
+                    st.session_state.saved_to_kb_recent = False
+                    st.rerun()
 
         if st.session_state.get('show_copy_box', False):
             st.markdown("**📋 Copy the text below:**")
@@ -951,6 +1115,74 @@ with tab1:
                 height=200,
                 key="copy_text_area_persistent"
             )
+
+        # Save to KB Form (shown when button clicked)
+        if st.session_state.get('show_save_kb_recent', False):
+            st.markdown("---")
+            st.markdown("#### 💾 Save Notes to Knowledge Base")
+
+            # Get stored query type for conditional URL field
+            query_type = st.session_state.get('save_kb_query_type_recent', 'topic')
+
+            # Form fields (values stored in session state, no value= parameter to prevent input loss)
+            save_title = st.text_input("Title *", key="save_kb_title_recent",
+                                       help="A descriptive title for these notes")
+            save_topic = st.text_input("Topic *", key="save_kb_topic_recent",
+                                       placeholder="Add the topic name",
+                                       help="Category/topic for organizing in KB")
+            save_source = st.text_input("Source", key="save_kb_source_recent",
+                                        help="Source of the content (auto-filled)")
+            if query_type == 'url':
+                save_url = st.text_input("URL", key="save_kb_url_recent")
+            else:
+                save_url = st.session_state.get('save_kb_url_recent', '')
+
+            # PDF duplicate warning (uses cached result from when form opened)
+            if st.session_state.get('save_kb_pdf_duplicate_recent', False):
+                st.warning("📋 It looks like notes from this PDF have already been saved to the Knowledge Base. You may proceed if you wish to save another copy.")
+
+            # Save/Cancel buttons
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button("✅ Save", use_container_width=True, key="confirm_save_kb_recent"):
+                    if not save_title.strip():
+                        st.error("Please enter a title")
+                    elif not save_topic.strip():
+                        st.error("Please enter a topic")
+                    else:
+                        # Make API call to save
+                        try:
+                            response = requests.post(
+                                f"{API_BASE_URL}/update-kb",
+                                json={
+                                    "documents": [{
+                                        "content": st.session_state.last_generated_notes,
+                                        "title": save_title.strip(),
+                                        "topic": save_topic.strip(),
+                                        "source": save_source.strip(),
+                                        "url": save_url.strip() if save_url else ""
+                                    }]
+                                },
+                                timeout=10
+                            )
+                            if response.status_code == 200:
+                                result = response.json()
+                                if result.get('success'):
+                                    st.session_state.show_save_kb_recent = False
+                                    st.session_state.saved_to_kb_recent = True
+                                    # Clear topics cache to refresh Quick Topics
+                                    fetch_topics.clear()
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to save: {result.get('error', 'Unknown error')}")
+                            else:
+                                st.error(f"API Error: {response.status_code}")
+                        except Exception as e:
+                            st.error(f"Error saving to KB: {str(e)}")
+            with btn_col2:
+                if st.button("❌ Cancel", use_container_width=True, key="cancel_save_kb_recent"):
+                    st.session_state.show_save_kb_recent = False
+                    st.rerun()
 
     # ==========================================================================
     # SECTION: History Note Viewer (Independent)
@@ -969,6 +1201,8 @@ with tab1:
             if st.button("✕", key="close_history_view", help="Close history view"):
                 st.session_state.selected_history = None
                 st.session_state.show_copy_box_history = False
+                st.session_state.show_save_kb_history = False
+                st.session_state.saved_to_kb_history = False
                 st.rerun()
 
         # Display metadata
@@ -986,7 +1220,7 @@ with tab1:
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Action buttons
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.download_button(
                 label="📥 Download",
@@ -999,6 +1233,58 @@ with tab1:
         with col2:
             if st.button("📋 Copy", use_container_width=True, key="copy_history"):
                 st.session_state.show_copy_box_history = True
+        with col3:
+            if st.session_state.get('saved_to_kb_history', False):
+                st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_history", disabled=True)
+            else:
+                if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_history"):
+                    if not st.session_state.show_save_kb_history:
+                        # Initialize form values when opening (prevents input loss on rerun)
+                        query = hist.get('query', '')
+                        query_type = hist.get('type', 'topic')
+                        st.session_state.save_kb_title_history = query[:80] if len(query) <= 80 else query[:77] + "..."
+                        st.session_state.save_kb_topic_history = query if query_type == 'topic' and len(query) <= 50 else ""
+                        if query_type == 'pdf':
+                            st.session_state.save_kb_source_history = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
+                        elif query_type == 'url':
+                            st.session_state.save_kb_source_history = "Generated Notes - URL"
+                        elif query_type == 'text':
+                            st.session_state.save_kb_source_history = "Generated Notes - Text Input"
+                        else:
+                            st.session_state.save_kb_source_history = "Generated Notes - Topic Query"
+                        st.session_state.save_kb_url_history = query if query_type == 'url' else ""
+                        st.session_state.save_kb_query_type_history = query_type
+                        # Check for PDF duplicate when form opens (cache result in session state)
+                        st.session_state.save_kb_pdf_duplicate_history = False
+                        if query_type == 'pdf':
+                            try:
+                                pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
+                                if pdf_name:
+                                    check_resp = requests.post(
+                                        f"{API_BASE_URL}/search-kb",
+                                        json={"query": pdf_name, "k": 5, "threshold": 0.8},
+                                        timeout=3
+                                    )
+                                    if check_resp.status_code == 200:
+                                        for doc in check_resp.json().get('results', []):
+                                            doc_source = doc.get('metadata', {}).get('source', '')
+                                            if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
+                                                st.session_state.save_kb_pdf_duplicate_history = True
+                                                break
+                            except:
+                                pass
+                    st.session_state.show_save_kb_history = not st.session_state.show_save_kb_history
+                    st.rerun()
+
+        # Dismissible success message after saving to KB
+        if st.session_state.get('saved_to_kb_history', False):
+            msg_col1, msg_col2 = st.columns([11, 1])
+            with msg_col1:
+                st.success("✅ Notes saved to Knowledge Base successfully!")
+            with msg_col2:
+                if st.button("✕", key="close_save_success_history", help="Dismiss"):
+                    st.session_state.saved_to_kb_history = False
+                    st.rerun()
 
         if st.session_state.get('show_copy_box_history', False):
             st.text_area(
@@ -1007,6 +1293,74 @@ with tab1:
                 height=150,
                 key="copy_history_text"
             )
+
+        # Save to KB Form for History (shown when button clicked)
+        if st.session_state.get('show_save_kb_history', False):
+            st.markdown("---")
+            st.markdown("#### 💾 Save Notes to Knowledge Base")
+
+            # Get stored query type for conditional URL field
+            query_type = st.session_state.get('save_kb_query_type_history', 'topic')
+
+            # Form fields (values stored in session state, no value= parameter to prevent input loss)
+            save_title_h = st.text_input("Title *", key="save_kb_title_history",
+                                         help="A descriptive title for these notes")
+            save_topic_h = st.text_input("Topic *", key="save_kb_topic_history",
+                                         placeholder="Add the topic name",
+                                         help="Category/topic for organizing in KB")
+            save_source_h = st.text_input("Source", key="save_kb_source_history",
+                                          help="Source of the content (auto-filled)")
+            if query_type == 'url':
+                save_url_h = st.text_input("URL", key="save_kb_url_history")
+            else:
+                save_url_h = st.session_state.get('save_kb_url_history', '')
+
+            # PDF duplicate warning (uses cached result from when form opened)
+            if st.session_state.get('save_kb_pdf_duplicate_history', False):
+                st.warning("📋 It looks like notes from this PDF have already been saved to the Knowledge Base. You may proceed if you wish to save another copy.")
+
+            # Save/Cancel buttons
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button("✅ Save", use_container_width=True, key="confirm_save_kb_history"):
+                    if not save_title_h.strip():
+                        st.error("Please enter a title")
+                    elif not save_topic_h.strip():
+                        st.error("Please enter a topic")
+                    else:
+                        # Make API call to save
+                        try:
+                            response = requests.post(
+                                f"{API_BASE_URL}/update-kb",
+                                json={
+                                    "documents": [{
+                                        "content": hist['notes'],
+                                        "title": save_title_h.strip(),
+                                        "topic": save_topic_h.strip(),
+                                        "source": save_source_h.strip(),
+                                        "url": save_url_h.strip() if save_url_h else ""
+                                    }]
+                                },
+                                timeout=10
+                            )
+                            if response.status_code == 200:
+                                result = response.json()
+                                if result.get('success'):
+                                    st.session_state.show_save_kb_history = False
+                                    st.session_state.saved_to_kb_history = True
+                                    # Clear topics cache to refresh Quick Topics
+                                    fetch_topics.clear()
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to save: {result.get('error', 'Unknown error')}")
+                            else:
+                                st.error(f"API Error: {response.status_code}")
+                        except Exception as e:
+                            st.error(f"Error saving to KB: {str(e)}")
+            with btn_col2:
+                if st.button("❌ Cancel", use_container_width=True, key="cancel_save_kb_history"):
+                    st.session_state.show_save_kb_history = False
+                    st.rerun()
 
 # Tab 2: Search Knowledge Base
 with tab2:
