@@ -527,7 +527,8 @@ with tab1:
         col_idx = idx % 4
         with chip_cols[col_idx]:
             if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
-                st.session_state.suggested_topic = topic
+                # Set the widget key directly (this is what Streamlit actually uses)
+                st.session_state.query_text_area = topic
                 st.rerun()
 
     # Show more/less button if there are more topics
@@ -546,16 +547,11 @@ with tab1:
     # Input section
     col1, col2 = st.columns([3, 1])
 
-    # Pre-fill if topic was clicked
-    default_query = st.session_state.get('suggested_topic', '')
-    if default_query:
-        st.session_state.suggested_topic = None  # Clear after using
-
     with col1:
         query_input = st.text_area(
             "Enter your query (topic, URL, or text):",
             height=100,
-            value=default_query,
+            key="query_text_area",
             placeholder="Examples:\n- Machine Learning\n- https://example.com/article\n- Paste your text here..."
         )
     
