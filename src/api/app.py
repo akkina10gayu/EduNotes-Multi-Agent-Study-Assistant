@@ -1,8 +1,9 @@
 """
 FastAPI application for EduNotes
 """
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -44,6 +45,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add GZip compression middleware (Phase 5 optimization)
+# Compresses responses larger than 500 bytes for faster transfer
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -288,34 +293,59 @@ async def search_knowledge_base(request: Request, body: SearchKBRequest):
 @limiter.limit("20/minute")
 async def process_pdf(
     request: Request,
-    file: UploadFile = File(...),
-    summarization_mode: str = "paragraph_summary",
-    output_length: str = "auto"
+    file: UploadFile = File(None),
+    summarization_mode: str = Form("paragraph_summary"),
+    output_length: str = Form("auto"),
+    cached_text: str = Form(None),
+    cached_filename: str = Form(None)
 ):
-    """Process PDF file and generate study notes"""
+    """Process PDF file and generate study notes.
+
+    Supports two modes:
+    1. Normal: Upload PDF file for extraction and processing
+    2. Cached: Provide pre-extracted text (cached_text) to skip extraction (Phase 5 optimization)
+    """
     try:
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file type. Please upload a PDF file."
-            )
+        extracted_text = None
+        filename = None
 
-        # Check file size (max 10MB)
-        content = await file.read()
-        file_size_mb = len(content) / (1024 * 1024)
-        if file_size_mb > 10:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB."
-            )
+        # Phase 5: Check if using cached text (skip extraction)
+        if cached_text:
+            extracted_text = cached_text
+            filename = cached_filename or "cached_pdf"
+            logger.info(f"Using cached text for PDF: {filename} ({len(extracted_text)} chars)")
+        else:
+            # Normal mode: Process uploaded PDF file
+            if not file or not file.filename:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No PDF file provided. Please upload a PDF file."
+                )
 
-        logger.info(f"Processing PDF: {file.filename} ({file_size_mb:.2f}MB)")
+            # Validate file type
+            if not file.filename.lower().endswith('.pdf'):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid file type. Please upload a PDF file."
+                )
 
-        # Extract text from PDF
-        pdf_processor = get_pdf_processor()
-        extracted_text = pdf_processor.extract_text_from_bytes(content)
+            # Check file size (max 10MB)
+            content = await file.read()
+            file_size_mb = len(content) / (1024 * 1024)
+            if file_size_mb > 10:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB."
+                )
 
+            filename = file.filename
+            logger.info(f"Processing PDF: {filename} ({file_size_mb:.2f}MB)")
+
+            # Extract text from PDF
+            pdf_processor = get_pdf_processor()
+            extracted_text = pdf_processor.extract_text_from_bytes(content)
+
+        # Validate extracted text
         if not extracted_text:
             raise HTTPException(
                 status_code=400,
@@ -328,8 +358,7 @@ async def process_pdf(
                 detail="Extracted text is too short. The PDF may not contain enough readable content."
             )
 
-        logger.info(f"Extracted {len(extracted_text)} characters from PDF")
-        logger.info(f"Processing PDF with summarization_mode='{summarization_mode}', output_length='{output_length}'")
+        logger.info(f"Processing {len(extracted_text)} characters with summarization_mode='{summarization_mode}', output_length='{output_length}'")
 
         # Process through orchestrator as text query
         result = await orchestrator.process(
@@ -340,13 +369,14 @@ async def process_pdf(
 
         logger.info(f"PDF processing completed - Success: {result.get('success', False)}")
 
-        # Add PDF filename to result and record activity
+        # Add PDF filename and extracted text to result (Phase 5: for caching)
         if result.get('success'):
-            result['source_file'] = file.filename
+            result['source_file'] = filename
+            result['extracted_text'] = extracted_text  # Phase 5: Return for UI caching
             # Record activity for progress tracking (updates streak)
             try:
                 progress_store = get_progress_store()
-                topic = f"PDF: {file.filename[:30]}"
+                topic = f"PDF: {filename[:30]}"
                 progress_store.record_note_generated(topic)
                 logger.debug(f"Recorded PDF note generation activity")
             except Exception as e:
@@ -392,6 +422,74 @@ async def get_stats():
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/dashboard-stats", tags=["System"])
+async def get_dashboard_stats():
+    """Get combined dashboard statistics in a single call (Phase 5 optimization).
+
+    Returns health, KB stats, study progress, and flashcard count in ONE response.
+    Reduces 4 separate API calls to 1 for the dashboard.
+    """
+    try:
+        # Combine all dashboard data into single response
+        result = {
+            "healthy": True,
+            "kb_documents": 0,
+            "flashcard_sets": 0,
+            "total_quizzes": 0,
+            "current_streak": 0,
+            "topics_count": 0
+        }
+
+        # Get KB stats
+        try:
+            kb_stats = vector_store.get_collection_stats()
+            result["kb_documents"] = kb_stats.get("total_documents", 0)
+        except Exception as e:
+            logger.warning(f"Failed to get KB stats: {e}")
+
+        # Get topics count
+        try:
+            topics = vector_store.get_unique_topics()
+            result["topics_count"] = len(topics)
+        except Exception as e:
+            logger.warning(f"Failed to get topics: {e}")
+
+        # Get study progress
+        try:
+            progress_store = get_progress_store()
+            progress = progress_store.get_progress()
+            overall_stats = progress.get("overall_stats", {})
+            streak = progress.get("streak", {})
+            result["total_quizzes"] = overall_stats.get("total_quizzes_completed", 0)
+            result["current_streak"] = streak.get("current_streak", 0)
+        except Exception as e:
+            logger.warning(f"Failed to get progress: {e}")
+
+        # Get flashcard sets count
+        try:
+            progress_store = get_progress_store()
+            flashcard_sets = progress_store.get_all_flashcard_sets()
+            result["flashcard_sets"] = len(flashcard_sets)
+        except Exception as e:
+            logger.warning(f"Failed to get flashcard sets: {e}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error getting dashboard stats: {e}")
+        # Return partial data rather than failing completely
+        return {
+            "healthy": False,
+            "kb_documents": 0,
+            "flashcard_sets": 0,
+            "total_quizzes": 0,
+            "current_streak": 0,
+            "topics_count": 0,
+            "error": str(e)
+        }
+
 
 # Error handlers
 @app.exception_handler(Exception)

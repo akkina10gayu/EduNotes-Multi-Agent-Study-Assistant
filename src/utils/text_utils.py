@@ -134,10 +134,16 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
         md += "\n"
 
     if "sources" in content and content["sources"]:
-        md += "## Sources\n\n"
-        for source in content["sources"]:
-            md += f"- [{source['title']}]({source['url']})\n"
-        md += "\n"
+        # Filter to only include sources with valid URLs (must start with http)
+        valid_sources = [
+            s for s in content["sources"]
+            if s.get('url') and s['url'].startswith(('http://', 'https://'))
+        ]
+        if valid_sources:
+            md += "## Sources\n\n"
+            for source in valid_sources:
+                md += f"- [{source['title']}]({source['url']})\n"
+            md += "\n"
 
     if "metadata" in content:
         md += "---\n"
