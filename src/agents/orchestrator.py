@@ -9,6 +9,7 @@ from src.agents.retriever import RetrieverAgent
 from src.agents.scraper import ScraperAgent
 from src.agents.summarizer import SummarizerAgent
 from src.agents.note_maker import NoteMakerAgent
+from src.agents.web_search import WebSearchAgent
 from src.knowledge_base.vector_store import VectorStore
 from src.knowledge_base.document_processor import DocumentProcessor
 from src.utils.logger import get_logger
@@ -28,6 +29,7 @@ class Orchestrator:
         self.scraper = ScraperAgent()
         self.summarizer = SummarizerAgent()
         self.note_maker = NoteMakerAgent()
+        self.web_search = WebSearchAgent()
         self.vector_store = VectorStore()
         self.doc_processor = DocumentProcessor()
         self.logger = logger
@@ -45,12 +47,29 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
-        """Process a topic-based query"""
-        try:
-            self.logger.info(f"Processing topic query: {query[:50]}...")
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto") -> Dict[str, Any]:
+        """Process a topic-based query with configurable search mode.
 
-            # Search knowledge base
+        Args:
+            query: The user's topic query
+            summarization_mode: Format for notes output
+            output_length: Length of summary output
+            search_mode: 'auto' (KB first, web fallback), 'kb_only', 'web_search' (web only)
+        """
+        try:
+            self.logger.info(f"Processing topic query: {query[:50]}... (search_mode={search_mode})")
+
+            # Web search only mode - skip KB entirely
+            if search_mode in ("web_search", "web_only"):
+                self.logger.info("Search mode: web_search - going directly to web search")
+                return await self._web_search_and_process(query, summarization_mode, output_length)
+
+            # Both mode - search KB and web, combine results
+            if search_mode == "both":
+                self.logger.info("Search mode: both - searching KB and web")
+                return await self._process_both_sources(query, summarization_mode, output_length)
+
+            # Search knowledge base (for 'auto' and 'kb_only' modes)
             retrieval_result = await self.retriever.process({
                 'query': query,
                 'k': 5,
@@ -58,8 +77,8 @@ class Orchestrator:
             })
 
             if retrieval_result['success'] and retrieval_result['count'] > 0:
-                # Found relevant documents
-                self.logger.info(f"Found {retrieval_result['count']} relevant documents")
+                # Found relevant documents in KB
+                self.logger.info(f"Found {retrieval_result['count']} relevant documents in KB")
 
                 # Extract content from results
                 documents = [doc['content'] for doc in retrieval_result['results']]
@@ -69,7 +88,6 @@ class Orchestrator:
                 sources = []
                 for doc in retrieval_result['results']:
                     url = doc['metadata'].get('url', '')
-                    # Only include sources with valid, non-empty URLs that start with http
                     if url and url not in seen_urls and url.startswith(('http://', 'https://')):
                         seen_urls.add(url)
                         sources.append({
@@ -78,12 +96,11 @@ class Orchestrator:
                         })
 
                 # Create comprehensive technical summary using ALL available documents
-                all_content = ' '.join(documents[:5])  # Use top 5 documents for maximum content
+                all_content = ' '.join(documents[:5])
                 self.logger.info(f"Processing {len(documents)} documents with total length: {len(all_content)}")
 
-                # Pass the summarization_mode and output_length directly to the summarizer
                 detailed_summary = await self.summarizer.process({
-                    'content': all_content,  # Use all available content
+                    'content': all_content,
                     'mode': summarization_mode,
                     'output_length': output_length
                 })
@@ -96,7 +113,6 @@ class Orchestrator:
                 }
                 note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
 
-                # Create notes with detailed technical content
                 notes_result = await self.note_maker.process({
                     'mode': 'create',
                     'title': note_title,
@@ -104,7 +120,7 @@ class Orchestrator:
                     'key_points': [],
                     'sources': sources,
                     'topic': query,
-                    'summarization_mode': summarization_mode  # Pass mode for header formatting
+                    'summarization_mode': summarization_mode
                 })
 
                 return {
@@ -117,10 +133,23 @@ class Orchestrator:
                 }
 
             else:
-                # No relevant documents found - need to fetch from web
-                self.logger.info("No relevant documents in KB, fetching from web...")
-                return await self.fetch_and_process_topic(query, summarization_mode, output_length)
-                
+                # No relevant documents found in KB
+                if search_mode == "kb_only":
+                    self.logger.info("Search mode: kb_only - no results found, not searching web")
+                    return {
+                        'success': True,
+                        'query_type': 'topic',
+                        'query': query,
+                        'notes': f"# {query}\n\nNo information found in the knowledge base for this topic.\n\nTry switching to **Auto** or **Web Search** mode to search the internet.",
+                        'sources_used': 0,
+                        'from_kb': False,
+                        'message': 'No results found in knowledge base'
+                    }
+
+                # Auto mode: fall back to web search
+                self.logger.info("No relevant documents in KB, falling back to web search...")
+                return await self._web_search_and_process(query, summarization_mode, output_length)
+
         except Exception as e:
             self.logger.error(f"Error processing topic query: {e}")
             return {
@@ -128,140 +157,246 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def fetch_and_process_topic(self, topic: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
-        """Fetch information about a topic from web and process"""
+    async def _web_search_and_process(
+        self,
+        query: str,
+        summarization_mode: str = "paragraph_summary",
+        output_length: str = "auto"
+    ) -> Dict[str, Any]:
+        """
+        Use WebSearchAgent to find content, then summarize and make notes.
+        Replaces the old _build_search_urls() + fetch_and_process_topic().
+        """
         try:
-            self.logger.info(f"No KB results for '{topic}', attempting web search...")
+            self.logger.info(f"Starting web search for: {query}")
 
-            # Build search URLs for the topic
-            search_urls = self._build_search_urls(topic)
+            # Step 1: Web search via WebSearchAgent
+            search_result = await self.web_search.search_and_get_content(query)
 
-            if not search_urls:
+            if not search_result:
                 return {
                     'success': True,
                     'query_type': 'topic',
-                    'query': topic,
-                    'notes': f"# {topic}\n\nNo information found in knowledge base.\n\nPlease run the seed script to populate the KB:\n```\npython scripts/seed_data.py --sample\n```",
+                    'query': query,
+                    'notes': f"# {query}\n\nNo information found via web search. The topic may be too specific or the search service may be temporarily unavailable.\n\nTry rephrasing your query or using a more specific topic name.",
                     'sources_used': 0,
                     'from_kb': False,
-                    'message': 'Knowledge base needs updating for this topic'
+                    'message': 'Web search returned no results'
                 }
 
-            # Try to scrape content from educational sources
-            scraped_content = []
-            sources = []
+            # Step 2: Summarize the content
+            summary_result = await self.summarizer.process({
+                'content': search_result['content'],
+                'mode': summarization_mode,
+                'output_length': output_length
+            })
 
-            for url in search_urls[:3]:  # Try up to 3 URLs
+            # Step 3: Create notes with source references
+            title_suffix_map = {
+                'paragraph_summary': '',
+                'important_points': ' - Important Points',
+                'key_highlights': ' - Key Highlights'
+            }
+            note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
+
+            notes_result = await self.note_maker.process({
+                'mode': 'create',
+                'title': note_title,
+                'summary': summary_result.get('summary', ''),
+                'key_points': [],
+                'sources': search_result.get('sources', []),
+                'topic': query,
+                'summarization_mode': summarization_mode
+            })
+
+            # Step 4: Add to KB for future queries
+            if search_result.get('content'):
                 try:
-                    scrape_result = await self.scraper.process({'url': url})
-                    if scrape_result.get('success') and scrape_result.get('content'):
-                        content = scrape_result['content']
-                        if len(content) > 200:  # Only use substantial content
-                            scraped_content.append(content)
-                            sources.append({
-                                'title': scrape_result.get('title', 'Web Source'),
+                    doc = self.doc_processor.process_document(
+                        content=search_result['content'],
+                        source='web_search',
+                        title=f"Web search: {query}",
+                        url=search_result['sources'][0]['url'] if search_result.get('sources') else '',
+                        topic=query.lower().replace(' ', '-')
+                    )
+                    if doc:
+                        self.vector_store.add_documents([doc])
+                        self.logger.info(f"Added web search content about '{query}' to KB")
+                except Exception as e:
+                    self.logger.warning(f"Failed to add web search content to KB: {e}")
+
+            return {
+                'success': True,
+                'query_type': 'topic',
+                'query': query,
+                'notes': notes_result.get('notes', ''),
+                'sources_used': len(search_result.get('sources', [])),
+                'from_kb': False,
+                'message': f"Generated from web search ({search_result.get('results_scraped', 0)} sources)"
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error in web search and process: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    async def _process_both_sources(
+        self,
+        query: str,
+        summarization_mode: str = "paragraph_summary",
+        output_length: str = "auto"
+    ) -> Dict[str, Any]:
+        """
+        Search both KB and web, combine results, then summarize.
+
+        Used when search_mode='both' to get comprehensive coverage by
+        pulling information from the local knowledge base AND the web.
+        """
+        try:
+            self.logger.info(f"Processing with both KB and web search for: {query[:50]}")
+
+            kb_content = ""
+            kb_sources = []
+            web_content = ""
+            web_sources = []
+
+            # Step 1: Search knowledge base
+            try:
+                retrieval_result = await self.retriever.process({
+                    'query': query,
+                    'k': 5,
+                    'threshold': 1.0
+                })
+                if retrieval_result['success'] and retrieval_result['count'] > 0:
+                    documents = [doc['content'] for doc in retrieval_result['results']]
+                    kb_content = ' '.join(documents[:5])
+
+                    # Build KB sources (deduplicated by URL)
+                    seen_urls = set()
+                    for doc in retrieval_result['results']:
+                        url = doc['metadata'].get('url', '')
+                        if url and url not in seen_urls and url.startswith(('http://', 'https://')):
+                            seen_urls.add(url)
+                            kb_sources.append({
+                                'title': doc['metadata'].get('title', 'Unknown'),
                                 'url': url
                             })
-                            self.logger.info(f"Successfully scraped: {url}")
-                except Exception as e:
-                    self.logger.warning(f"Failed to scrape {url}: {e}")
-                    continue
+                    self.logger.info(f"KB returned {len(documents)} documents, {len(kb_sources)} sources")
+                else:
+                    self.logger.info("KB returned no relevant documents")
+            except Exception as e:
+                self.logger.warning(f"KB search failed in 'both' mode: {e}")
 
-            if not scraped_content:
+            # Step 2: Web search (always, regardless of KB results)
+            try:
+                search_result = await self.web_search.search_and_get_content(query)
+                if search_result:
+                    web_content = search_result.get('content', '')
+                    web_sources = search_result.get('sources', [])
+                    self.logger.info(f"Web search returned {len(web_content)} chars, {len(web_sources)} sources")
+                else:
+                    self.logger.info("Web search returned no results")
+            except Exception as e:
+                self.logger.warning(f"Web search failed in 'both' mode: {e}")
+
+            # Step 3: Check if we got anything
+            if not kb_content and not web_content:
                 return {
                     'success': True,
                     'query_type': 'topic',
-                    'query': topic,
-                    'notes': f"# {topic}\n\nNo information found in knowledge base and web scraping was unsuccessful.\n\nPlease run the seed script to populate the KB:\n```\npython scripts/seed_data.py --sample\n```",
+                    'query': query,
+                    'notes': f"# {query}\n\nNo information found from either the knowledge base or web search.\n\nTry rephrasing your query or using a more specific topic name.",
                     'sources_used': 0,
                     'from_kb': False,
-                    'message': 'Could not fetch information from web'
+                    'message': 'No results from either source'
                 }
 
-            # Combine scraped content and summarize
-            combined_content = "\n\n".join(scraped_content[:3])
-            self.logger.info(f"Combined {len(scraped_content)} web sources, total length: {len(combined_content)}")
+            # Step 4: Combine content from both sources
+            combined_parts = []
+            if kb_content:
+                combined_parts.append(kb_content)
+            if web_content:
+                combined_parts.append(web_content)
+            combined_content = '\n\n---\n\n'.join(combined_parts)
 
-            # Pass the summarization_mode and output_length directly to the summarizer
+            self.logger.info(f"Combined content: {len(combined_content)} chars from {len(combined_parts)} sources")
+
+            # Step 5: Summarize the combined content
             summary_result = await self.summarizer.process({
                 'content': combined_content,
                 'mode': summarization_mode,
                 'output_length': output_length
             })
 
-            # Determine title based on summarization mode
+            # Step 6: Build deduplicated source list (KB + Web)
+            all_sources = kb_sources + web_sources
+            seen = set()
+            unique_sources = []
+            for s in all_sources:
+                if s['url'] not in seen:
+                    seen.add(s['url'])
+                    unique_sources.append(s)
+
+            # Step 7: Create notes
             title_suffix_map = {
                 'paragraph_summary': '',
                 'important_points': ' - Important Points',
                 'key_highlights': ' - Key Highlights'
             }
-            note_title = f"{topic.title()}{title_suffix_map.get(summarization_mode, '')}"
+            note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
 
-            # Create notes
             notes_result = await self.note_maker.process({
                 'mode': 'create',
                 'title': note_title,
                 'summary': summary_result.get('summary', ''),
                 'key_points': [],
-                'sources': sources,
-                'topic': topic,
-                'summarization_mode': summarization_mode  # Pass mode for header formatting
+                'sources': unique_sources,
+                'topic': query,
+                'summarization_mode': summarization_mode
             })
 
-            # Optionally add to KB for future queries
-            if combined_content:
+            # Step 8: Add web content to KB for future queries
+            if web_content:
                 try:
                     doc = self.doc_processor.process_document(
-                        content=combined_content,
-                        source='web',
-                        title=f"Web content: {topic}",
-                        url=sources[0]['url'] if sources else '',
-                        topic=topic.lower().replace(' ', '-')
+                        content=web_content,
+                        source='web_search',
+                        title=f"Web search: {query}",
+                        url=web_sources[0]['url'] if web_sources else '',
+                        topic=query.lower().replace(' ', '-')
                     )
                     if doc:
                         self.vector_store.add_documents([doc])
-                        self.logger.info(f"Added web content about '{topic}' to KB")
+                        self.logger.info(f"Added web content from 'both' mode to KB")
                 except Exception as e:
-                    self.logger.warning(f"Failed to add to KB: {e}")
+                    self.logger.warning(f"Failed to add web content to KB: {e}")
+
+            # Build descriptive message
+            source_parts = []
+            if kb_content:
+                source_parts.append(f"KB ({len(kb_sources)} sources)")
+            if web_content:
+                source_parts.append(f"Web ({len(web_sources)} sources)")
 
             return {
                 'success': True,
                 'query_type': 'topic',
-                'query': topic,
+                'query': query,
                 'notes': notes_result.get('notes', ''),
-                'sources_used': len(sources),
-                'from_kb': False,
-                'message': 'Generated from web sources'
+                'sources_used': len(unique_sources),
+                'from_kb': bool(kb_content),
+                'message': f"Combined from {' and '.join(source_parts)}"
             }
 
         except Exception as e:
-            self.logger.error(f"Error fetching topic from web: {e}")
+            self.logger.error(f"Error in both-sources processing: {e}")
             return {
                 'success': False,
                 'error': str(e)
             }
 
-    def _build_search_urls(self, topic: str) -> List[str]:
-        """Build educational URLs for a topic"""
-        # Common educational sources for tech/ML topics
-        topic_slug = topic.lower().replace(' ', '-')
-        topic_query = topic.lower().replace(' ', '+')
-
-        urls = []
-
-        # Educational sites that work well with scraping
-        educational_sources = [
-            f"https://www.geeksforgeeks.org/{topic_slug}/",
-            f"https://www.tutorialspoint.com/{topic_slug}/index.htm",
-            f"https://realpython.com/tutorials/{topic_slug}/",
-        ]
-
-        # Only add URLs that are likely to exist
-        for url in educational_sources:
-            urls.append(url)
-
-        return urls[:3]  # Return top 3
-    
     async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
@@ -413,13 +548,13 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto") -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
             query_type = self.detect_query_type(query)
 
-            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}")
+            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}")
 
             # Process based on type
             if query_type == QueryType.URL:
@@ -427,7 +562,7 @@ class Orchestrator:
             elif query_type == QueryType.TEXT:
                 return await self.process_text_query(query, summarization_mode, output_length)
             else:  # TOPIC
-                return await self.process_topic_query(query, summarization_mode, output_length)
+                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")
@@ -455,7 +590,8 @@ class Orchestrator:
                 'retriever': 'active',
                 'scraper': 'active',
                 'summarizer': 'active',
-                'note_maker': 'active'
+                'note_maker': 'active',
+                'web_search': 'active'
             },
             'llm': {
                 'provider': llm_info.get('provider', 'unknown'),

@@ -28,6 +28,9 @@ lxml
 requests
 aiohttp
 
+# Web Search
+ddgs
+
 # Caching
 diskcache
 

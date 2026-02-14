@@ -177,7 +177,8 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
         result = await orchestrator.process(
             query,
             summarization_mode=body.summarization_mode,
-            output_length=body.summary_length
+            output_length=body.summary_length,
+            search_mode=body.search_mode or "auto"
         )
 
         # Record activity for progress tracking (updates streak)

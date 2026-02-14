@@ -682,6 +682,45 @@ with tab1:
         file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
         st.info(f"📎 **{uploaded_file.name}** ({file_size_mb:.2f}MB)")
 
+    # Search Mode Selection — hidden by default, shown only when topic input is detected
+    search_mode = "auto"  # Default for non-topic queries
+
+    _is_topic_input = False  # Hidden until topic input is actively detected
+    if not uploaded_file and query_input and query_input.strip():
+        _stripped = query_input.strip()
+        if not _stripped.startswith(('http://', 'https://', 'www.')) and len(_stripped) <= 500:
+            _is_topic_input = True
+
+    if _is_topic_input:
+        st.markdown("---")
+        st.markdown("#### 🔍 Search Mode")
+        search_mode = st.radio(
+            "Choose where to search for information:",
+            options=["auto", "kb_only", "web_search", "both"],
+            format_func=lambda x: {
+                "auto": "🔄 Auto (Recommended)",
+                "kb_only": "📚 Knowledge Base Only",
+                "web_search": "🌐 Web Search Only",
+                "both": "🔗 KB + Web Search"
+            }.get(x, x),
+            help="""**Auto**: Searches the local knowledge base first. If no results are found, automatically falls back to web search.
+
+**Knowledge Base Only**: Only searches the local knowledge base. No internet access.
+
+**Web Search Only**: Searches the internet directly using an LLM-powered search agent. Skips the knowledge base entirely.
+
+**KB + Web Search**: Searches BOTH the knowledge base and the web, then combines the results for the most comprehensive coverage. Best when you want thorough notes from all available sources.""",
+            horizontal=True,
+            key="search_mode_selector"
+        )
+        search_mode_descriptions = {
+            "auto": "Searches KB first, falls back to web search if no results found.",
+            "kb_only": "Only searches the local knowledge base. Use this for offline mode.",
+            "web_search": "Searches the internet using the LLM-powered Web Search Agent.",
+            "both": "Searches both KB and web, combines all results for comprehensive coverage."
+        }
+        st.caption(f"💡 {search_mode_descriptions.get(search_mode, '')}")
+
     st.markdown("---")
 
     # Summarization Mode Selection
@@ -910,8 +949,14 @@ with tab1:
                     status_placeholder.info("🌐 Scraping web content...")
                 elif len(query_input) > 500:
                     status_placeholder.info("📄 Processing text input...")
+                elif search_mode == "both":
+                    status_placeholder.info("🔗 Searching knowledge base and web for comprehensive coverage...")
+                elif search_mode == "web_search":
+                    status_placeholder.info("🌐 Searching the web with AI agent...")
+                elif search_mode == "kb_only":
+                    status_placeholder.info("📚 Searching knowledge base...")
                 else:
-                    status_placeholder.info("🔍 Searching knowledge base...")
+                    status_placeholder.info("🔍 Searching knowledge base (web fallback enabled)...")
 
                 # Make API request
                 response = requests.post(
@@ -919,7 +964,8 @@ with tab1:
                     json={
                         "query": query_input,
                         "summarization_mode": summarization_mode,
-                        "summary_length": output_length
+                        "summary_length": output_length,
+                        "search_mode": search_mode
                     },
                     timeout=120
                 )
@@ -982,7 +1028,9 @@ with tab1:
                             'query': query_input[:100] + '...' if len(query_input) > 100 else query_input,
                             'type': result['query_type'],
                             'sources_used': result['sources_used'],
-                            'from_kb': result['from_kb']
+                            'from_kb': result['from_kb'],
+                            'search_mode': search_mode,
+                            'message': result.get('message', '')
                         }
                         st.session_state.show_copy_box = False  # Reset copy box state
                         st.session_state.saved_to_kb_recent = False  # Reset save state for new notes
@@ -1026,13 +1074,40 @@ with tab1:
         # Display metadata if available
         metadata = st.session_state.get('last_generation_metadata')
         if metadata:
-            col1, col2, col3 = st.columns(3)
+            _meta_type = metadata.get('type', 'N/A')
+            _is_topic_meta = _meta_type == 'topic'
+
+            if _is_topic_meta:
+                # Topic queries: show 4 columns including Search Mode
+                col1, col2, col3, col4 = st.columns(4)
+            else:
+                # URL/Text/PDF queries: show 3 columns (no Search Mode)
+                col1, col2, col3 = st.columns(3)
+
             with col1:
-                st.metric("Query Type", metadata.get('type', 'N/A').upper())
+                st.metric("Query Type", _meta_type.upper())
             with col2:
                 st.metric("Sources Used", metadata.get('sources_used', 0))
             with col3:
-                st.metric("From KB", "Yes" if metadata.get('from_kb') else "No")
+                _search_mode_meta = metadata.get('search_mode', 'auto')
+                if _search_mode_meta == 'both':
+                    source_label = "KB + Web"
+                elif metadata.get('from_kb'):
+                    source_label = "Knowledge Base"
+                elif _meta_type == 'url':
+                    source_label = "Web Scrape"
+                elif _meta_type == 'text' or _meta_type == 'pdf':
+                    source_label = "Direct Input"
+                elif _search_mode_meta in ('web_search', 'auto'):
+                    source_label = "Web Search"
+                else:
+                    source_label = "N/A"
+                st.metric("Source", source_label)
+
+            if _is_topic_meta:
+                with col4:
+                    mode_labels = {"auto": "Auto", "kb_only": "KB Only", "web_search": "Web Search", "both": "KB + Web"}
+                    st.metric("Search Mode", mode_labels.get(_search_mode_meta, 'Auto'))
 
         # Display notes
         st.markdown('<div class="notes-container">', unsafe_allow_html=True)
