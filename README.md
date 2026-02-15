@@ -65,7 +65,7 @@ Visit [localhost:8501](http://localhost:8501) to start using the app.
 
 ## How to Use
 
-1. **Generate Notes** - Enter a topic, paste a URL, or upload a PDF. Select your preferred format and generate.
+1. **Generate Notes** - Enter a topic, paste a URL, or upload a PDF. For topic queries, choose a search mode (Auto, KB Only, Web Search, or KB + Web Search) and select your preferred format.
 
 2. **Search Knowledge Base** - Find relevant information from previously processed content.
 
@@ -81,11 +81,12 @@ Visit [localhost:8501](http://localhost:8501) to start using the app.
 
 ## Architecture
 
-EduNotes uses a multi-agent system where specialized agents handle different tasks:
+EduNotes uses a multi-agent architecture with specialized components handling different tasks:
 
-| Agent | Role |
-|-------|------|
+| Component | Role |
+|-----------|------|
 | Retriever | Searches knowledge base using semantic similarity |
+| Web Search | Finds and evaluates educational content from the web using LLM-powered search |
 | Scraper | Extracts and processes content from URLs |
 | Summarizer | Generates summaries using LLM |
 | Note-Maker | Structures output into formatted notes |
@@ -95,6 +96,7 @@ EduNotes uses a multi-agent system where specialized agents handle different tas
 | Component | Technology |
 |-----------|------------|
 | LLM | Groq (Llama 3.3 70B) / Local Flan-T5 |
+| Web Search | DuckDuckGo (ddgs) |
 | Embeddings | MiniLM-L6-v2 |
 | Vector Store | ChromaDB |
 | Backend | FastAPI |

@@ -228,6 +228,27 @@ class LLMClient:
 
         logger.info(f"Optimized max_tokens: {optimized_max_tokens} (style={style}, length={actual_length})")
 
+        # Smart truncation for Groq free tier (12,000 TPM limit)
+        # Ensures total request (system + prompt instructions + text + response) fits within limit
+        if self.provider == "groq":
+            groq_token_limit = 12000
+            prompt_overhead_tokens = 700  # system prompt (~200) + prompt instructions (~500)
+            available_text_tokens = groq_token_limit - prompt_overhead_tokens - optimized_max_tokens
+            # Conservative: 3 chars per token to avoid underestimating token count
+            max_text_chars = max(2000, available_text_tokens * 3)
+            if len(text) > max_text_chars:
+                original_len = len(text)
+                text = text[:max_text_chars]
+                # Cut at last sentence boundary for clean truncation
+                last_period = text.rfind('. ')
+                if last_period > len(text) * 0.8:
+                    text = text[:last_period + 1]
+                logger.warning(
+                    f"Truncated input from {original_len} to {len(text)} chars "
+                    f"to fit within Groq token limit ({groq_token_limit} TPM, "
+                    f"reserved {optimized_max_tokens} for response)"
+                )
+
         # Build prompt based on style
         if style == "key_highlights":
             # KEY HIGHLIGHTS: Key terms, terminology, topics with very brief descriptions

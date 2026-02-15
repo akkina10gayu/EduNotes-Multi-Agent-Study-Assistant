@@ -89,6 +89,21 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", 32))
 MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", 10))
 
 # =============================================================================
+# Web Search Settings
+# =============================================================================
+SEARCH_PROVIDER = os.getenv("SEARCH_PROVIDER", "duckduckgo")
+SEARCH_MAX_RESULTS = int(os.getenv("SEARCH_MAX_RESULTS", 10))
+SEARCH_REGION = os.getenv("SEARCH_REGION", "wt-wt")
+SEARCH_SAFE_SEARCH = os.getenv("SEARCH_SAFE_SEARCH", "moderate")
+SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+SEARCH_FALLBACK_ENABLED = os.getenv("SEARCH_FALLBACK_ENABLED", "true").lower() == "true"
+
+# Web Search Agent
+WEB_SEARCH_MAX_URLS_TO_SCRAPE = int(os.getenv("WEB_SEARCH_MAX_URLS_TO_SCRAPE", 3))
+WEB_SEARCH_MIN_CONTENT_LENGTH = int(os.getenv("WEB_SEARCH_MIN_CONTENT_LENGTH", 200))
+WEB_SEARCH_CACHE_TTL = int(os.getenv("WEB_SEARCH_CACHE_TTL", 3600))
+
+# =============================================================================
 # Study Features Settings
 # =============================================================================
 FLASHCARD_STORAGE = Path(os.getenv("FLASHCARD_STORAGE", str(DATA_DIR / "flashcards")))
