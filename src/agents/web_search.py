@@ -23,7 +23,7 @@ from typing import Dict, Any, List, Optional
 
 from src.agents.base import BaseAgent
 from src.agents.scraper import ScraperAgent
-from src.utils.search_provider import get_search_provider, SearchResult
+from src.utils.search_provider import get_search_provider, get_fallback_provider, SearchResult
 from src.utils.llm_client import get_llm_client
 from src.utils.cache_utils import cache, get_cache_key
 from config import settings
@@ -45,6 +45,7 @@ class WebSearchAgent(BaseAgent):
         super().__init__("WebSearchAgent")
         self.llm_client = get_llm_client()
         self.search_provider = get_search_provider()
+        self.fallback_provider = get_fallback_provider()
         self.scraper = ScraperAgent()
 
     # =================================================================
@@ -146,13 +147,16 @@ YOUR QUERIES FOR "{topic}":"""
     # STAGE 2: WEB SEARCH (Tool - no LLM)
     # =================================================================
 
-    def execute_search(self, queries: List[str]) -> List[SearchResult]:
+    def execute_search(self, queries: List[str], original_topic: str = None) -> List[SearchResult]:
         """
         Execute search queries using the search provider tool.
         This is a TOOL invocation, no intelligence here.
 
         Deduplicates results by URL across all queries.
         Adds a small delay between queries to avoid rate-limiting.
+
+        If the primary provider returns 0 results and a fallback provider
+        is available, automatically retries with the fallback (Google).
         """
         all_results = []
         seen_urls = set()
@@ -190,6 +194,95 @@ YOUR QUERIES FOR "{topic}":"""
             except Exception as e:
                 self.logger.warning(f"Search failed for query '{query}': {e}")
                 continue
+
+        # --- Retry: If primary returned 0, try raw topic on primary provider ---
+        # LLM-generated queries can be too decorated for DDG. The raw topic
+        # (e.g. "Bi-Encoders and cross encoders in RAG") sometimes works better.
+        if not all_results and original_topic:
+            topic_clean = original_topic.strip()
+            if topic_clean.lower() not in [q.lower().strip() for q in queries]:
+                self.logger.info(
+                    f"Retrying primary provider with raw topic: {topic_clean[:50]}"
+                )
+                try:
+                    time.sleep(1)
+                    results = self.search_provider.search(
+                        query=topic_clean,
+                        max_results=settings.SEARCH_MAX_RESULTS
+                    )
+                    if results:
+                        norm = topic_clean.lower().strip()
+                        cache.set(
+                            get_cache_key("ws_search", norm),
+                            results,
+                            expire=settings.WEB_SEARCH_CACHE_TTL
+                        )
+                    for result in results:
+                        if result.url not in seen_urls:
+                            seen_urls.add(result.url)
+                            all_results.append(result)
+                    if all_results:
+                        self.logger.info(
+                            f"Raw topic retry found {len(all_results)} results"
+                        )
+                except Exception as e:
+                    self.logger.warning(f"Raw topic retry failed: {e}")
+
+        # --- Fallback: If still 0 results, try Google scraper ---
+        if not all_results and self.fallback_provider:
+            self.logger.warning(
+                f"Primary search ({settings.SEARCH_PROVIDER}) returned 0 results "
+                f"across all queries. Trying fallback provider (Google)..."
+            )
+
+            # Build fallback queries: original queries + raw topic for broader coverage
+            fallback_queries = list(queries)
+            if original_topic:
+                topic_clean = original_topic.strip()
+                if topic_clean and topic_clean not in fallback_queries:
+                    fallback_queries.append(topic_clean)
+
+            for i, query in enumerate(fallback_queries):
+                try:
+                    # Separate cache namespace for fallback results
+                    normalized_query = query.lower().strip()
+                    fb_cache_key = get_cache_key("ws_search_fb", normalized_query)
+                    cached_results = cache.get(fb_cache_key)
+
+                    if cached_results is not None:
+                        self.logger.info(f"Fallback cache HIT for query: {query[:50]}")
+                        results = cached_results
+                    else:
+                        # Longer delay for Google to avoid rate-limiting
+                        if i > 0:
+                            time.sleep(2)
+
+                        results = self.fallback_provider.search(
+                            query=query,
+                            max_results=settings.SEARCH_MAX_RESULTS
+                        )
+
+                        if results:
+                            cache.set(fb_cache_key, results, expire=settings.WEB_SEARCH_CACHE_TTL)
+
+                    for result in results:
+                        if result.url not in seen_urls:
+                            seen_urls.add(result.url)
+                            all_results.append(result)
+
+                except Exception as e:
+                    self.logger.warning(f"Fallback search failed for query '{query}': {e}")
+                    continue
+
+            if all_results:
+                self.logger.info(
+                    f"Fallback provider found {len(all_results)} results "
+                    f"(primary had 0)"
+                )
+            else:
+                self.logger.warning(
+                    "Fallback provider also returned 0 results"
+                )
 
         self.logger.info(
             f"Search returned {len(all_results)} unique results "
@@ -469,9 +562,9 @@ Answer (YES/NO + reason):"""
             queries = self.generate_search_queries(topic)
             self.logger.info(f"Generated {len(queries)} queries: {queries}")
 
-            # STAGE 2: Execute search (Tool)
+            # STAGE 2: Execute search (Tool, with automatic fallback)
             self.logger.info("Stage 2: Executing web search...")
-            search_results = self.execute_search(queries)
+            search_results = self.execute_search(queries, original_topic=topic)
             if not search_results:
                 return {
                     'success': False,

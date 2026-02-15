@@ -30,6 +30,8 @@ aiohttp
 
 # Web Search
 ddgs
+duckduckgo_search
+googlesearch-python
 
 # Caching
 diskcache

@@ -301,6 +301,84 @@ if 'saved_to_kb_recent' not in st.session_state:
 if 'saved_to_kb_history' not in st.session_state:
     st.session_state.saved_to_kb_history = False
 
+# Edit mode for notes (inline editing with undo support)
+if 'edit_mode_recent' not in st.session_state:
+    st.session_state.edit_mode_recent = False
+if 'edit_undo_recent' not in st.session_state:
+    st.session_state.edit_undo_recent = None
+if 'edit_mode_history' not in st.session_state:
+    st.session_state.edit_mode_history = False
+if 'edit_undo_history' not in st.session_state:
+    st.session_state.edit_undo_history = None
+
+# Undo/redo stacks for inline text editing
+if 'edit_undo_stack_recent' not in st.session_state:
+    st.session_state.edit_undo_stack_recent = []
+if 'edit_redo_stack_recent' not in st.session_state:
+    st.session_state.edit_redo_stack_recent = []
+if 'edit_current_text_recent' not in st.session_state:
+    st.session_state.edit_current_text_recent = None
+if 'edit_undo_stack_history' not in st.session_state:
+    st.session_state.edit_undo_stack_history = []
+if 'edit_redo_stack_history' not in st.session_state:
+    st.session_state.edit_redo_stack_history = []
+if 'edit_current_text_history' not in st.session_state:
+    st.session_state.edit_current_text_history = None
+
+def _on_edit_change_recent():
+    """Callback for recent notes text_area on_change — captures edit snapshots."""
+    new_text = st.session_state.edit_textarea_recent
+    current = st.session_state.edit_current_text_recent
+    if current is not None and new_text != current:
+        st.session_state.edit_undo_stack_recent.append(current)
+        st.session_state.edit_redo_stack_recent.clear()
+        st.session_state.edit_current_text_recent = new_text
+
+def _on_edit_change_history():
+    """Callback for history notes text_area on_change — captures edit snapshots."""
+    new_text = st.session_state.edit_textarea_history
+    current = st.session_state.edit_current_text_history
+    if current is not None and new_text != current:
+        st.session_state.edit_undo_stack_history.append(current)
+        st.session_state.edit_redo_stack_history.clear()
+        st.session_state.edit_current_text_history = new_text
+
+def _undo_edit_recent():
+    """on_click callback for recent notes undo button. Runs before widgets render."""
+    undo_stack = st.session_state.edit_undo_stack_recent
+    if undo_stack:
+        st.session_state.edit_redo_stack_recent.append(st.session_state.edit_current_text_recent)
+        prev = undo_stack.pop()
+        st.session_state.edit_current_text_recent = prev
+        st.session_state.edit_textarea_recent = prev
+
+def _redo_edit_recent():
+    """on_click callback for recent notes redo button. Runs before widgets render."""
+    redo_stack = st.session_state.edit_redo_stack_recent
+    if redo_stack:
+        st.session_state.edit_undo_stack_recent.append(st.session_state.edit_current_text_recent)
+        next_state = redo_stack.pop()
+        st.session_state.edit_current_text_recent = next_state
+        st.session_state.edit_textarea_recent = next_state
+
+def _undo_edit_history():
+    """on_click callback for history notes undo button. Runs before widgets render."""
+    undo_stack = st.session_state.edit_undo_stack_history
+    if undo_stack:
+        st.session_state.edit_redo_stack_history.append(st.session_state.edit_current_text_history)
+        prev = undo_stack.pop()
+        st.session_state.edit_current_text_history = prev
+        st.session_state.edit_textarea_history = prev
+
+def _redo_edit_history():
+    """on_click callback for history notes redo button. Runs before widgets render."""
+    redo_stack = st.session_state.edit_redo_stack_history
+    if redo_stack:
+        st.session_state.edit_undo_stack_history.append(st.session_state.edit_current_text_history)
+        next_state = redo_stack.pop()
+        st.session_state.edit_current_text_history = next_state
+        st.session_state.edit_textarea_history = next_state
+
 # Font size mapping
 font_sizes = {
     'small': {'base': '14px', 'header': '2.5rem', 'notes': '0.9rem'},
@@ -356,6 +434,14 @@ st.markdown(f"""
     /* Button styling */
     .stButton>button {{
         font-size: {current_size['base']};
+    }}
+
+    /* Hide the "Press Ctrl+Enter to apply" instruction on text areas.
+       All text areas are paired with action buttons (Save, Generate, etc.)
+       that commit the value via focus loss, making this label unnecessary
+       and confusing for users. */
+    .stTextArea [data-testid="InputInstructions"] {{
+        display: none;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -467,6 +553,11 @@ with st.sidebar:
                         if st.button("View", key=f"history_view_{idx}", use_container_width=True):
                             st.session_state.selected_history = note_item
                             st.session_state.saved_to_kb_history = False  # Reset save state for new selection
+                            st.session_state.edit_mode_history = False
+                            st.session_state.edit_undo_history = None
+                            st.session_state.edit_undo_stack_history = []
+                            st.session_state.edit_redo_stack_history = []
+                            st.session_state.edit_current_text_history = None
                             st.rerun()
 
                     # Add separator between items (except last)
@@ -1069,6 +1160,11 @@ with tab1:
                 st.session_state.show_copy_box = False
                 st.session_state.show_save_kb_recent = False
                 st.session_state.saved_to_kb_recent = False
+                st.session_state.edit_mode_recent = False
+                st.session_state.edit_undo_recent = None
+                st.session_state.edit_undo_stack_recent = []
+                st.session_state.edit_redo_stack_recent = []
+                st.session_state.edit_current_text_recent = None
                 st.rerun()
 
         # Display metadata if available
@@ -1109,90 +1205,159 @@ with tab1:
                     mode_labels = {"auto": "Auto", "kb_only": "KB Only", "web_search": "Web Search", "both": "KB + Web"}
                     st.metric("Search Mode", mode_labels.get(_search_mode_meta, 'Auto'))
 
-        # Display notes
-        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
-        st.markdown(st.session_state.last_generated_notes)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Action buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.download_button(
-                label="📥 Download Notes",
-                data=st.session_state.last_generated_notes,
-                file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key="download_generated_persistent"
+        # Display notes (view mode or edit mode)
+        if st.session_state.edit_mode_recent:
+            st.markdown("**✏️ Editing Notes** — make changes below, then Save or Cancel.")
+            edited_recent = st.text_area(
+                "Edit notes:",
+                height=400,
+                key="edit_textarea_recent",
+                label_visibility="collapsed",
+                on_change=_on_edit_change_recent
             )
-        with col2:
-            if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_generated_persistent"):
-                st.session_state.show_copy_box = True
-        with col3:
+
+            # Edit mode buttons: Save | ↩️ Undo | ↪️ Redo | Cancel
+            ecol1, ecol2, ecol3, ecol4 = st.columns(4)
+            with ecol1:
+                if st.button("💾 Save", use_container_width=True, key="edit_save_recent"):
+                    final_text = st.session_state.get('edit_textarea_recent', st.session_state.last_generated_notes)
+                    # Store current version for view-mode undo before overwriting
+                    st.session_state.edit_undo_recent = st.session_state.last_generated_notes
+                    st.session_state.last_generated_notes = final_text
+                    # Update matching entry in note_history
+                    meta = st.session_state.get('last_generation_metadata', {})
+                    if meta and st.session_state.get('note_history'):
+                        for entry in st.session_state.note_history:
+                            if entry.get('timestamp') == meta.get('timestamp') and entry.get('query') == meta.get('query'):
+                                entry['notes'] = final_text
+                                break
+                    # Cleanup edit stacks
+                    st.session_state.edit_undo_stack_recent = []
+                    st.session_state.edit_redo_stack_recent = []
+                    st.session_state.edit_current_text_recent = None
+                    st.session_state.edit_mode_recent = False
+                    st.rerun()
+            with ecol2:
+                st.button("↩️", use_container_width=True, key="edit_undo_btn_recent",
+                          disabled=(len(st.session_state.edit_undo_stack_recent) == 0),
+                          help="Undo", on_click=_undo_edit_recent)
+            with ecol3:
+                st.button("↪️", use_container_width=True, key="edit_redo_btn_recent",
+                          disabled=(len(st.session_state.edit_redo_stack_recent) == 0),
+                          help="Redo", on_click=_redo_edit_recent)
+            with ecol4:
+                if st.button("✕ Cancel", use_container_width=True, key="edit_cancel_recent"):
+                    st.session_state.edit_undo_stack_recent = []
+                    st.session_state.edit_redo_stack_recent = []
+                    st.session_state.edit_current_text_recent = None
+                    st.session_state.edit_mode_recent = False
+                    st.rerun()
+        else:
+            st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+            st.markdown(st.session_state.last_generated_notes)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Action buttons
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.download_button(
+                    label="📥 Download Notes",
+                    data=st.session_state.last_generated_notes,
+                    file_name=f"notes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                    key="download_generated_persistent"
+                )
+            with col2:
+                if st.button("📋 Copy to Clipboard", use_container_width=True, key="copy_generated_persistent"):
+                    st.session_state.show_copy_box = True
+            with col3:
+                if st.session_state.get('saved_to_kb_recent', False):
+                    st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_recent", disabled=True)
+                else:
+                    if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_recent"):
+                        if not st.session_state.show_save_kb_recent:
+                            # Initialize form values when opening (prevents input loss on rerun)
+                            meta = st.session_state.get('last_generation_metadata', {})
+                            query = meta.get('query', '')
+                            query_type = meta.get('type', 'topic')
+                            st.session_state.save_kb_title_recent = query[:80] if len(query) <= 80 else query[:77] + "..."
+                            st.session_state.save_kb_topic_recent = query if query_type == 'topic' and len(query) <= 50 else ""
+                            if query_type == 'pdf':
+                                st.session_state.save_kb_source_recent = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
+                            elif query_type == 'url':
+                                st.session_state.save_kb_source_recent = "Generated Notes - URL"
+                            elif query_type == 'text':
+                                st.session_state.save_kb_source_recent = "Generated Notes - Text Input"
+                            else:
+                                st.session_state.save_kb_source_recent = "Generated Notes - Topic Query"
+                            st.session_state.save_kb_url_recent = query if query_type == 'url' else ""
+                            st.session_state.save_kb_query_type_recent = query_type
+                            # Check for PDF duplicate when form opens (cache result in session state)
+                            st.session_state.save_kb_pdf_duplicate_recent = False
+                            if query_type == 'pdf':
+                                try:
+                                    pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
+                                    if pdf_name:
+                                        check_resp = requests.post(
+                                            f"{API_BASE_URL}/search-kb",
+                                            json={"query": pdf_name, "k": 5, "threshold": 0.8},
+                                            timeout=3
+                                        )
+                                        if check_resp.status_code == 200:
+                                            for doc in check_resp.json().get('results', []):
+                                                doc_source = doc.get('metadata', {}).get('source', '')
+                                                if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
+                                                    st.session_state.save_kb_pdf_duplicate_recent = True
+                                                    break
+                                except:
+                                    pass
+                        st.session_state.show_save_kb_recent = not st.session_state.show_save_kb_recent
+                        st.rerun()
+            with col4:
+                if st.button("✏️ Edit", use_container_width=True, key="edit_recent"):
+                    st.session_state.edit_mode_recent = True
+                    st.session_state.edit_undo_stack_recent = []
+                    st.session_state.edit_redo_stack_recent = []
+                    st.session_state.edit_current_text_recent = st.session_state.last_generated_notes
+                    st.session_state.edit_textarea_recent = st.session_state.last_generated_notes
+                    st.rerun()
+
+            # Undo Last Edit button (visible in view mode when undo is available)
+            if st.session_state.edit_undo_recent is not None:
+                if st.button("↩️ Undo Last Edit", key="undo_last_edit_recent"):
+                    st.session_state.last_generated_notes = st.session_state.edit_undo_recent
+                    # Update matching entry in note_history
+                    meta = st.session_state.get('last_generation_metadata', {})
+                    if meta and st.session_state.get('note_history'):
+                        for entry in st.session_state.note_history:
+                            if entry.get('timestamp') == meta.get('timestamp') and entry.get('query') == meta.get('query'):
+                                entry['notes'] = st.session_state.edit_undo_recent
+                                break
+                    st.session_state.edit_undo_recent = None
+                    st.rerun()
+
+            # Dismissible success message after saving to KB
             if st.session_state.get('saved_to_kb_recent', False):
-                st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_recent", disabled=True)
-            else:
-                if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_recent"):
-                    if not st.session_state.show_save_kb_recent:
-                        # Initialize form values when opening (prevents input loss on rerun)
-                        meta = st.session_state.get('last_generation_metadata', {})
-                        query = meta.get('query', '')
-                        query_type = meta.get('type', 'topic')
-                        st.session_state.save_kb_title_recent = query[:80] if len(query) <= 80 else query[:77] + "..."
-                        st.session_state.save_kb_topic_recent = query if query_type == 'topic' and len(query) <= 50 else ""
-                        if query_type == 'pdf':
-                            st.session_state.save_kb_source_recent = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
-                        elif query_type == 'url':
-                            st.session_state.save_kb_source_recent = "Generated Notes - URL"
-                        elif query_type == 'text':
-                            st.session_state.save_kb_source_recent = "Generated Notes - Text Input"
-                        else:
-                            st.session_state.save_kb_source_recent = "Generated Notes - Topic Query"
-                        st.session_state.save_kb_url_recent = query if query_type == 'url' else ""
-                        st.session_state.save_kb_query_type_recent = query_type
-                        # Check for PDF duplicate when form opens (cache result in session state)
-                        st.session_state.save_kb_pdf_duplicate_recent = False
-                        if query_type == 'pdf':
-                            try:
-                                pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
-                                if pdf_name:
-                                    check_resp = requests.post(
-                                        f"{API_BASE_URL}/search-kb",
-                                        json={"query": pdf_name, "k": 5, "threshold": 0.8},
-                                        timeout=3
-                                    )
-                                    if check_resp.status_code == 200:
-                                        for doc in check_resp.json().get('results', []):
-                                            doc_source = doc.get('metadata', {}).get('source', '')
-                                            if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
-                                                st.session_state.save_kb_pdf_duplicate_recent = True
-                                                break
-                            except:
-                                pass
-                    st.session_state.show_save_kb_recent = not st.session_state.show_save_kb_recent
-                    st.rerun()
+                msg_col1, msg_col2 = st.columns([11, 1])
+                with msg_col1:
+                    st.success("✅ Notes saved to Knowledge Base successfully!")
+                with msg_col2:
+                    if st.button("✕", key="close_save_success_recent", help="Dismiss"):
+                        st.session_state.saved_to_kb_recent = False
+                        st.rerun()
 
-        # Dismissible success message after saving to KB
-        if st.session_state.get('saved_to_kb_recent', False):
-            msg_col1, msg_col2 = st.columns([11, 1])
-            with msg_col1:
-                st.success("✅ Notes saved to Knowledge Base successfully!")
-            with msg_col2:
-                if st.button("✕", key="close_save_success_recent", help="Dismiss"):
-                    st.session_state.saved_to_kb_recent = False
-                    st.rerun()
+            if st.session_state.get('show_copy_box', False):
+                st.markdown("**📋 Copy the text below:**")
+                st.text_area(
+                    "Select all (Ctrl+A) and copy (Ctrl+C):",
+                    value=st.session_state.last_generated_notes,
+                    height=200,
+                    key="copy_text_area_persistent"
+                )
 
-        if st.session_state.get('show_copy_box', False):
-            st.markdown("**📋 Copy the text below:**")
-            st.text_area(
-                "Select all (Ctrl+A) and copy (Ctrl+C):",
-                value=st.session_state.last_generated_notes,
-                height=200,
-                key="copy_text_area_persistent"
-            )
-
-        # Save to KB Form (shown when button clicked)
-        if st.session_state.get('show_save_kb_recent', False):
+        # Save to KB Form (shown when button clicked, hidden during edit mode)
+        if st.session_state.get('show_save_kb_recent', False) and not st.session_state.edit_mode_recent:
             st.markdown("---")
             st.markdown("#### 💾 Save Notes to Knowledge Base")
 
@@ -1278,6 +1443,11 @@ with tab1:
                 st.session_state.show_copy_box_history = False
                 st.session_state.show_save_kb_history = False
                 st.session_state.saved_to_kb_history = False
+                st.session_state.edit_mode_history = False
+                st.session_state.edit_undo_history = None
+                st.session_state.edit_undo_stack_history = []
+                st.session_state.edit_redo_stack_history = []
+                st.session_state.edit_current_text_history = None
                 st.rerun()
 
         # Display metadata
@@ -1289,88 +1459,156 @@ with tab1:
         with col3:
             st.metric("From KB", "Yes" if hist['from_kb'] else "No")
 
-        # Display notes
-        st.markdown('<div class="notes-container">', unsafe_allow_html=True)
-        st.markdown(hist['notes'])
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Action buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.download_button(
-                label="📥 Download",
-                data=hist['notes'],
-                file_name=f"notes_history_{hist['timestamp'].replace(':', '-')}.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key="download_history"
+        # Display notes (view mode or edit mode)
+        if st.session_state.edit_mode_history:
+            st.markdown("**✏️ Editing Notes** — make changes below, then Save or Cancel.")
+            edited_history = st.text_area(
+                "Edit notes:",
+                height=400,
+                key="edit_textarea_history",
+                label_visibility="collapsed",
+                on_change=_on_edit_change_history
             )
-        with col2:
-            if st.button("📋 Copy", use_container_width=True, key="copy_history"):
-                st.session_state.show_copy_box_history = True
-        with col3:
+
+            # Edit mode buttons: Save | ↩️ Undo | ↪️ Redo | Cancel
+            ecol1, ecol2, ecol3, ecol4 = st.columns(4)
+            with ecol1:
+                if st.button("💾 Save", use_container_width=True, key="edit_save_history"):
+                    final_text = st.session_state.get('edit_textarea_history', hist['notes'])
+                    # Store current version for view-mode undo before overwriting
+                    st.session_state.edit_undo_history = hist['notes']
+                    # Update selected_history
+                    st.session_state.selected_history['notes'] = final_text
+                    # Update matching entry in note_history
+                    if st.session_state.get('note_history'):
+                        for entry in st.session_state.note_history:
+                            if entry.get('timestamp') == hist.get('timestamp') and entry.get('query') == hist.get('query'):
+                                entry['notes'] = final_text
+                                break
+                    # Cleanup edit stacks
+                    st.session_state.edit_undo_stack_history = []
+                    st.session_state.edit_redo_stack_history = []
+                    st.session_state.edit_current_text_history = None
+                    st.session_state.edit_mode_history = False
+                    st.rerun()
+            with ecol2:
+                st.button("↩️", use_container_width=True, key="edit_undo_btn_history",
+                          disabled=(len(st.session_state.edit_undo_stack_history) == 0),
+                          help="Undo", on_click=_undo_edit_history)
+            with ecol3:
+                st.button("↪️", use_container_width=True, key="edit_redo_btn_history",
+                          disabled=(len(st.session_state.edit_redo_stack_history) == 0),
+                          help="Redo", on_click=_redo_edit_history)
+            with ecol4:
+                if st.button("✕ Cancel", use_container_width=True, key="edit_cancel_history"):
+                    st.session_state.edit_undo_stack_history = []
+                    st.session_state.edit_redo_stack_history = []
+                    st.session_state.edit_current_text_history = None
+                    st.session_state.edit_mode_history = False
+                    st.rerun()
+        else:
+            st.markdown('<div class="notes-container">', unsafe_allow_html=True)
+            st.markdown(hist['notes'])
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Action buttons
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.download_button(
+                    label="📥 Download",
+                    data=hist['notes'],
+                    file_name=f"notes_history_{hist['timestamp'].replace(':', '-')}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                    key="download_history"
+                )
+            with col2:
+                if st.button("📋 Copy", use_container_width=True, key="copy_history"):
+                    st.session_state.show_copy_box_history = True
+            with col3:
+                if st.session_state.get('saved_to_kb_history', False):
+                    st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_history", disabled=True)
+                else:
+                    if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_history"):
+                        if not st.session_state.show_save_kb_history:
+                            # Initialize form values when opening (prevents input loss on rerun)
+                            query = hist.get('query', '')
+                            query_type = hist.get('type', 'topic')
+                            st.session_state.save_kb_title_history = query[:80] if len(query) <= 80 else query[:77] + "..."
+                            st.session_state.save_kb_topic_history = query if query_type == 'topic' and len(query) <= 50 else ""
+                            if query_type == 'pdf':
+                                st.session_state.save_kb_source_history = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
+                            elif query_type == 'url':
+                                st.session_state.save_kb_source_history = "Generated Notes - URL"
+                            elif query_type == 'text':
+                                st.session_state.save_kb_source_history = "Generated Notes - Text Input"
+                            else:
+                                st.session_state.save_kb_source_history = "Generated Notes - Topic Query"
+                            st.session_state.save_kb_url_history = query if query_type == 'url' else ""
+                            st.session_state.save_kb_query_type_history = query_type
+                            # Check for PDF duplicate when form opens (cache result in session state)
+                            st.session_state.save_kb_pdf_duplicate_history = False
+                            if query_type == 'pdf':
+                                try:
+                                    pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
+                                    if pdf_name:
+                                        check_resp = requests.post(
+                                            f"{API_BASE_URL}/search-kb",
+                                            json={"query": pdf_name, "k": 5, "threshold": 0.8},
+                                            timeout=3
+                                        )
+                                        if check_resp.status_code == 200:
+                                            for doc in check_resp.json().get('results', []):
+                                                doc_source = doc.get('metadata', {}).get('source', '')
+                                                if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
+                                                    st.session_state.save_kb_pdf_duplicate_history = True
+                                                    break
+                                except:
+                                    pass
+                        st.session_state.show_save_kb_history = not st.session_state.show_save_kb_history
+                        st.rerun()
+            with col4:
+                if st.button("✏️ Edit", use_container_width=True, key="edit_history"):
+                    st.session_state.edit_mode_history = True
+                    st.session_state.edit_undo_stack_history = []
+                    st.session_state.edit_redo_stack_history = []
+                    st.session_state.edit_current_text_history = hist['notes']
+                    st.session_state.edit_textarea_history = hist['notes']
+                    st.rerun()
+
+            # Undo Last Edit button (visible in view mode when undo is available)
+            if st.session_state.edit_undo_history is not None:
+                if st.button("↩️ Undo Last Edit", key="undo_last_edit_history"):
+                    restored = st.session_state.edit_undo_history
+                    st.session_state.selected_history['notes'] = restored
+                    if st.session_state.get('note_history'):
+                        for entry in st.session_state.note_history:
+                            if entry.get('timestamp') == hist.get('timestamp') and entry.get('query') == hist.get('query'):
+                                entry['notes'] = restored
+                                break
+                    st.session_state.edit_undo_history = None
+                    st.rerun()
+
+            # Dismissible success message after saving to KB
             if st.session_state.get('saved_to_kb_history', False):
-                st.button("✅ Saved to KB", use_container_width=True, key="saved_to_kb_btn_history", disabled=True)
-            else:
-                if st.button("💾 Save to KB", use_container_width=True, key="save_to_kb_history"):
-                    if not st.session_state.show_save_kb_history:
-                        # Initialize form values when opening (prevents input loss on rerun)
-                        query = hist.get('query', '')
-                        query_type = hist.get('type', 'topic')
-                        st.session_state.save_kb_title_history = query[:80] if len(query) <= 80 else query[:77] + "..."
-                        st.session_state.save_kb_topic_history = query if query_type == 'topic' and len(query) <= 50 else ""
-                        if query_type == 'pdf':
-                            st.session_state.save_kb_source_history = f"Generated Notes - PDF: {query.replace('PDF: ', '')}" if query.startswith('PDF: ') else "Generated Notes - PDF"
-                        elif query_type == 'url':
-                            st.session_state.save_kb_source_history = "Generated Notes - URL"
-                        elif query_type == 'text':
-                            st.session_state.save_kb_source_history = "Generated Notes - Text Input"
-                        else:
-                            st.session_state.save_kb_source_history = "Generated Notes - Topic Query"
-                        st.session_state.save_kb_url_history = query if query_type == 'url' else ""
-                        st.session_state.save_kb_query_type_history = query_type
-                        # Check for PDF duplicate when form opens (cache result in session state)
-                        st.session_state.save_kb_pdf_duplicate_history = False
-                        if query_type == 'pdf':
-                            try:
-                                pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
-                                if pdf_name:
-                                    check_resp = requests.post(
-                                        f"{API_BASE_URL}/search-kb",
-                                        json={"query": pdf_name, "k": 5, "threshold": 0.8},
-                                        timeout=3
-                                    )
-                                    if check_resp.status_code == 200:
-                                        for doc in check_resp.json().get('results', []):
-                                            doc_source = doc.get('metadata', {}).get('source', '')
-                                            if 'Generated Notes - PDF' in doc_source and pdf_name.lower() in doc_source.lower():
-                                                st.session_state.save_kb_pdf_duplicate_history = True
-                                                break
-                            except:
-                                pass
-                    st.session_state.show_save_kb_history = not st.session_state.show_save_kb_history
-                    st.rerun()
+                msg_col1, msg_col2 = st.columns([11, 1])
+                with msg_col1:
+                    st.success("✅ Notes saved to Knowledge Base successfully!")
+                with msg_col2:
+                    if st.button("✕", key="close_save_success_history", help="Dismiss"):
+                        st.session_state.saved_to_kb_history = False
+                        st.rerun()
 
-        # Dismissible success message after saving to KB
-        if st.session_state.get('saved_to_kb_history', False):
-            msg_col1, msg_col2 = st.columns([11, 1])
-            with msg_col1:
-                st.success("✅ Notes saved to Knowledge Base successfully!")
-            with msg_col2:
-                if st.button("✕", key="close_save_success_history", help="Dismiss"):
-                    st.session_state.saved_to_kb_history = False
-                    st.rerun()
+            if st.session_state.get('show_copy_box_history', False):
+                st.text_area(
+                    "Copy this text:",
+                    value=hist['notes'],
+                    height=150,
+                    key="copy_history_text"
+                )
 
-        if st.session_state.get('show_copy_box_history', False):
-            st.text_area(
-                "Copy this text:",
-                value=hist['notes'],
-                height=150,
-                key="copy_history_text"
-            )
-
-        # Save to KB Form for History (shown when button clicked)
-        if st.session_state.get('show_save_kb_history', False):
+        # Save to KB Form for History (shown when button clicked, hidden during edit mode)
+        if st.session_state.get('show_save_kb_history', False) and not st.session_state.edit_mode_history:
             st.markdown("---")
             st.markdown("#### 💾 Save Notes to Knowledge Base")
 
