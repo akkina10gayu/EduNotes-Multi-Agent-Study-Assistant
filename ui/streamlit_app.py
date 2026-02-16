@@ -381,9 +381,9 @@ def _redo_edit_history():
 
 # Font size mapping
 font_sizes = {
-    'small': {'base': '15px', 'header': '1.6rem', 'notes': '0.95rem'},
-    'medium': {'base': '17px', 'header': '1.85rem', 'notes': '1.05rem'},
-    'large': {'base': '20px', 'header': '2.1rem', 'notes': '1.15rem'}
+    'small': {'base': '15px', 'header': '1.4rem', 'notes': '0.95rem'},
+    'medium': {'base': '17px', 'header': '1.6rem', 'notes': '1.05rem'},
+    'large': {'base': '20px', 'header': '1.8rem', 'notes': '1.15rem'}
 }
 
 current_size = font_sizes[st.session_state.font_size]
@@ -443,22 +443,22 @@ st.markdown(f"""
     }}
     /* Notes headings — just slightly larger than body text */
     .notes-container h1 {{
-        font-size: 1.12rem;
-        font-weight: 700;
-        margin-top: 0.6rem;
-        margin-bottom: 0.2rem;
-    }}
-    .notes-container h2 {{
         font-size: 1.08rem;
         font-weight: 700;
         margin-top: 0.5rem;
         margin-bottom: 0.15rem;
     }}
-    .notes-container h3 {{
-        font-size: 1.04rem;
-        font-weight: 600;
+    .notes-container h2 {{
+        font-size: 1.05rem;
+        font-weight: 700;
         margin-top: 0.4rem;
-        margin-bottom: 0.1rem;
+        margin-bottom: 0.12rem;
+    }}
+    .notes-container h3 {{
+        font-size: 1.02rem;
+        font-weight: 600;
+        margin-top: 0.3rem;
+        margin-bottom: 0.08rem;
     }}
 
     /* Improve readability */
@@ -662,8 +662,6 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Settings")
-
     # API Status Check - Using cached function (30 sec TTL)
     if check_api_health():
         st.success("✅ API Connected")
