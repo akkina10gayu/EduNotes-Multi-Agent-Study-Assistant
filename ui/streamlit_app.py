@@ -381,12 +381,15 @@ def _redo_edit_history():
 
 # Font size mapping
 font_sizes = {
-    'small': {'base': '14px', 'header': '2.5rem', 'notes': '0.9rem'},
-    'medium': {'base': '16px', 'header': '3rem', 'notes': '1rem'},
-    'large': {'base': '18px', 'header': '3.5rem', 'notes': '1.1rem'}
+    'small': {'base': '15px', 'header': '1.4rem', 'notes': '0.95rem'},
+    'medium': {'base': '17px', 'header': '1.6rem', 'notes': '1.05rem'},
+    'large': {'base': '20px', 'header': '1.8rem', 'notes': '1.15rem'}
 }
 
 current_size = font_sizes[st.session_state.font_size]
+
+# Theme is handled entirely by Streamlit's native Settings panel +
+# .streamlit/config.toml for persistence. No CSS injection needed.
 
 # Apply unified CSS with dynamic font sizing
 st.markdown(f"""
@@ -400,7 +403,9 @@ st.markdown(f"""
         font-size: {current_size['header']};
         color: #6CA0DC;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        margin-bottom: 0.75rem;
     }}
 
     .success-message {{
@@ -424,6 +429,36 @@ st.markdown(f"""
         margin-top: 1rem;
         border-left: 4px solid #6CA0DC;
         font-size: {current_size['notes']};
+        color: #E8E8E8;
+    }}
+    /* Ensure all text inside the dark notes container stays light */
+    .notes-container h1, .notes-container h2, .notes-container h3,
+    .notes-container h4, .notes-container h5, .notes-container h6,
+    .notes-container p, .notes-container li, .notes-container strong,
+    .notes-container code, .notes-container a {{
+        color: #E8E8E8;
+    }}
+    .notes-container a {{
+        color: #6CA0DC;
+    }}
+    /* Notes headings — just slightly larger than body text */
+    .notes-container h1 {{
+        font-size: 1.08rem;
+        font-weight: 700;
+        margin-top: 0.5rem;
+        margin-bottom: 0.15rem;
+    }}
+    .notes-container h2 {{
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-top: 0.4rem;
+        margin-bottom: 0.12rem;
+    }}
+    .notes-container h3 {{
+        font-size: 1.02rem;
+        font-weight: 600;
+        margin-top: 0.3rem;
+        margin-bottom: 0.08rem;
     }}
 
     /* Improve readability */
@@ -443,6 +478,182 @@ st.markdown(f"""
     .stTextArea [data-testid="InputInstructions"] {{
         display: none;
     }}
+
+    /* Tighten spacing between radio button groups (Search Mode, Output Format, Summary Length) */
+    .stRadio {{
+        margin-bottom: -0.5rem;
+    }}
+    .stRadio > div {{
+        gap: 0.3rem;
+    }}
+
+    /* Compact Study Stats metrics */
+    [data-testid="stMetricValue"] {{
+        font-size: 1.2rem;
+    }}
+    [data-testid="stMetricLabel"] {{
+        font-size: 0.8rem;
+    }}
+    [data-testid="stMetricDelta"] {{
+        font-size: 0.7rem;
+    }}
+
+    /* Tighter dividers / horizontal rules */
+    hr {{
+        margin: 0.5rem 0 !important;
+    }}
+
+    /* Compact tab panel content */
+    .stTabs [data-baseweb="tab-panel"] {{
+        padding-top: 0.5rem;
+    }}
+
+    /* --- Reduce top padding above EduNotes header --- */
+    [data-testid="stAppViewBlockContainer"] {{
+        padding-top: 0rem !important;
+    }}
+
+    /* Minimize Streamlit default header bar space */
+    header[data-testid="stHeader"] {{
+        height: 2.2rem !important;
+        min-height: 0 !important;
+    }}
+
+    /* --- Font Hierarchy (sizes & weights only — colors follow theme) --- */
+
+    /* Tab labels — prominent and readable */
+    .stTabs [data-baseweb="tab"] button {{
+        font-size: 1.15rem !important;
+        font-weight: 600 !important;
+        padding: 0.65rem 1.1rem !important;
+    }}
+
+    /* h3 headings — section headers like "Recently Generated Notes" */
+    .stMarkdown h3 {{
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-top: 0.8rem;
+        margin-bottom: 0.4rem;
+    }}
+
+    /* h4 headings — sub-sections like "Save Notes to KB" */
+    .stMarkdown h4 {{
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin-top: 0.6rem;
+        margin-bottom: 0.3rem;
+    }}
+
+    /* Bold section text — inline headers like "Study Stats" */
+    .stMarkdown strong {{
+        font-size: 1.08rem;
+    }}
+
+    /* Widget labels — consistent size/weight across all input types */
+    .stTextArea label p,
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] label p,
+    .stRadio > label > div > p,
+    .stTextInput label p,
+    .stSelectbox label p {{
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+    }}
+
+    /* File uploader dropzone: align label */
+    [data-testid="stFileUploader"] section {{
+        margin-top: 0;
+    }}
+
+    /*
+     * Theme-adaptive text colors using var(--text-color).
+     * Streamlit sets --text-color to dark/black in light mode
+     * and white/light in dark mode, so these rules adapt
+     * automatically when the user switches themes.
+     */
+
+    /* --- All text throughout the UI follows theme --- */
+    .stTextArea textarea,
+    .stTextInput input {{
+        color: var(--text-color) !important;
+    }}
+    .stTextArea textarea::placeholder,
+    .stTextInput input::placeholder {{
+        color: var(--text-color) !important;
+        opacity: 0.45;
+    }}
+
+    /* File uploader dropzone text */
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] section span,
+    [data-testid="stFileUploader"] section small {{
+        color: var(--text-color) !important;
+    }}
+    [data-testid="stFileUploader"] section small {{
+        opacity: 0.6;
+    }}
+
+    /* --- Sidebar text follows theme --- */
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] .stMarkdown span,
+    [data-testid="stSidebar"] .stMarkdown li,
+    [data-testid="stSidebar"] .stMarkdown label,
+    [data-testid="stSidebar"] .stMarkdown strong,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] [data-testid="stHeading"],
+    [data-testid="stSidebar"] [data-testid="stHeading"] *,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stRadio label p,
+    [data-testid="stSidebar"] .stRadio label div,
+    [data-testid="stSidebar"] .stRadio label span,
+    [data-testid="stSidebar"] [data-testid="stExpanderToggleDetails"] p,
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary div {{
+        color: var(--text-color) !important;
+    }}
+
+    /* Sidebar expander arrow/icon */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary svg {{
+        fill: var(--text-color) !important;
+        color: var(--text-color) !important;
+    }}
+
+    /* Sidebar buttons — theme-adaptive text and subtle borders */
+    [data-testid="stSidebar"] .stButton > button {{
+        border: 1px solid rgba(0, 0, 0, 0.15) !important;
+        color: var(--text-color) !important;
+    }}
+    [data-testid="stSidebar"] .stButton > button:hover {{
+        background-color: rgba(0, 0, 0, 0.05) !important;
+    }}
+
+    /* Sidebar expanders — subtle border for definition */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {{
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 0.5rem;
+    }}
+
+    /* Sidebar dividers */
+    [data-testid="stSidebar"] hr {{
+        border-color: rgba(0, 0, 0, 0.1) !important;
+    }}
+
+    /* --- Captions: inherit theme text color, slightly muted --- */
+    [data-testid="stCaptionContainer"] p {{
+        color: var(--text-color) !important;
+        opacity: 0.75;
+    }}
+
+    /* --- All buttons: ensure text follows theme --- */
+    .stButton > button {{
+        color: var(--text-color) !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -451,8 +662,6 @@ st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Settings")
-
     # API Status Check - Using cached function (30 sec TTL)
     if check_api_health():
         st.success("✅ API Connected")
@@ -647,7 +856,7 @@ if st.session_state.first_time_user and not st.session_state.dismissed_welcome:
             st.rerun()
 
 # Quick Stats Dashboard - Using cached function (60 sec TTL)
-st.markdown("### 📊 Your Study Stats")
+st.markdown("**📊 Study Stats**")
 stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
 
 notes_generated = len(st.session_state.get('note_history', []))
@@ -683,10 +892,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "🔍 Search Knowledge 
 
 # Tab 1: Generate Notes
 with tab1:
-    st.header("Generate Study Notes")
-
     # Topic Suggestions - Using cached function (5 min TTL)
-    st.markdown("#### 💡 Quick Topics")
+    st.markdown("**💡 Quick Topics**")
 
     # Initialize show_more_topics state
     if 'show_more_topics' not in st.session_state:
@@ -710,19 +917,26 @@ with tab1:
             all_topics.append(topic)
             seen.add(topic)
 
-    # Determine how many to show (4 default, 8 if expanded)
-    initial_count = 4
-    expanded_count = 8
+    # Determine how many to show (5 default = 1 row, 10 expanded = 2 rows)
+    initial_count = 5
+    expanded_count = 10
     show_count = expanded_count if st.session_state.show_more_topics else initial_count
     topics_to_show = all_topics[:show_count]
 
-    # Display as clickable chips
-    chip_cols = st.columns(4)
+    # Display as clickable chips (5 per row, truncate long names)
+    chip_cols = st.columns(5)
     for idx, topic in enumerate(topics_to_show):
-        col_idx = idx % 4
+        col_idx = idx % 5
         with chip_cols[col_idx]:
-            if st.button(f"📚 {topic}", key=f"topic_{idx}", use_container_width=True):
-                # Set the widget key directly (this is what Streamlit actually uses)
+            # Truncate long topic names; show full name on hover via help tooltip
+            max_chars = 14
+            if len(topic) > max_chars:
+                display = f"📚 {topic[:max_chars - 1]}…"
+                tooltip = topic
+            else:
+                display = f"📚 {topic}"
+                tooltip = None
+            if st.button(display, key=f"topic_{idx}", use_container_width=True, help=tooltip):
                 st.session_state.query_text_area = topic
                 st.rerun()
 
@@ -739,39 +953,33 @@ with tab1:
 
     st.markdown("---")
 
-    # Input section
-    col1, col2 = st.columns([3, 1])
+    # Input section — query and PDF side by side
+    input_col1, input_col2 = st.columns([3, 2])
 
-    with col1:
+    with input_col1:
         query_input = st.text_area(
-            "Enter your query (topic, URL, or text):",
+            "Enter topic, URL, or paste text:",
             height=100,
             key="query_text_area",
             placeholder="Examples:\n- Machine Learning\n- https://example.com/article\n- Paste your text here..."
         )
-    
-    with col2:
-        st.markdown("#### Query Type")
         if query_input:
             if query_input.startswith(('http://', 'https://', 'www.')):
-                st.info("🔗 URL Detected")
+                st.caption("🔗 URL detected")
             elif len(query_input) > 500:
-                st.info("📄 Text Detected")
+                st.caption("📄 Text detected")
             else:
-                st.info("🎯 Topic Detected")
+                st.caption("🎯 Topic detected")
 
-    # PDF Upload Section
-    st.markdown("---")
-    st.markdown("#### 📄 Or Upload a PDF")
-    uploaded_file = st.file_uploader(
-        "Upload a PDF file to generate notes",
-        type=['pdf'],
-        help="Upload research papers, textbooks, or any PDF document (max 10MB)"
-    )
-
-    if uploaded_file:
-        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
-        st.info(f"📎 **{uploaded_file.name}** ({file_size_mb:.2f}MB)")
+    with input_col2:
+        uploaded_file = st.file_uploader(
+            "📄 Or upload a PDF",
+            type=['pdf'],
+            help="Research papers, textbooks, any PDF (max 10MB)"
+        )
+        if uploaded_file:
+            file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+            st.caption(f"📎 {uploaded_file.name} ({file_size_mb:.2f}MB)")
 
     # Search Mode Selection — hidden by default, shown only when topic input is detected
     search_mode = "auto"  # Default for non-topic queries
@@ -784,9 +992,8 @@ with tab1:
 
     if _is_topic_input:
         st.markdown("---")
-        st.markdown("#### 🔍 Search Mode")
         search_mode = st.radio(
-            "Choose where to search for information:",
+            "🔍 Search Mode",
             options=["auto", "kb_only", "web_search", "both"],
             format_func=lambda x: {
                 "auto": "🔄 Auto (Recommended)",
@@ -794,60 +1001,38 @@ with tab1:
                 "web_search": "🌐 Web Search Only",
                 "both": "🔗 KB + Web Search"
             }.get(x, x),
-            help="""**Auto**: Searches the local knowledge base first. If no results are found, automatically falls back to web search.
-
-**Knowledge Base Only**: Only searches the local knowledge base. No internet access.
-
-**Web Search Only**: Searches the internet directly using an LLM-powered search agent. Skips the knowledge base entirely.
-
-**KB + Web Search**: Searches BOTH the knowledge base and the web, then combines the results for the most comprehensive coverage. Best when you want thorough notes from all available sources.""",
+            help="""**Auto**: Searches KB first, falls back to web search if no results.
+**Knowledge Base Only**: Only searches local KB. No internet access.
+**Web Search Only**: Searches the internet directly. Skips the KB.
+**KB + Web Search**: Searches both KB and web, combines results.""",
             horizontal=True,
             key="search_mode_selector"
         )
-        search_mode_descriptions = {
-            "auto": "Searches KB first, falls back to web search if no results found.",
-            "kb_only": "Only searches the local knowledge base. Use this for offline mode.",
-            "web_search": "Searches the internet using the LLM-powered Web Search Agent.",
-            "both": "Searches both KB and web, combines all results for comprehensive coverage."
-        }
-        st.caption(f"💡 {search_mode_descriptions.get(search_mode, '')}")
 
     st.markdown("---")
 
     # Summarization Mode Selection
-    st.markdown("#### ⚙️ Output Format")
     summarization_mode = st.radio(
-        "Choose how you want the content to be processed:",
+        "⚙️ Output Format",
         options=["paragraph_summary", "important_points", "key_highlights"],
         format_func=lambda x: {
             "paragraph_summary": "📖 Paragraph Summary",
             "important_points": "📋 Important Points",
             "key_highlights": "⚡ Key Highlights"
         }.get(x, x),
-        help="""**Paragraph Summary**: Comprehensive overview in flowing paragraphs (3+ sentences each). Ideal for understanding the full context and relationships between concepts.
-
-**Important Points**: Key information as numbered points. Each point is independent and self-contained with no duplicates. Perfect for quick review and study notes.
-
-**Key Highlights**: Essential terms and concepts with brief definitions (half a line each). Great for creating glossaries and quick reference cards.""",
+        help="""**Paragraph Summary**: Flowing paragraphs with full context and relationships.
+**Important Points**: Numbered key points, each independent and unique.
+**Key Highlights**: Essential terms with brief definitions for quick scanning.""",
         horizontal=True,
         key="summarization_mode_selector"
     )
-
-    # Display mode description
-    mode_descriptions = {
-        "paragraph_summary": "Creates a comprehensive overview with flowing paragraphs explaining concepts in detail.",
-        "important_points": "Extracts distinct key points, each providing unique information without repetition.",
-        "key_highlights": "Lists essential terms and concepts with very brief definitions for quick scanning."
-    }
-    st.caption(f"💡 {mode_descriptions.get(summarization_mode, '')}")
 
     # Output Length Selection - ONLY shown for Paragraph Summary
     output_length = "auto"  # Default value
     # Use session state directly after widget render to ensure correct value during reruns
     if st.session_state.summarization_mode_selector == "paragraph_summary":
-        st.markdown("#### 📏 Summary Length")
         output_length = st.radio(
-            "Choose the desired length of your summary:",
+            "📏 Summary Length",
             options=["auto", "brief", "medium", "detailed"],
             format_func=lambda x: {
                 "auto": "🔄 Auto (Recommended)",
@@ -855,25 +1040,13 @@ with tab1:
                 "medium": "📄 Medium (2-3 paragraphs)",
                 "detailed": "📚 Detailed (4-6 paragraphs)"
             }.get(x, x),
-            help="""**Auto**: Automatically adjusts summary length based on input size - short input gets brief summary, long input gets detailed summary.
-
-**Brief**: Quick overview in 5-8 lines covering the main intention and key takeaways. Best for quick reference.
-
-**Medium**: Balanced summary with 2-3 paragraphs covering main concepts with moderate detail.
-
-**Detailed**: Comprehensive summary with 4-6 paragraphs including thorough explanations, examples, and connections.""",
+            help="""**Auto**: Adjusts length based on input size automatically.
+**Brief**: Quick 5-8 line overview of key takeaways.
+**Medium**: Balanced 2-3 paragraph summary with moderate detail.
+**Detailed**: Comprehensive 4-6 paragraph explanation with full coverage.""",
             horizontal=True,
             key="output_length_selector"
         )
-
-        # Display length description
-        length_descriptions = {
-            "auto": "Intelligently adjusts output length based on input size.",
-            "brief": "Quick 5-8 line overview highlighting the most critical information.",
-            "medium": "Balanced 2-3 paragraph summary with moderate detail.",
-            "detailed": "Comprehensive 4-6 paragraph explanation with full coverage."
-        }
-        st.caption(f"📐 {length_descriptions.get(output_length, '')}")
 
     st.markdown("---")
 
@@ -1677,8 +1850,6 @@ with tab1:
 
 # Tab 2: Search Knowledge Base
 with tab2:
-    st.header("Search Knowledge Base")
-    
     search_query = st.text_input("Enter search query:", placeholder="e.g., neural networks")
     
     col1, col2 = st.columns(2)
@@ -1722,8 +1893,6 @@ with tab2:
 
 # Tab 3: Update Knowledge Base
 with tab3:
-    st.header("Update Knowledge Base")
-    
     st.markdown("""
     Add new documents to the knowledge base. Each document should have:
     - **content**: The main text content
@@ -1772,8 +1941,6 @@ with tab3:
 
 # Tab 4: Study Mode
 with tab4:
-    st.header("Study Mode")
-
     # Sub-tabs for different study features
     study_tab1, study_tab2, study_tab3 = st.tabs(["🃏 Flashcards", "📋 Quizzes", "📊 Progress"])
 
