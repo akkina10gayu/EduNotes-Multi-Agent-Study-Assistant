@@ -131,6 +131,89 @@ class DocumentProcessor:
         
         return documents
     
+    def get_document_by_id(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single document's full text and title by ID.
+        Returns raw (original) content for display and download,
+        preserving the original formatting as uploaded.
+        """
+        file_path = self.processed_dir / f"{doc_id}.json"
+        if file_path.exists():
+            with open(file_path, 'r', encoding='utf-8') as f:
+                doc = json.load(f)
+
+            # Read raw content (original formatting preserved)
+            raw_content = ''
+            raw_file = self.raw_dir / f"{doc_id}.txt"
+            if raw_file.exists():
+                with open(raw_file, 'r', encoding='utf-8') as f:
+                    raw_content = f.read()
+
+            return {
+                'id': doc.get('id', doc_id),
+                'title': doc.get('title', 'Untitled'),
+                'content': raw_content or doc.get('content', ''),
+                'topic': doc.get('topic', 'general'),
+                'date_added': doc.get('date_added', ''),
+                'word_count': doc.get('word_count', 0)
+            }
+        return None
+
+    def list_all_documents(self) -> List[Dict[str, Any]]:
+        """List all documents with metadata (no content) for browsing"""
+        documents = []
+        for doc_id, meta in self.metadata.items():
+            documents.append({
+                'id': doc_id,
+                'title': meta.get('title', 'Untitled'),
+                'topic': meta.get('topic', 'general'),
+                'date_added': meta.get('date_added', ''),
+                'keywords': meta.get('keywords', [])
+            })
+        # Sort by date_added descending (newest first)
+        documents.sort(key=lambda x: x.get('date_added', ''), reverse=True)
+        return documents
+
+    def search_documents(self, keyword: str) -> List[Dict[str, Any]]:
+        """Search documents by title or keyword match (no content returned)"""
+        keyword_lower = keyword.lower()
+        results = []
+        for doc_id, meta in self.metadata.items():
+            title = meta.get('title', '').lower()
+            keywords = [k.lower() for k in meta.get('keywords', [])]
+            topic = meta.get('topic', '').lower()
+            if (keyword_lower in title or
+                keyword_lower in topic or
+                any(keyword_lower in k for k in keywords)):
+                results.append({
+                    'id': doc_id,
+                    'title': meta.get('title', 'Untitled'),
+                    'topic': meta.get('topic', 'general'),
+                    'date_added': meta.get('date_added', ''),
+                    'keywords': meta.get('keywords', [])
+                })
+        results.sort(key=lambda x: x.get('date_added', ''), reverse=True)
+        return results
+
+    def find_docs_by_titles(self, titles: set) -> List[Dict[str, Any]]:
+        """Find documents whose titles match any in the given set.
+        Used to map vector DB chunk results back to full parent documents.
+        """
+        results = []
+        seen_ids = set()
+        for doc_id, meta in self.metadata.items():
+            doc_title = meta.get('title', '')
+            if doc_title in titles and doc_id not in seen_ids:
+                seen_ids.add(doc_id)
+                results.append({
+                    'id': doc_id,
+                    'title': doc_title,
+                    'topic': meta.get('topic', 'general'),
+                    'date_added': meta.get('date_added', ''),
+                    'keywords': meta.get('keywords', [])
+                })
+        results.sort(key=lambda x: x.get('date_added', ''), reverse=True)
+        return results
+
     def search_by_topic(self, topic: str) -> List[Dict[str, Any]]:
         """Search documents by topic"""
         documents = []

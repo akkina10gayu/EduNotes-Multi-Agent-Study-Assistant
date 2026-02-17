@@ -5,6 +5,7 @@ Version 2.0 - With Study Features (Flashcards, Quizzes, Progress)
 import streamlit as st
 import requests
 import json
+import html as html_module
 from datetime import datetime
 import time
 import random
@@ -196,6 +197,76 @@ def fetch_detailed_progress():
     return None
 
 
+@st.cache_data(ttl=60)
+def fetch_kb_documents(keyword=None):
+    """Fetch document list from KB - cached for 60 seconds.
+    Returns list of document metadata (no content) or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        params = {}
+        if keyword:
+            params['keyword'] = keyword
+        response = session.get(f"{API_BASE_URL}/documents", params=params, timeout=5)
+        if response.status_code == 200:
+            return response.json().get('documents', [])
+    except:
+        pass
+    return []
+
+
+@st.cache_data(ttl=60)
+def fetch_kb_documents_semantic(query):
+    """Semantic search for documents via vector DB chunk matching.
+    Returns list of document metadata (no content) or empty list on failure.
+    """
+    try:
+        session = get_api_session()
+        response = session.get(
+            f"{API_BASE_URL}/documents/search",
+            params={"query": query, "k": 20},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get('documents', [])
+    except:
+        pass
+    return []
+
+
+def fetch_document_content(doc_id):
+    """Fetch full document text by ID with smart caching.
+    - Successful results cached for 5 minutes
+    - Failed results cached for 5 seconds
+    Returns dict with document data or None on failure.
+    """
+    cache_key = f'_doc_content_{doc_id}'
+    cache_time_key = f'_doc_content_time_{doc_id}'
+
+    current_time = time.time()
+
+    if cache_key in st.session_state and cache_time_key in st.session_state:
+        cached_value = st.session_state[cache_key]
+        cached_time = st.session_state[cache_time_key]
+        ttl = 300 if cached_value is not None else 5
+        if current_time - cached_time < ttl:
+            return cached_value
+
+    try:
+        session = get_api_session()
+        response = session.get(f"{API_BASE_URL}/documents/{doc_id}", timeout=5)
+        if response.status_code == 200:
+            result = response.json().get('document')
+        else:
+            result = None
+    except:
+        result = None
+
+    st.session_state[cache_key] = result
+    st.session_state[cache_time_key] = current_time
+    return result
+
+
 def fetch_system_stats():
     """Fetch system stats with smart caching.
     - Successful results cached for 2 minutes
@@ -382,8 +453,8 @@ def _redo_edit_history():
 # Font size mapping
 font_sizes = {
     'small': {'base': '15px', 'header': '1.4rem', 'notes': '0.95rem'},
-    'medium': {'base': '17px', 'header': '1.6rem', 'notes': '1.05rem'},
-    'large': {'base': '20px', 'header': '1.8rem', 'notes': '1.15rem'}
+    'medium': {'base': '17px', 'header': '1.55rem', 'notes': '1.05rem'},
+    'large': {'base': '20px', 'header': '1.7rem', 'notes': '1.15rem'}
 }
 
 current_size = font_sizes[st.session_state.font_size]
@@ -400,9 +471,10 @@ st.markdown(f"""
     }}
 
     .main-header {{
-        font-size: {current_size['header']};
+        font-size: {current_size['header']} !important;
         color: #6CA0DC;
         text-align: center;
+        font-weight: 700;
         margin-top: 0 !important;
         padding-top: 0 !important;
         margin-bottom: 0.75rem;
@@ -487,6 +559,12 @@ st.markdown(f"""
         gap: 0.3rem;
     }}
 
+    /* Selectbox dropdown — limit height so it opens below, not above */
+    [data-baseweb="menu"] {{
+        max-height: 300px !important;
+        overflow-y: auto !important;
+    }}
+
     /* Compact Study Stats metrics */
     [data-testid="stMetricValue"] {{
         font-size: 1.2rem;
@@ -523,7 +601,7 @@ st.markdown(f"""
 
     /* Tab labels — prominent and readable */
     .stTabs [data-baseweb="tab"] button {{
-        font-size: 1.15rem !important;
+        font-size: 1.3rem !important;
         font-weight: 600 !important;
         padding: 0.65rem 1.1rem !important;
     }}
@@ -658,7 +736,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Header
-st.markdown('<h1 class="main-header">📚 EduNotes Study Assistant</h1>', unsafe_allow_html=True)
+st.markdown('<h2 class="main-header">📚 EduNotes Study Assistant</h2>', unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -1850,46 +1928,187 @@ with tab1:
 
 # Tab 2: Search Knowledge Base
 with tab2:
-    search_query = st.text_input("Enter search query:", placeholder="e.g., neural networks")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        num_results = st.slider("Number of results:", 1, 10, 5)
-    with col2:
-        threshold = st.slider("Similarity threshold:", 0.0, 1.0, 0.7, 0.05)
-    
-    if st.button("🔍 Search", key="search_kb"):
-        if search_query:
-            with st.spinner("Searching..."):
-                try:
-                    response = requests.post(
-                        f"{API_BASE_URL}/search-kb",
-                        json={
-                            "query": search_query,
-                            "k": num_results,
-                            "threshold": threshold
-                        }
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        
-                        if result['success']:
-                            st.success(f"Found {result['count']} results")
-                            
-                            for idx, doc in enumerate(result['results'], 1):
-                                with st.expander(f"Result {idx} - Score: {doc['score']:.3f}"):
-                                    st.markdown(f"**Content:** {doc['content'][:500]}...")
-                                    st.json(doc['metadata'])
-                        else:
-                            st.error(f"Error: {result.get('error')}")
-                    else:
-                        st.error(f"API Error: {response.status_code}")
-                        
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+    search_mode = st.radio(
+        "Search mode:",
+        options=["📄 Browse Documents", "🔍 Search Vector DB"],
+        horizontal=True,
+        key="kb_search_mode",
+        label_visibility="collapsed"
+    )
+
+    if search_mode == "📄 Browse Documents":
+        # --- Browse full documents from KB (semantic search) ---
+        search_col, btn_col = st.columns([5, 1])
+        with search_col:
+            filter_keyword = st.text_input(
+                "Search documents by meaning or keyword:",
+                placeholder="e.g., machine learning, pandas, neural networks",
+                key="doc_filter_keyword"
+            )
+        with btn_col:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.button("🔍 Search", key="doc_search_btn", use_container_width=True)
+
+        # Fetch document list — semantic search when keyword provided, list all otherwise
+        if filter_keyword and filter_keyword.strip():
+            doc_list = fetch_kb_documents_semantic(filter_keyword.strip())
         else:
-            st.warning("Please enter a search query")
+            doc_list = fetch_kb_documents()
+
+        if doc_list:
+            # Build display labels: "Note 1: Title (topic)"
+            doc_labels = [
+                f"Note {i+1}: {doc['title']}  —  {doc.get('topic', 'general')}"
+                for i, doc in enumerate(doc_list)
+            ]
+
+            st.caption(f"{len(doc_list)} document{'s' if len(doc_list) != 1 else ''} found")
+
+            selected_label = st.selectbox(
+                "Select a document to view:",
+                options=doc_labels,
+                index=None,
+                placeholder="Choose a document...",
+                key="doc_selector",
+                label_visibility="collapsed"
+            )
+
+            if selected_label:
+                # Get the selected document's index and ID
+                selected_idx = doc_labels.index(selected_label)
+                selected_doc_meta = doc_list[selected_idx]
+                selected_doc_id = selected_doc_meta['id']
+
+                # Fetch full document content
+                doc_data = fetch_document_content(selected_doc_id)
+
+                if doc_data:
+                    # Show document info bar
+                    info_cols = st.columns([2, 2, 1])
+                    with info_cols[0]:
+                        st.caption(f"📂 Topic: {doc_data.get('topic', 'general')}")
+                    with info_cols[1]:
+                        date_str = doc_data.get('date_added', '')
+                        if date_str:
+                            try:
+                                dt = datetime.fromisoformat(date_str)
+                                date_str = dt.strftime("%b %d, %Y")
+                            except:
+                                pass
+                        st.caption(f"📅 Added: {date_str}")
+                    with info_cols[2]:
+                        st.caption(f"📝 {doc_data.get('word_count', 0)} words")
+
+                    # Display full document content in scrollable styled container
+                    # Use white-space:pre-wrap to preserve original formatting (line breaks, indentation)
+                    escaped_content = html_module.escape(doc_data["content"])
+                    st.markdown(
+                        f'<div class="notes-container" style="max-height:500px; overflow-y:auto; white-space:pre-wrap;">{escaped_content}</div>',
+                        unsafe_allow_html=True
+                    )
+
+                    # Action buttons
+                    btn_col1, btn_col2, btn_col3 = st.columns(3)
+                    with btn_col1:
+                        st.download_button(
+                            "⬇️ Download",
+                            data=doc_data['content'],
+                            file_name=f"{doc_data.get('title', 'document')}.txt",
+                            mime="text/plain",
+                            key=f"download_doc_{selected_doc_id}",
+                            use_container_width=True
+                        )
+                    with btn_col2:
+                        if st.button("📋 Copy Text", key=f"copy_doc_{selected_doc_id}", use_container_width=True):
+                            st.text_area(
+                                "Select all and copy (Ctrl+A, Ctrl+C):",
+                                value=doc_data['content'],
+                                height=150,
+                                key=f"copy_area_doc_{selected_doc_id}",
+                                label_visibility="collapsed"
+                            )
+                    with btn_col3:
+                        raw_url = f"{API_BASE_URL}/documents/{selected_doc_id}/raw"
+                        st.markdown(
+                            f'<a href="{raw_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; '
+                            f'padding:0.4rem 0; border:1px solid rgba(128,128,128,0.3); border-radius:0.5rem; '
+                            f'text-decoration:none; color:var(--text-color); font-size:0.875rem;">'
+                            f'📄 View as Text</a>',
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.error("Could not load document content.")
+        else:
+            if filter_keyword:
+                st.info(f"No documents found matching '{filter_keyword}'")
+
+    else:
+        # --- Search chunks in Vector DB ---
+        search_query = st.text_input("Enter search query:", placeholder="e.g., neural networks", key="chunk_search_query")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            num_results = st.slider("Number of results:", 1, 10, 5, key="chunk_num_results")
+        with col2:
+            threshold = st.slider("Similarity threshold:", 0.0, 1.0, 0.7, 0.05, key="chunk_threshold")
+
+        if st.button("🔍 Search", key="search_kb_chunks"):
+            if search_query:
+                with st.spinner("Searching..."):
+                    try:
+                        response = requests.post(
+                            f"{API_BASE_URL}/search-kb",
+                            json={
+                                "query": search_query,
+                                "k": num_results,
+                                "threshold": threshold
+                            }
+                        )
+
+                        if response.status_code == 200:
+                            result = response.json()
+
+                            if result['success']:
+                                st.success(f"Found {result['count']} matching chunks")
+
+                                for idx, doc in enumerate(result['results'], 1):
+                                    meta = doc.get('metadata', {})
+                                    title = meta.get('title', 'Untitled')
+                                    topic = meta.get('topic', '')
+                                    source = meta.get('source', '')
+                                    score = doc.get('score', 0)
+                                    chunk_idx = meta.get('chunk_index', '')
+                                    total_chunks = meta.get('total_chunks', '')
+
+                                    # Build header with key info
+                                    header = f"Note {idx}: {title}"
+                                    if topic:
+                                        header += f"  —  {topic}"
+                                    header += f"  (Score: {score:.2f})"
+
+                                    with st.expander(header, expanded=(idx == 1)):
+                                        # Display chunk text cleanly
+                                        st.markdown(
+                                            f'<div class="notes-container">{doc["content"]}</div>',
+                                            unsafe_allow_html=True
+                                        )
+                                        # Show only essential metadata inline
+                                        meta_parts = []
+                                        if source:
+                                            meta_parts.append(f"Source: {source}")
+                                        if chunk_idx != '' and total_chunks != '':
+                                            meta_parts.append(f"Chunk {chunk_idx + 1} of {total_chunks}")
+                                        if meta_parts:
+                                            st.caption(" · ".join(meta_parts))
+                            else:
+                                st.error(f"Error: {result.get('error')}")
+                        else:
+                            st.error(f"API Error: {response.status_code}")
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+            else:
+                st.warning("Please enter a search query")
 
 # Tab 3: Update Knowledge Base
 with tab3:
@@ -2461,11 +2680,9 @@ with tab4:
             st.info("Make sure the API server is running")
 
 # Footer
-st.divider()
 st.markdown("""
-<div style='text-align: center; color: #666;'>
+<hr style="margin-top: 5rem; margin-bottom: 0.5rem; border: none; border-top: 1px solid rgba(128,128,128,0.2);" />
+<div style='text-align: center; color: #666; font-size: 0.7rem; padding-bottom: 2rem;'>
     <p>EduNotes v2.0 | Multi-Agent Study Assistant</p>
-    <p>Powered by LangChain, ChromaDB, and Transformers</p>
-    <p>Study Features: Flashcards, Quizzes, Progress Tracking</p>
 </div>
 """, unsafe_allow_html=True)

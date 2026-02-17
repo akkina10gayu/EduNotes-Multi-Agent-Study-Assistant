@@ -65,11 +65,15 @@ Visit [localhost:8501](http://localhost:8501) to start using the app.
 
 ## How to Use
 
-1. **Generate Notes** - Enter a topic, paste a URL, or upload a PDF. For topic queries, choose a search mode (Auto, KB Only, Web Search, or KB + Web Search) and select your preferred format.
+1. **Generate Notes** - Enter a topic, paste a URL, or upload a PDF. Choose a search mode (Auto, KB Only, Web Search, or KB + Web Search) and select your preferred format. Edit, download, or copy generated notes inline.
 
-2. **Search Knowledge Base** - Find relevant information from previously processed content.
+2. **Search Knowledge Base** - Two modes:
+   - **Browse Documents** - View full original documents stored in the KB. Search semantically by meaning, select from a dropdown, and view/download the raw text or open it in a new browser tab.
+   - **Search Vector DB** - Semantic similarity search across document chunks for precise matching.
 
-3. **Study Mode** - Create flashcards from your notes, take quizzes, and monitor your learning streak.
+3. **Update Knowledge Base** - Add new documents with title, topic, and content.
+
+4. **Study Mode** - Create flashcards from your notes, take quizzes, and monitor your learning streak.
 
 ## Output Formats
 
@@ -81,7 +85,7 @@ Visit [localhost:8501](http://localhost:8501) to start using the app.
 
 ## Architecture
 
-EduNotes uses a multi-agent architecture with specialized components handling different tasks:
+EduNotes uses a multi-agent system with each specialized components handling different tasks:
 
 | Component | Role |
 |-----------|------|
