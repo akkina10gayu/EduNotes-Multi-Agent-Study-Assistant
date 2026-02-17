@@ -4,7 +4,7 @@ FastAPI application for EduNotes
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -408,6 +408,105 @@ async def get_topics():
 
     except Exception as e:
         logger.error(f"Error getting topics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents",
+         tags=["Knowledge Base"])
+async def list_documents(keyword: str = None):
+    """List all documents in the knowledge base, optionally filtered by keyword"""
+    try:
+        if keyword and keyword.strip():
+            documents = doc_processor.search_documents(keyword.strip())
+        else:
+            documents = doc_processor.list_all_documents()
+
+        return {
+            "success": True,
+            "documents": documents,
+            "count": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"Error listing documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/search",
+         tags=["Knowledge Base"])
+async def search_documents_semantic(query: str, k: int = 20):
+    """Semantic search for full documents via vector DB chunk matching.
+    Searches chunks by meaning, then maps matching chunks back to their
+    parent documents using title metadata.
+    """
+    try:
+        if not query or not query.strip():
+            return {"success": True, "documents": [], "count": 0}
+
+        # Search chunks semantically in vector DB
+        chunk_results = vector_store.search(
+            query=query.strip(), k=k, score_threshold=1.0
+        )
+
+        if not chunk_results:
+            return {"success": True, "documents": [], "count": 0}
+
+        # Extract unique titles from matching chunks
+        titles = set()
+        for chunk in chunk_results:
+            title = chunk.get('metadata', {}).get('title', '')
+            if title:
+                titles.add(title)
+
+        # Map titles back to full document metadata
+        documents = doc_processor.find_docs_by_titles(titles)
+
+        return {
+            "success": True,
+            "documents": documents,
+            "count": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"Error in semantic document search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/{doc_id}",
+         tags=["Knowledge Base"])
+async def get_document(doc_id: str):
+    """Get full document text by ID"""
+    try:
+        document = doc_processor.get_document_by_id(doc_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return {
+            "success": True,
+            "document": document
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/{doc_id}/raw",
+         tags=["Knowledge Base"])
+async def get_document_raw(doc_id: str):
+    """Serve raw document as plain text for viewing in browser tab"""
+    try:
+        document = doc_processor.get_document_by_id(doc_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return PlainTextResponse(
+            content=document['content'],
+            headers={"Content-Disposition": "inline"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving raw document {doc_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
