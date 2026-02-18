@@ -145,11 +145,25 @@ class SummarizerAgent(BaseAgent):
                         self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
                         return summary
                 except Exception as e:
-                    # Rate limit errors must propagate so the UI shows the rate limit dialog
                     err_str = str(e)
-                    if '429' in err_str and ('rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()):
-                        self.logger.warning(f"Rate limit hit during summarization: {e}")
-                        raise
+                    is_rate_limit = '429' in err_str and (
+                        'rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()
+                    )
+                    if is_rate_limit:
+                        self.logger.warning(f"Rate limit hit on main model: {e}")
+                        # Try light model as fallback before giving up
+                        fallback = self._summarize_rate_limit_fallback(text, style)
+                        if fallback:
+                            return fallback
+                        # Both models exhausted — return clean message (not raw error)
+                        return (
+                            "**Rate Limit Reached**\n\n"
+                            "The primary and backup models have reached their free-tier limits. "
+                            "Your notes could not be generated at this time.\n\n"
+                            "**What you can do:**\n"
+                            "- Wait for the daily rate limit to reset (resets every 24 hours)\n"
+                            "- Upgrade your Groq plan at https://console.groq.com/settings/billing\n"
+                        )
                     self.logger.warning(f"API summarization failed: {e}, falling back to local")
 
             # Fallback to local model
@@ -204,6 +218,61 @@ class SummarizerAgent(BaseAgent):
             # Last resort fallback - never return empty
             fallback = original_text[:500] + "..." if len(original_text) > 500 else original_text
             return f"Content Summary: {fallback}"
+
+    def _summarize_rate_limit_fallback(self, text: str, style: str) -> str:
+        """
+        Try the light model when the main model hits a rate limit.
+        Returns summary + rate limit notice, or None if fallback also fails.
+        """
+        light_model = getattr(self.llm_client, 'light_model', None) if self.llm_client else None
+        if not light_model:
+            return None
+
+        try:
+            # Truncate for light model (6K TPM — reserve ~1K for prompt + response)
+            fallback_text = text[:12000]
+            last_period = fallback_text.rfind('. ')
+            if last_period > len(fallback_text) * 0.7:
+                fallback_text = fallback_text[:last_period + 1]
+
+            style_instruction = {
+                'paragraph_summary': 'Write a clear summary in 2-3 paragraphs using flowing prose.',
+                'important_points': 'List 8-10 important points as a numbered list (1. 2. 3.).',
+                'key_highlights': 'List key terms with brief definitions using bullet points (•).'
+            }.get(style, 'Write a clear summary in 2-3 paragraphs.')
+
+            prompt = f"""{style_instruction}
+
+Content:
+{fallback_text}
+
+Begin:"""
+
+            summary = self.llm_client.generate(
+                prompt=prompt,
+                max_tokens=800,
+                temperature=0.7,
+                system_prompt="You are an expert educator who creates concise study notes.",
+                model_override=light_model
+            )
+
+            if summary:
+                self.logger.info(
+                    f"Rate limit fallback successful using {light_model} "
+                    f"({len(summary)} chars)"
+                )
+                notice = (
+                    "\n\n"
+                    "*Note: The primary model (llama-3.3-70b) hit its daily rate limit. "
+                    "This summary was generated using a lighter model. "
+                    "For full-quality notes, wait for the daily limit to reset.*"
+                )
+                return summary + notice
+
+        except Exception as e:
+            self.logger.warning(f"Rate limit fallback also failed: {e}")
+
+        return None
 
     def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """Summarize multiple documents."""
