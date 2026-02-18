@@ -36,6 +36,7 @@ USE_LOCAL_MODEL = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 # Groq API (FREE - 14,400 requests/day)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 # HuggingFace API (FREE - 30,000 requests/month)
 HF_TOKEN = os.getenv("HF_TOKEN", "")
@@ -87,6 +88,21 @@ LOG_FILE = Path(os.getenv("LOG_FILE", str(LOGS_DIR / "edunotes.log")))
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", 4))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 32))
 MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", 10))
+
+# =============================================================================
+# Web Search Settings
+# =============================================================================
+SEARCH_PROVIDER = os.getenv("SEARCH_PROVIDER", "duckduckgo")
+SEARCH_MAX_RESULTS = int(os.getenv("SEARCH_MAX_RESULTS", 10))
+SEARCH_REGION = os.getenv("SEARCH_REGION", "wt-wt")
+SEARCH_SAFE_SEARCH = os.getenv("SEARCH_SAFE_SEARCH", "moderate")
+SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+SEARCH_FALLBACK_ENABLED = os.getenv("SEARCH_FALLBACK_ENABLED", "true").lower() == "true"
+
+# Web Search Agent
+WEB_SEARCH_MAX_URLS_TO_SCRAPE = int(os.getenv("WEB_SEARCH_MAX_URLS_TO_SCRAPE", 3))
+WEB_SEARCH_MIN_CONTENT_LENGTH = int(os.getenv("WEB_SEARCH_MIN_CONTENT_LENGTH", 200))
+WEB_SEARCH_CACHE_TTL = int(os.getenv("WEB_SEARCH_CACHE_TTL", 3600))
 
 # =============================================================================
 # Study Features Settings

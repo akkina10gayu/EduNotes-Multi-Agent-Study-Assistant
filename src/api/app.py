@@ -1,14 +1,19 @@
 """
 FastAPI application for EduNotes
 """
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from datetime import datetime
 import asyncio
+import json
+import re
+import base64
+import time as _time
 
 from src.models.schemas import (
     GenerateNotesRequest, GenerateNotesResponse,
@@ -27,6 +32,42 @@ from config import settings
 
 logger = get_logger(__name__)
 
+
+def _clean_vision_desc(desc: str) -> str:
+    """Remove absent-category notices, HTML tags, and excessive whitespace from vision output."""
+    if not desc:
+        return ''
+    # Replace HTML <br> tags with newlines
+    desc = re.sub(r'<br\s*/?>', '\n', desc)
+    # Remove remaining HTML tags
+    desc = re.sub(r'<[^>]+>', '', desc)
+    # Remove lines about absent content and their headings
+    lines = desc.split('\n')
+    cleaned = []
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        # Line says "No X present/found/visible/etc"
+        if re.search(r'\bno\b.{0,40}\b(present|found|detected|visible|shown|appear)', stripped, re.IGNORECASE):
+            # Drop preceding heading if it belongs to this empty section
+            if cleaned and re.match(r'^#{1,6}\s', cleaned[-1].strip()):
+                cleaned.pop()
+            i += 1
+            continue
+        # Heading followed immediately by a "no X" line → skip both
+        if re.match(r'^#{1,6}\s', stripped) and i + 1 < len(lines):
+            next_stripped = lines[i + 1].strip()
+            if re.search(r'\bno\b.{0,40}\b(present|found|detected|visible|shown|appear)', next_stripped, re.IGNORECASE):
+                i += 2
+                continue
+        cleaned.append(lines[i])
+        i += 1
+    desc = '\n'.join(cleaned)
+    # Collapse 3+ blank lines to 2
+    desc = re.sub(r'\n{3,}', '\n\n', desc)
+    return desc.strip()
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="EduNotes API",
@@ -44,6 +85,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add GZip compression middleware (Phase 5 optimization)
+# Compresses responses larger than 500 bytes for faster transfer
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -168,12 +213,164 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
 
         logger.info(f"Generating notes for query: {query[:50]}... Mode: {body.summarization_mode}, Length: {body.summary_length}")
 
+        # Detect PDF URLs — download and process through PDF pipeline instead of scraping
+        if query.startswith(('http://', 'https://')) and (
+            query.lower().endswith('.pdf') or '/pdf/' in query.lower()
+        ):
+            logger.info(f"Detected PDF URL: {query}, downloading for PDF extraction")
+            _pdf_url_t0 = _time.time()
+            _pdf_processed = False
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as http_session:
+                    async with http_session.get(
+                        query,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                        headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0',
+                            'Accept': 'application/pdf,*/*'
+                        },
+                        allow_redirects=True
+                    ) as resp:
+                        if resp.status != 200:
+                            raise Exception(f"HTTP {resp.status}")
+                        pdf_content = await resp.read()
+
+                # Verify it's actually a PDF (magic bytes), not an HTML page
+                if not pdf_content[:5].startswith(b'%PDF-'):
+                    logger.info("URL returned non-PDF content (likely HTML), falling back to URL scraping")
+                    raise Exception("Response is not a PDF file")
+
+                file_size_mb = len(pdf_content) / (1024 * 1024)
+                logger.info(f"Downloaded PDF: {file_size_mb:.2f}MB")
+                if file_size_mb > 20:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"PDF too large ({file_size_mb:.1f}MB). Maximum is 20MB."
+                    )
+
+                pdf_processor = get_pdf_processor()
+                figures_for_ui = []
+                if body.research_mode:
+                    research_data = pdf_processor.extract_for_research(pdf_content)
+                    extracted_text = research_data.get('text', '')
+
+                    # Vision analysis for figure pages (same as process_pdf)
+                    figure_pages = research_data.get('figure_pages', [])
+                    if figure_pages:
+                        try:
+                            from src.utils.llm_client import get_llm_client
+                            llm_client = get_llm_client()
+
+                            vision_prompt = (
+                                "Analyze this page. Describe ONLY what you actually see.\n\n"
+                                "Rules:\n"
+                                "- NEVER use HTML tags (no <br>, <b>, <table> etc). Use markdown only.\n"
+                                "- NEVER mention categories that have nothing on this page.\n"
+                                "- NEVER write \"No X present\" or \"No X found\" for any category.\n"
+                                "- If only a figure exists, describe only the figure. Skip everything else silently.\n\n"
+                                "Always start with the figure/table identifier from the caption "
+                                "(e.g. 'Figure 1:', 'Table 3:', 'Fig. 2:') if one is visible.\n"
+                                "For figures/diagrams: What it shows, key trends, data points.\n"
+                                "For equations: LaTeX inline (e.g. $E = mc^2$).\n"
+                                "For tables: Proper markdown table with | and --- separators. "
+                                "One value per cell, one row per line. Never combine rows with <br>.\n"
+                                "For charts/plots: Axes labels, trends, key values.\n\n"
+                                "Be concise and technical. No preamble, no step numbers."
+                            )
+
+                            for fig_page in figure_pages:
+                                desc = llm_client.describe_image(
+                                    fig_page['image_base64'], vision_prompt
+                                )
+                                desc = _clean_vision_desc(desc) if desc else ''
+                                if desc:
+                                    figures_for_ui.append({
+                                        "page": fig_page['page_num'],
+                                        "description": desc,
+                                        "image_b64": fig_page['image_base64']
+                                    })
+                                    logger.info(f"PDF URL vision analysis complete for page {fig_page['page_num']}")
+
+                            if figures_for_ui:
+                                logger.info(f"PDF URL: prepared {len(figures_for_ui)} figure entries for UI expander")
+
+                        except Exception as e:
+                            logger.warning(f"PDF URL vision analysis failed, proceeding with text only: {e}")
+                else:
+                    extracted_text = pdf_processor.extract_text_from_bytes(pdf_content)
+
+                if not extracted_text or len(extracted_text) < 50:
+                    raise Exception("PDF text extraction returned insufficient content")
+
+                logger.info(f"Extracted {len(extracted_text)} chars from PDF URL")
+
+                # Clean HTML artifacts from PDF extraction
+                extracted_text = re.sub(r'<br\s*/?>', ', ', extracted_text)
+
+                result = await orchestrator.process(
+                    extracted_text,
+                    summarization_mode=body.summarization_mode,
+                    output_length=body.summary_length,
+                    research_mode=body.research_mode or False
+                )
+
+                if not result.get('success', False):
+                    result.setdefault('query_type', 'url')
+                    result.setdefault('query', query[:100])
+                    result.setdefault('notes', '')
+                    result.setdefault('sources_used', 0)
+                    result.setdefault('from_kb', False)
+
+                # Clean any remaining HTML artifacts from output notes
+                if result.get('notes'):
+                    result['notes'] = re.sub(r'<br\s*/?>', ', ', result['notes'])
+
+                # Attach structured vision data for UI expander
+                if figures_for_ui and result.get('success'):
+                    result['vision_data'] = json.dumps(figures_for_ui)
+                    logger.info(f"PDF URL: attached {len(figures_for_ui)} figure entries as vision_data")
+
+                if result.get('success', False):
+                    try:
+                        progress_store = get_progress_store()
+                        progress_store.record_note_generated(f"PDF: {query.split('/')[-1][:30]}")
+                    except Exception:
+                        pass
+
+                _pdf_processed = True
+                _elapsed = _time.time() - _pdf_url_t0
+                logger.info(f"PDF URL pipeline completed in {_elapsed:.1f}s — success={result.get('success')}, notes_len={len(result.get('notes', ''))}")
+                return GenerateNotesResponse(**result)
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.warning(f"PDF URL processing failed: {e}, falling back to URL scraping")
+                # Fall through to normal URL processing below
+
+            # If PDF download/extraction failed, try the abstract page for arxiv URLs
+            if not _pdf_processed and 'arxiv.org/pdf/' in query:
+                abs_url = query.replace('/pdf/', '/abs/').split('.pdf')[0]
+                logger.info(f"Retrying with arxiv abstract page: {abs_url}")
+                query = abs_url
+
         # Process query through orchestrator
         result = await orchestrator.process(
             query,
             summarization_mode=body.summarization_mode,
-            output_length=body.summary_length
+            output_length=body.summary_length,
+            search_mode=body.search_mode or "auto",
+            research_mode=body.research_mode or False
         )
+
+        # Ensure error responses have all required fields for the response model
+        if not result.get('success', False):
+            result.setdefault('query_type', 'unknown')
+            result.setdefault('query', query[:100])
+            result.setdefault('notes', '')
+            result.setdefault('sources_used', 0)
+            result.setdefault('from_kb', False)
 
         # Record activity for progress tracking (updates streak)
         if result.get('success', False):
@@ -288,34 +485,110 @@ async def search_knowledge_base(request: Request, body: SearchKBRequest):
 @limiter.limit("20/minute")
 async def process_pdf(
     request: Request,
-    file: UploadFile = File(...),
-    summarization_mode: str = "paragraph_summary",
-    output_length: str = "auto"
+    file: UploadFile = File(None),
+    summarization_mode: str = Form("paragraph_summary"),
+    output_length: str = Form("auto"),
+    cached_text: str = Form(None),
+    cached_filename: str = Form(None),
+    research_mode: bool = Form(False)
 ):
-    """Process PDF file and generate study notes"""
+    """Process PDF file and generate study notes.
+
+    Supports two modes:
+    1. Normal: Upload PDF file for extraction and processing
+    2. Cached: Provide pre-extracted text (cached_text) to skip extraction (Phase 5 optimization)
+    """
     try:
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file type. Please upload a PDF file."
-            )
+        extracted_text = None
+        filename = None
+        figures_for_ui = []  # Structured figure data for UI expander
 
-        # Check file size (max 10MB)
-        content = await file.read()
-        file_size_mb = len(content) / (1024 * 1024)
-        if file_size_mb > 10:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB."
-            )
+        # Phase 5: Check if using cached text (skip extraction)
+        if cached_text:
+            extracted_text = cached_text
+            filename = cached_filename or "cached_pdf"
+            logger.info(f"Using cached text for PDF: {filename} ({len(extracted_text)} chars)")
+        else:
+            # Normal mode: Process uploaded PDF file
+            if not file or not file.filename:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No PDF file provided. Please upload a PDF file."
+                )
 
-        logger.info(f"Processing PDF: {file.filename} ({file_size_mb:.2f}MB)")
+            # Validate file type
+            if not file.filename.lower().endswith('.pdf'):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid file type. Please upload a PDF file."
+                )
 
-        # Extract text from PDF
-        pdf_processor = get_pdf_processor()
-        extracted_text = pdf_processor.extract_text_from_bytes(content)
+            # Check file size (max 10MB)
+            content = await file.read()
+            file_size_mb = len(content) / (1024 * 1024)
+            if file_size_mb > 10:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB."
+                )
 
+            filename = file.filename
+            logger.info(f"Processing PDF: {filename} ({file_size_mb:.2f}MB), research_mode={research_mode}")
+
+            pdf_processor = get_pdf_processor()
+
+            if research_mode:
+                # Research Mode: enhanced extraction + vision analysis
+                research_data = pdf_processor.extract_for_research(content)
+                extracted_text = research_data.get('text', '')
+
+                # Vision analysis for figure pages
+                figure_pages = research_data.get('figure_pages', [])
+                if figure_pages:
+                    try:
+                        from src.utils.llm_client import get_llm_client
+                        llm_client = get_llm_client()
+
+                        vision_prompt = (
+                            "Analyze this page. Describe ONLY what you actually see.\n\n"
+                            "Rules:\n"
+                            "- NEVER use HTML tags (no <br>, <b>, <table> etc). Use markdown only.\n"
+                            "- NEVER mention categories that have nothing on this page.\n"
+                            "- NEVER write \"No X present\" or \"No X found\" for any category.\n"
+                            "- If only a figure exists, describe only the figure. Skip everything else silently.\n\n"
+                            "Always start with the figure/table identifier from the caption "
+                            "(e.g. 'Figure 1:', 'Table 3:', 'Fig. 2:') if one is visible.\n"
+                            "For figures/diagrams: What it shows, key trends, data points.\n"
+                            "For equations: LaTeX inline (e.g. $E = mc^2$).\n"
+                            "For tables: Proper markdown table with | and --- separators. "
+                            "One value per cell, one row per line. Never combine rows with <br>.\n"
+                            "For charts/plots: Axes labels, trends, key values.\n\n"
+                            "Be concise and technical. No preamble, no step numbers."
+                        )
+
+                        for fig_page in figure_pages:
+                            desc = llm_client.describe_image(
+                                fig_page['image_base64'], vision_prompt
+                            )
+                            desc = _clean_vision_desc(desc) if desc else ''
+                            if desc:
+                                figures_for_ui.append({
+                                    "page": fig_page['page_num'],
+                                    "description": desc,
+                                    "image_b64": fig_page['image_base64']
+                                })
+                                logger.info(f"Vision analysis complete for page {fig_page['page_num']}")
+
+                        if figures_for_ui:
+                            logger.info(f"Prepared {len(figures_for_ui)} figure entries for UI expander")
+
+                    except Exception as e:
+                        logger.warning(f"Vision analysis failed, proceeding with text only: {e}")
+            else:
+                # Standard extraction
+                extracted_text = pdf_processor.extract_text_from_bytes(content)
+
+        # Validate extracted text
         if not extracted_text:
             raise HTTPException(
                 status_code=400,
@@ -328,25 +601,46 @@ async def process_pdf(
                 detail="Extracted text is too short. The PDF may not contain enough readable content."
             )
 
-        logger.info(f"Extracted {len(extracted_text)} characters from PDF")
-        logger.info(f"Processing PDF with summarization_mode='{summarization_mode}', output_length='{output_length}'")
+        # Clean HTML artifacts from PDF extraction (pymupdf4llm puts <br> in table cells)
+        extracted_text = re.sub(r'<br\s*/?>', ', ', extracted_text)
+
+        logger.info(f"Processing {len(extracted_text)} characters with summarization_mode='{summarization_mode}', output_length='{output_length}', research_mode={research_mode}")
 
         # Process through orchestrator as text query
         result = await orchestrator.process(
             extracted_text,
             summarization_mode=summarization_mode,
-            output_length=output_length
+            output_length=output_length,
+            research_mode=research_mode
         )
 
         logger.info(f"PDF processing completed - Success: {result.get('success', False)}")
 
-        # Add PDF filename to result and record activity
+        # Ensure error responses have all required fields for the response model
+        if not result.get('success', False):
+            result.setdefault('query_type', 'text')
+            result.setdefault('query', f"PDF: {filename}"[:100])
+            result.setdefault('notes', '')
+            result.setdefault('sources_used', 0)
+            result.setdefault('from_kb', False)
+
+        # Clean any remaining HTML artifacts from output notes
+        if result.get('notes'):
+            result['notes'] = re.sub(r'<br\s*/?>', ', ', result['notes'])
+
+        # Attach structured vision data for UI expander (not mixed into notes)
+        if figures_for_ui and result.get('success'):
+            result['vision_data'] = json.dumps(figures_for_ui)
+            logger.info(f"Attached {len(figures_for_ui)} figure entries as vision_data")
+
+        # Add PDF filename and extracted text to result (Phase 5: for caching)
         if result.get('success'):
-            result['source_file'] = file.filename
+            result['source_file'] = filename
+            result['extracted_text'] = extracted_text  # Phase 5: Return for UI caching
             # Record activity for progress tracking (updates streak)
             try:
                 progress_store = get_progress_store()
-                topic = f"PDF: {file.filename[:30]}"
+                topic = f"PDF: {filename[:30]}"
                 progress_store.record_note_generated(topic)
                 logger.debug(f"Recorded PDF note generation activity")
             except Exception as e:
@@ -380,6 +674,105 @@ async def get_topics():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/v1/documents",
+         tags=["Knowledge Base"])
+async def list_documents(keyword: str = None):
+    """List all documents in the knowledge base, optionally filtered by keyword"""
+    try:
+        if keyword and keyword.strip():
+            documents = doc_processor.search_documents(keyword.strip())
+        else:
+            documents = doc_processor.list_all_documents()
+
+        return {
+            "success": True,
+            "documents": documents,
+            "count": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"Error listing documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/search",
+         tags=["Knowledge Base"])
+async def search_documents_semantic(query: str, k: int = 20):
+    """Semantic search for full documents via vector DB chunk matching.
+    Searches chunks by meaning, then maps matching chunks back to their
+    parent documents using title metadata.
+    """
+    try:
+        if not query or not query.strip():
+            return {"success": True, "documents": [], "count": 0}
+
+        # Search chunks semantically in vector DB
+        chunk_results = vector_store.search(
+            query=query.strip(), k=k, score_threshold=1.0
+        )
+
+        if not chunk_results:
+            return {"success": True, "documents": [], "count": 0}
+
+        # Extract unique titles from matching chunks
+        titles = set()
+        for chunk in chunk_results:
+            title = chunk.get('metadata', {}).get('title', '')
+            if title:
+                titles.add(title)
+
+        # Map titles back to full document metadata
+        documents = doc_processor.find_docs_by_titles(titles)
+
+        return {
+            "success": True,
+            "documents": documents,
+            "count": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"Error in semantic document search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/{doc_id}",
+         tags=["Knowledge Base"])
+async def get_document(doc_id: str):
+    """Get full document text by ID"""
+    try:
+        document = doc_processor.get_document_by_id(doc_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return {
+            "success": True,
+            "document": document
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/documents/{doc_id}/raw",
+         tags=["Knowledge Base"])
+async def get_document_raw(doc_id: str):
+    """Serve raw document as plain text for viewing in browser tab"""
+    try:
+        document = doc_processor.get_document_by_id(doc_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return PlainTextResponse(
+            content=document['content'],
+            headers={"Content-Disposition": "inline"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving raw document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/v1/stats",
          response_model=StatsResponse,
          tags=["System"])
@@ -392,6 +785,74 @@ async def get_stats():
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/dashboard-stats", tags=["System"])
+async def get_dashboard_stats():
+    """Get combined dashboard statistics in a single call (Phase 5 optimization).
+
+    Returns health, KB stats, study progress, and flashcard count in ONE response.
+    Reduces 4 separate API calls to 1 for the dashboard.
+    """
+    try:
+        # Combine all dashboard data into single response
+        result = {
+            "healthy": True,
+            "kb_documents": 0,
+            "flashcard_sets": 0,
+            "total_quizzes": 0,
+            "current_streak": 0,
+            "topics_count": 0
+        }
+
+        # Get KB stats
+        try:
+            kb_stats = vector_store.get_collection_stats()
+            result["kb_documents"] = kb_stats.get("total_documents", 0)
+        except Exception as e:
+            logger.warning(f"Failed to get KB stats: {e}")
+
+        # Get topics count
+        try:
+            topics = vector_store.get_unique_topics()
+            result["topics_count"] = len(topics)
+        except Exception as e:
+            logger.warning(f"Failed to get topics: {e}")
+
+        # Get study progress
+        try:
+            progress_store = get_progress_store()
+            progress = progress_store.get_progress()
+            overall_stats = progress.get("overall_stats", {})
+            streak = progress.get("streak", {})
+            result["total_quizzes"] = overall_stats.get("total_quizzes_completed", 0)
+            result["current_streak"] = streak.get("current_streak", 0)
+        except Exception as e:
+            logger.warning(f"Failed to get progress: {e}")
+
+        # Get flashcard sets count
+        try:
+            progress_store = get_progress_store()
+            flashcard_sets = progress_store.get_all_flashcard_sets()
+            result["flashcard_sets"] = len(flashcard_sets)
+        except Exception as e:
+            logger.warning(f"Failed to get flashcard sets: {e}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error getting dashboard stats: {e}")
+        # Return partial data rather than failing completely
+        return {
+            "healthy": False,
+            "kb_documents": 0,
+            "flashcard_sets": 0,
+            "total_quizzes": 0,
+            "current_streak": 0,
+            "topics_count": 0,
+            "error": str(e)
+        }
+
 
 # Error handlers
 @app.exception_handler(Exception)

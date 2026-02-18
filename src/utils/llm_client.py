@@ -71,8 +71,9 @@ class LLMClient:
         try:
             from groq import Groq
             self.client = Groq(api_key=api_key)
-            self.model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
-            logger.info(f"Initialized Groq client with model: {self.model}")
+            self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+            self.light_model = os.getenv("GROQ_LIGHT_MODEL", "llama-3.1-8b-instant")
+            logger.info(f"Initialized Groq client with model: {self.model}, light model: {self.light_model}")
         except ImportError:
             raise ImportError("groq package not installed. Run: pip install groq")
 
@@ -103,7 +104,8 @@ class LLMClient:
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.7,
-        system_prompt: str = None
+        system_prompt: str = None,
+        model_override: str = None
     ) -> str:
         """
         Generate text using the configured LLM provider.
@@ -113,13 +115,14 @@ class LLMClient:
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (0.0-1.0)
             system_prompt: Optional system prompt for context
+            model_override: Use a specific model instead of the default (e.g. light_model for helper tasks)
 
         Returns:
             Generated text string
         """
         try:
             if self.provider == "groq":
-                return self._generate_groq(prompt, max_tokens, temperature, system_prompt)
+                return self._generate_groq(prompt, max_tokens, temperature, system_prompt, model_override)
             elif self.provider == "huggingface":
                 return self._generate_huggingface(prompt, max_tokens, temperature)
             elif self.provider == "local":
@@ -137,7 +140,8 @@ class LLMClient:
         prompt: str,
         max_tokens: int,
         temperature: float,
-        system_prompt: str = None
+        system_prompt: str = None,
+        model_override: str = None
     ) -> str:
         """Generate using Groq API."""
         messages = []
@@ -147,8 +151,9 @@ class LLMClient:
 
         messages.append({"role": "user", "content": prompt})
 
+        use_model = model_override or self.model
         response = self.client.chat.completions.create(
-            model=self.model,
+            model=use_model,
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature
@@ -178,7 +183,8 @@ class LLMClient:
         text: str,
         max_length: int = 1024,
         style: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        extra_instructions: str = None
     ) -> str:
         """
         Summarize text using the LLM.
@@ -188,6 +194,7 @@ class LLMClient:
             max_length: Maximum summary length in tokens
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
             output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
+            extra_instructions: Optional content-specific instructions from ContentAgent
 
         Returns:
             Summary string
@@ -208,6 +215,46 @@ class LLMClient:
             logger.info(f"Auto mode: input={input_chars} chars -> output_length='{actual_length}'")
 
         logger.info(f"Building prompt for style='{style}', output_length='{actual_length}', text_length={len(text)} chars")
+
+        # Optimize max_tokens based on style and output_length (Phase 3 optimization)
+        # This reduces token generation time significantly
+        if style == "important_points":
+            optimized_max_tokens = 1500  # 8-12 numbered points don't need 3072
+        elif style == "key_highlights":
+            optimized_max_tokens = 1500  # Bullet definitions are concise
+        elif style == "paragraph_summary":
+            # Vary based on requested output length
+            tokens_by_length = {
+                "brief": 512,
+                "medium": 1024,
+                "detailed": 2048
+            }
+            optimized_max_tokens = tokens_by_length.get(actual_length, 2048)
+        else:
+            optimized_max_tokens = max_length  # Fallback to passed value
+
+        logger.info(f"Optimized max_tokens: {optimized_max_tokens} (style={style}, length={actual_length})")
+
+        # Smart truncation for Groq free tier (12,000 TPM limit)
+        # Ensures total request (system + prompt instructions + text + response) fits within limit
+        if self.provider == "groq":
+            groq_token_limit = 12000
+            prompt_overhead_tokens = 700  # system prompt (~200) + prompt instructions (~500)
+            available_text_tokens = groq_token_limit - prompt_overhead_tokens - optimized_max_tokens
+            # Conservative: 3 chars per token to avoid underestimating token count
+            max_text_chars = max(2000, available_text_tokens * 3)
+            if len(text) > max_text_chars:
+                original_len = len(text)
+                text = text[:max_text_chars]
+                # Cut at last sentence boundary for clean truncation
+                last_period = text.rfind('. ')
+                if last_period > len(text) * 0.8:
+                    text = text[:last_period + 1]
+                logger.warning(
+                    f"Truncated input from {original_len} to {len(text)} chars "
+                    f"to fit within Groq token limit ({groq_token_limit} TPM, "
+                    f"reserved {optimized_max_tokens} for response)"
+                )
 
         # Build prompt based on style
         if style == "key_highlights":
@@ -252,6 +299,11 @@ BAD OUTPUT (DO NOT DO THIS):
 • Neural networks are computational systems inspired by biological neural networks. They consist of layers of interconnected nodes...
 [Too long! Keep each item brief]
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+            prompt += f"""
 ---
 CONTENT:
 {text}
@@ -261,17 +313,22 @@ START WITH "•" NOW (no introduction):"""
 
         elif style == "important_points":
             # IMPORTANT POINTS: Independent key points, numbered, no duplicates
-            system_prompt = """You are an expert at extracting key information. You ONLY output numbered lists. You NEVER write introductions, headers, or explanations. You start your response directly with "1." and continue with numbered points only."""
+            system_prompt = """You are an expert at extracting key information. You ONLY output numbered lists. You NEVER write introductions, headers, or explanations. You create your own fresh numbering starting from 1, completely ignoring any existing numbers in the source. You start your response directly with "1." and continue with numbered points only."""
 
             prompt = f"""Extract the important points from this content as a numbered list.
 
 CRITICAL RULES:
 - START YOUR RESPONSE DIRECTLY WITH "1." - no introduction, no headers, no preamble
+- IGNORE any existing numbering, section numbers, or list numbers in the source content
+- Create YOUR OWN fresh numbering: 1, 2, 3, 4... (independent of source)
 - ONLY output numbered points (1. 2. 3. etc.)
 - Each point: 1-3 sentences, independent, self-contained
 - NO duplicates - each point must be unique information
 - Extract 8-12 points
 - DO NOT write any text before "1." or after the last point
+
+IMPORTANT: The source content may have its own numbered sections (like "Section 1", "Chapter 2", etc.).
+COMPLETELY IGNORE those numbers. Your output numbering is SEPARATE and must start from 1.
 
 OUTPUT FORMAT (START EXACTLY LIKE THIS):
 1. [First point here]
@@ -281,24 +338,31 @@ OUTPUT FORMAT (START EXACTLY LIKE THIS):
 3. [Third point here]
 
 WRONG (DO NOT DO THIS):
-"Here are the important points:"
-"The key points from this content are:"
-"Important Points:"
-[Any text before the numbered list is WRONG]
+- Starting from 13. or any number other than 1.
+- "Here are the important points:"
+- "The key points from this content are:"
+- Continuing numbering from the source document
+[Any text before "1." is WRONG]
 
-CORRECT (DO THIS):
+CORRECT (DO THIS - always start from 1):
 1. Machine learning algorithms improve their performance automatically through experience, without being explicitly programmed for specific tasks.
 
 2. Supervised learning requires labeled training data where each input is paired with the correct output.
 
 3. Neural networks consist of layers of interconnected nodes that transform input data through weighted connections.
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+            prompt += f"""
 ---
 CONTENT:
 {text}
 
 ---
-START YOUR RESPONSE WITH "1." NOW:"""
+YOUR NUMBERED LIST (start fresh from 1, ignore any numbers in the content above):
+1."""
 
         else:  # paragraph_summary (default)
             # PARAGRAPH SUMMARY: Overview in flowing paragraphs with length control
@@ -380,6 +444,19 @@ BAD OUTPUT (NEVER DO THIS):
 - Adding headers like "Summary:" or "Overview:"
 • Using any kind of list format
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+                prompt += f"""
+---
+CONTENT TO SUMMARIZE:
+{text}
+
+---
+NOW write the summary (follow content-specific instructions above, embed any tables/equations/code verbatim within your text):"""
+            else:
+                prompt += f"""
 ---
 CONTENT TO SUMMARIZE:
 {text}
@@ -388,10 +465,10 @@ CONTENT TO SUMMARIZE:
 NOW write the paragraph summary (flowing prose, no bullets, follow the length requirement):"""
 
         try:
-            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, Prompt length: {len(prompt)} chars")
+            logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, max_tokens: {optimized_max_tokens}, Prompt length: {len(prompt)} chars")
             result = self.generate(
                 prompt=prompt,
-                max_tokens=max_length,
+                max_tokens=optimized_max_tokens,  # Use optimized value instead of max_length
                 temperature=0.7,
                 system_prompt=system_prompt
             )
@@ -486,6 +563,53 @@ Generate {num_questions} quiz questions:"""
         except Exception as e:
             logger.error(f"Error generating quiz: {e}")
             raise
+
+    def describe_image(self, image_base64: str, prompt: str) -> Optional[str]:
+        """
+        Analyze an image using Groq Vision model.
+
+        Used in Research Mode to describe figures, equations, and tables
+        from PDF pages.
+
+        Args:
+            image_base64: Base64-encoded PNG image
+            prompt: Description prompt for the vision model
+
+        Returns:
+            Text description of the image, or None if vision unavailable
+        """
+        if self.provider != "groq" or not self.client:
+            logger.info("Vision analysis requires Groq provider, skipping")
+            return None
+
+        vision_model = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+        try:
+            response = self.client.chat.completions.create(
+                model=vision_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }],
+                max_tokens=1024,
+                temperature=0.3
+            )
+
+            result = response.choices[0].message.content
+            logger.info(f"Vision analysis returned {len(result)} chars")
+            return result
+
+        except Exception as e:
+            logger.warning(f"Vision analysis failed (model: {vision_model}): {e}")
+            return None
 
     def is_local_mode(self) -> bool:
         """Check if using local model mode."""

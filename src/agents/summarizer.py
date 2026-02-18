@@ -106,7 +106,7 @@ class SummarizerAgent(BaseAgent):
         return self._pipe
 
     @cached("summarizer", ttl=settings.CACHE_SUMMARY_TTL)
-    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto") -> str:
+    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """
         Summarize text using API or local model.
 
@@ -115,6 +115,7 @@ class SummarizerAgent(BaseAgent):
             max_length: Maximum output length
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
             output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
+            extra_instructions: Optional content-specific instructions from ContentAgent
 
         Returns:
             Summary string
@@ -137,12 +138,18 @@ class SummarizerAgent(BaseAgent):
                         text=text,
                         max_length=max_length or 3072,  # Tripled output space for quality
                         style=style,
-                        output_length=output_length
+                        output_length=output_length,
+                        extra_instructions=extra_instructions
                     )
                     if summary:
                         self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
                         return summary
                 except Exception as e:
+                    # Rate limit errors must propagate so the UI shows the rate limit dialog
+                    err_str = str(e)
+                    if '429' in err_str and ('rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()):
+                        self.logger.warning(f"Rate limit hit during summarization: {e}")
+                        raise
                     self.logger.warning(f"API summarization failed: {e}, falling back to local")
 
             # Fallback to local model
@@ -198,14 +205,14 @@ class SummarizerAgent(BaseAgent):
             fallback = original_text[:500] + "..." if len(original_text) > 500 else original_text
             return f"Content Summary: {fallback}"
 
-    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto") -> str:
+    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """Summarize multiple documents."""
         try:
             # Combine documents
             combined = "\n\n---\n\n".join(documents[:5])  # Use top 5 documents
 
             # Summarize combined content
-            return self.summarize_text(combined, style=style, output_length=output_length)
+            return self.summarize_text(combined, style=style, output_length=output_length, extra_instructions=extra_instructions)
 
         except Exception as e:
             self.logger.error(f"Error summarizing documents: {e}")
@@ -355,6 +362,7 @@ class SummarizerAgent(BaseAgent):
             content = input_data.get('content', '')
             mode = input_data.get('mode', 'paragraph_summary')
             output_length = input_data.get('output_length', 'auto')  # Only used for paragraph_summary
+            extra_instructions = input_data.get('extra_instructions', None)
 
             if not content:
                 return self.handle_error(ValueError("No content provided"))
@@ -367,12 +375,12 @@ class SummarizerAgent(BaseAgent):
 
             if mode == 'important_points':
                 # Use important_points style for numbered key points
-                summary = self.summarize_text(content, style="important_points")
+                summary = self.summarize_text(content, style="important_points", extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             elif mode == 'key_highlights':
                 # Use key_highlights style for brief term definitions
-                summary = self.summarize_text(content, style="key_highlights")
+                summary = self.summarize_text(content, style="key_highlights", extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             elif mode == 'flashcards':
@@ -389,9 +397,9 @@ class SummarizerAgent(BaseAgent):
 
             else:  # paragraph_summary mode (default)
                 if isinstance(content, list):
-                    summary = self.summarize_documents(content, style="paragraph_summary", output_length=output_length)
+                    summary = self.summarize_documents(content, style="paragraph_summary", output_length=output_length, extra_instructions=extra_instructions)
                 else:
-                    summary = self.summarize_text(content, style="paragraph_summary", output_length=output_length)
+                    summary = self.summarize_text(content, style="paragraph_summary", output_length=output_length, extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             self.logger.info(f"Successfully processed content in {mode} mode, output_length={output_length}")
