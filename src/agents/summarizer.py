@@ -106,7 +106,7 @@ class SummarizerAgent(BaseAgent):
         return self._pipe
 
     @cached("summarizer", ttl=settings.CACHE_SUMMARY_TTL)
-    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto") -> str:
+    def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """
         Summarize text using API or local model.
 
@@ -115,6 +115,7 @@ class SummarizerAgent(BaseAgent):
             max_length: Maximum output length
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
             output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
+            extra_instructions: Optional content-specific instructions from ContentAgent
 
         Returns:
             Summary string
@@ -137,12 +138,32 @@ class SummarizerAgent(BaseAgent):
                         text=text,
                         max_length=max_length or 3072,  # Tripled output space for quality
                         style=style,
-                        output_length=output_length
+                        output_length=output_length,
+                        extra_instructions=extra_instructions
                     )
                     if summary:
                         self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
                         return summary
                 except Exception as e:
+                    err_str = str(e)
+                    is_rate_limit = '429' in err_str and (
+                        'rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()
+                    )
+                    if is_rate_limit:
+                        self.logger.warning(f"Rate limit hit on main model: {e}")
+                        # Try light model as fallback before giving up
+                        fallback = self._summarize_rate_limit_fallback(text, style)
+                        if fallback:
+                            return fallback
+                        # Both models exhausted — return clean message (not raw error)
+                        return (
+                            "**Rate Limit Reached**\n\n"
+                            "The primary and backup models have reached their free-tier limits. "
+                            "Your notes could not be generated at this time.\n\n"
+                            "**What you can do:**\n"
+                            "- Wait for the daily rate limit to reset (resets every 24 hours)\n"
+                            "- Upgrade your Groq plan at https://console.groq.com/settings/billing\n"
+                        )
                     self.logger.warning(f"API summarization failed: {e}, falling back to local")
 
             # Fallback to local model
@@ -198,14 +219,69 @@ class SummarizerAgent(BaseAgent):
             fallback = original_text[:500] + "..." if len(original_text) > 500 else original_text
             return f"Content Summary: {fallback}"
 
-    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto") -> str:
+    def _summarize_rate_limit_fallback(self, text: str, style: str) -> str:
+        """
+        Try the light model when the main model hits a rate limit.
+        Returns summary + rate limit notice, or None if fallback also fails.
+        """
+        light_model = getattr(self.llm_client, 'light_model', None) if self.llm_client else None
+        if not light_model:
+            return None
+
+        try:
+            # Truncate for light model (6K TPM — reserve ~1K for prompt + response)
+            fallback_text = text[:12000]
+            last_period = fallback_text.rfind('. ')
+            if last_period > len(fallback_text) * 0.7:
+                fallback_text = fallback_text[:last_period + 1]
+
+            style_instruction = {
+                'paragraph_summary': 'Write a clear summary in 2-3 paragraphs using flowing prose.',
+                'important_points': 'List 8-10 important points as a numbered list (1. 2. 3.).',
+                'key_highlights': 'List key terms with brief definitions using bullet points (•).'
+            }.get(style, 'Write a clear summary in 2-3 paragraphs.')
+
+            prompt = f"""{style_instruction}
+
+Content:
+{fallback_text}
+
+Begin:"""
+
+            summary = self.llm_client.generate(
+                prompt=prompt,
+                max_tokens=800,
+                temperature=0.7,
+                system_prompt="You are an expert educator who creates concise study notes.",
+                model_override=light_model
+            )
+
+            if summary:
+                self.logger.info(
+                    f"Rate limit fallback successful using {light_model} "
+                    f"({len(summary)} chars)"
+                )
+                notice = (
+                    "\n\n"
+                    "*Note: The primary model (llama-3.3-70b) hit its daily rate limit. "
+                    "This summary was generated using a lighter model. "
+                    "For full-quality notes, wait for the daily limit to reset.*"
+                )
+                return summary + notice
+
+        except Exception as e:
+            self.logger.warning(f"Rate limit fallback also failed: {e}")
+
+        return None
+
+    def summarize_documents(self, documents: List[str], style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """Summarize multiple documents."""
         try:
             # Combine documents
             combined = "\n\n---\n\n".join(documents[:5])  # Use top 5 documents
 
             # Summarize combined content
-            return self.summarize_text(combined, style=style, output_length=output_length)
+            return self.summarize_text(combined, style=style, output_length=output_length, extra_instructions=extra_instructions)
 
         except Exception as e:
             self.logger.error(f"Error summarizing documents: {e}")
@@ -355,6 +431,7 @@ class SummarizerAgent(BaseAgent):
             content = input_data.get('content', '')
             mode = input_data.get('mode', 'paragraph_summary')
             output_length = input_data.get('output_length', 'auto')  # Only used for paragraph_summary
+            extra_instructions = input_data.get('extra_instructions', None)
 
             if not content:
                 return self.handle_error(ValueError("No content provided"))
@@ -367,12 +444,12 @@ class SummarizerAgent(BaseAgent):
 
             if mode == 'important_points':
                 # Use important_points style for numbered key points
-                summary = self.summarize_text(content, style="important_points")
+                summary = self.summarize_text(content, style="important_points", extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             elif mode == 'key_highlights':
                 # Use key_highlights style for brief term definitions
-                summary = self.summarize_text(content, style="key_highlights")
+                summary = self.summarize_text(content, style="key_highlights", extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             elif mode == 'flashcards':
@@ -389,9 +466,9 @@ class SummarizerAgent(BaseAgent):
 
             else:  # paragraph_summary mode (default)
                 if isinstance(content, list):
-                    summary = self.summarize_documents(content, style="paragraph_summary", output_length=output_length)
+                    summary = self.summarize_documents(content, style="paragraph_summary", output_length=output_length, extra_instructions=extra_instructions)
                 else:
-                    summary = self.summarize_text(content, style="paragraph_summary", output_length=output_length)
+                    summary = self.summarize_text(content, style="paragraph_summary", output_length=output_length, extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             self.logger.info(f"Successfully processed content in {mode} mode, output_length={output_length}")

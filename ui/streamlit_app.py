@@ -10,6 +10,7 @@ from datetime import datetime
 import time
 import random
 import os
+import re as re_module
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -309,6 +310,62 @@ def fetch_system_stats():
 
 
 # =============================================================================
+# RATE LIMIT HANDLING
+# =============================================================================
+
+def _is_rate_limit_error(error_msg: str) -> bool:
+    """Check if an error message indicates a Groq API rate limit."""
+    if not error_msg:
+        return False
+    msg = str(error_msg).lower()
+    return 'rate limit' in msg or 'rate_limit' in msg or ('429' in str(error_msg) and 'token' in msg)
+
+
+def _show_rate_limit_dialog(error_msg: str, key_suffix: str = ""):
+    """Show rate limit warning with options to wait or switch model."""
+    st.warning("**API Rate Limit Reached** — Daily token quota exceeded for the current Groq model.")
+
+    # Extract wait time from error
+    wait_match = re_module.search(r'try again in ([\dhmins. ]+)', str(error_msg), re_module.IGNORECASE)
+    if wait_match:
+        st.info(f"Estimated reset in: **{wait_match.group(1).strip()}**")
+
+    option = st.radio(
+        "Choose an option:",
+        ["Wait for rate limit to reset", "Switch to a different model"],
+        key=f"rate_limit_option{key_suffix}",
+        horizontal=True
+    )
+
+    if option == "Switch to a different model":
+        FALLBACK_MODELS = {
+            "llama-3.3-70b-versatile": "LLaMA 3.3 70B (Best quality, 12K TPM, 100K TPD)",
+            "llama-3.1-8b-instant": "LLaMA 3.1 8B (Fast, 500K TPD, high request limit)",
+            "qwen/qwen3-32b": "Qwen3 32B (Good quality, 500K TPD)",
+        }
+        selected = st.selectbox(
+            "Select alternate model:",
+            list(FALLBACK_MODELS.keys()),
+            format_func=lambda x: FALLBACK_MODELS[x],
+            key=f"rate_limit_model{key_suffix}"
+        )
+        if st.button("Switch Model", key=f"rate_limit_switch{key_suffix}"):
+            try:
+                env_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'
+                )
+                with open(env_path, 'r') as f:
+                    env_content = f.read()
+                env_content = re_module.sub(r'GROQ_MODEL=.*', f'GROQ_MODEL={selected}', env_content)
+                with open(env_path, 'w') as f:
+                    f.write(env_content)
+                st.success(f"Model switched to **{selected}**")
+                st.info("Please **restart the API server** for the change to take effect:\n```\nuvicorn src.api.app:app --reload\n```")
+            except Exception as ex:
+                st.error(f"Failed to update configuration: {ex}")
+
+
+# =============================================================================
 # PAGE CONFIGURATION
 # =============================================================================
 
@@ -357,6 +414,10 @@ if 'last_pdf_size' not in st.session_state:
     st.session_state.last_pdf_size = None
 if 'last_pdf_text' not in st.session_state:
     st.session_state.last_pdf_text = None  # Extracted text from PDF
+
+# Vision data for Research Mode figure expander
+if 'last_vision_data' not in st.session_state:
+    st.session_state.last_vision_data = None
 
 # Summarization mode - initialize to ensure consistent state across reruns
 if 'summarization_mode_selector' not in st.session_state:
@@ -1059,6 +1120,18 @@ with tab1:
             file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
             st.caption(f"📎 {uploaded_file.name} ({file_size_mb:.2f}MB)")
 
+    # Research Mode Toggle — always visible
+    research_mode = st.toggle(
+        "Research Mode",
+        value=False,
+        help="**Research Mode** enhances output with: academic paper discovery (Semantic Scholar + arXiv), "
+             "better PDF extraction (tables, equations, structure preserved), "
+             "and AI vision analysis of figures in PDFs.",
+        key="research_mode_toggle"
+    )
+    if research_mode:
+        st.caption("Research Mode ON — Enhanced extraction + related papers + figure analysis")
+
     # Search Mode Selection — hidden by default, shown only when topic input is detected
     search_mode = "auto"  # Default for non-topic queries
 
@@ -1181,7 +1254,8 @@ with tab1:
                                 "summarization_mode": summarization_mode,
                                 "output_length": output_length,
                                 "cached_text": cached_text,
-                                "cached_filename": current_pdf_name
+                                "cached_filename": current_pdf_name,
+                                "research_mode": research_mode
                             },
                             timeout=120
                         )
@@ -1202,7 +1276,8 @@ with tab1:
                             files=files,
                             data={
                                 "summarization_mode": summarization_mode,
-                                "output_length": output_length
+                                "output_length": output_length,
+                                "research_mode": research_mode
                             },
                             timeout=120
                         )
@@ -1253,6 +1328,7 @@ with tab1:
 
                             # Store for persistence across reruns
                             st.session_state.last_generated_notes = result['notes']
+                            st.session_state.last_vision_data = result.get('vision_data')
                             st.session_state.notes_generated_time = datetime.now()
                             st.session_state.last_generation_metadata = {
                                 'query': f"PDF: {uploaded_file.name}",
@@ -1265,14 +1341,26 @@ with tab1:
                             # Rerun to update sidebar history immediately
                             st.rerun()
                         else:
-                            st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
+                            _err = result.get('error', 'Unknown error')
+                            if _is_rate_limit_error(_err):
+                                _show_rate_limit_dialog(_err, key_suffix="_pdf")
+                            else:
+                                st.error(f"❌ Error: {_err}")
                     else:
-                        st.error(f"❌ API Error: {response.status_code} - {response.text}")
+                        _err = f"{response.status_code} - {response.text}"
+                        if _is_rate_limit_error(_err):
+                            _show_rate_limit_dialog(_err, key_suffix="_pdf_api")
+                        else:
+                            st.error(f"❌ API Error: {_err}")
 
             except Exception as e:
                 progress_placeholder.empty()
                 status_placeholder.empty()
-                st.error(f"❌ Error processing PDF: {str(e)}")
+                _err = str(e)
+                if _is_rate_limit_error(_err):
+                    _show_rate_limit_dialog(_err, key_suffix="_pdf_exc")
+                else:
+                    st.error(f"❌ Error processing PDF: {_err}")
 
         elif query_input:
             # Progress indicator container
@@ -1287,7 +1375,13 @@ with tab1:
 
                 # Step 2: Processing
                 progress_placeholder.progress(0.4)
-                if query_input.startswith(('http://', 'https://', 'www.')):
+                _is_pdf_url = (
+                    query_input.startswith(('http://', 'https://'))
+                    and (query_input.lower().endswith('.pdf') or '/pdf/' in query_input.lower())
+                )
+                if _is_pdf_url:
+                    status_placeholder.info("📥 Downloading and processing PDF from URL (this may take a moment)...")
+                elif query_input.startswith(('http://', 'https://', 'www.')):
                     status_placeholder.info("🌐 Scraping web content...")
                 elif len(query_input) > 500:
                     status_placeholder.info("📄 Processing text input...")
@@ -1300,16 +1394,18 @@ with tab1:
                 else:
                     status_placeholder.info("🔍 Searching knowledge base (web fallback enabled)...")
 
-                # Make API request
+                # Make API request (PDF URLs need longer timeout: download + extraction + LLM)
+                _req_timeout = 180 if _is_pdf_url else 120
                 response = requests.post(
                     f"{API_BASE_URL}/generate-notes",
                     json={
                         "query": query_input,
                         "summarization_mode": summarization_mode,
                         "summary_length": output_length,
-                        "search_mode": search_mode
+                        "search_mode": search_mode,
+                        "research_mode": research_mode
                     },
-                    timeout=120
+                    timeout=_req_timeout
                 )
 
                 # Step 3: Summarizing
@@ -1365,6 +1461,7 @@ with tab1:
 
                         # Store for persistence across reruns
                         st.session_state.last_generated_notes = result['notes']
+                        st.session_state.last_vision_data = result.get('vision_data')
                         st.session_state.notes_generated_time = datetime.now()
                         st.session_state.last_generation_metadata = {
                             'query': query_input[:100] + '...' if len(query_input) > 100 else query_input,
@@ -1379,9 +1476,17 @@ with tab1:
                         # Rerun to update sidebar history immediately
                         st.rerun()
                     else:
-                        st.error(f"❌ Error: {result.get('error', 'Unknown error')}")
+                        _err = result.get('error', 'Unknown error')
+                        if _is_rate_limit_error(_err):
+                            _show_rate_limit_dialog(_err, key_suffix="_query")
+                        else:
+                            st.error(f"❌ Error: {_err}")
                 else:
-                    st.error(f"❌ API Error: {response.status_code}")
+                    _err = f"{response.status_code} - {response.text}"
+                    if _is_rate_limit_error(_err):
+                        _show_rate_limit_dialog(_err, key_suffix="_query_api")
+                    else:
+                        st.error(f"❌ API Error: {response.status_code}")
 
             except requests.exceptions.Timeout:
                 progress_placeholder.empty()
@@ -1390,7 +1495,11 @@ with tab1:
             except Exception as e:
                 progress_placeholder.empty()
                 status_placeholder.empty()
-                st.error(f"❌ Error: {str(e)}")
+                _err = str(e)
+                if _is_rate_limit_error(_err):
+                    _show_rate_limit_dialog(_err, key_suffix="_query_exc")
+                else:
+                    st.error(f"❌ Error: {_err}")
         else:
             st.warning("⚠️ Please enter a query")
 
@@ -1407,6 +1516,7 @@ with tab1:
         with header_col2:
             if st.button("✕", key="close_generated_notes", help="Close this section"):
                 st.session_state.last_generated_notes = None
+                st.session_state.last_vision_data = None
                 st.session_state.last_generation_metadata = None
                 st.session_state.show_copy_box = False
                 st.session_state.show_save_kb_recent = False
@@ -1507,6 +1617,60 @@ with tab1:
             st.markdown('<div class="notes-container">', unsafe_allow_html=True)
             st.markdown(st.session_state.last_generated_notes)
             st.markdown('</div>', unsafe_allow_html=True)
+
+            # Research Mode: Show figures & visual analysis in collapsible section
+            vision_json = st.session_state.get('last_vision_data')
+            if vision_json:
+                import json as json_mod
+                import base64 as b64_mod
+                import re as re_mod
+                try:
+                    figures = json_mod.loads(vision_json)
+                    if figures:
+                        with st.expander(f"Figures & Visual Analysis ({len(figures)} pages)", expanded=False):
+                            for idx, fig in enumerate(figures):
+                                st.markdown(f"**Page {fig['page']}**")
+                                if fig.get('image_b64'):
+                                    img_bytes = b64_mod.b64decode(fig['image_b64'])
+                                    st.image(img_bytes, width=500)
+                                if fig.get('description'):
+                                    desc = fig['description']
+                                    # Clean any remaining HTML <br> tags
+                                    desc = re_mod.sub(r'<br\s*/?>', '\n', desc)
+                                    desc = re_mod.sub(r'<[^>]+>', '', desc)
+                                    # Downshift headings: # → ####, ## → #####, ### → ######
+                                    desc = re_mod.sub(
+                                        r'^(#{1,3})\s',
+                                        lambda m: '#' * min(len(m.group(1)) + 3, 6) + ' ',
+                                        desc,
+                                        flags=re_mod.MULTILINE
+                                    )
+                                    # Remove "No X present/found" lines and their headings
+                                    lines = desc.split('\n')
+                                    cleaned = []
+                                    i = 0
+                                    while i < len(lines):
+                                        s = lines[i].strip()
+                                        if re_mod.search(r'\bno\b.{0,40}\b(present|found|detected|visible|shown|appear)', s, re_mod.IGNORECASE):
+                                            if cleaned and re_mod.match(r'^#{1,6}\s', cleaned[-1].strip()):
+                                                cleaned.pop()
+                                            i += 1
+                                            continue
+                                        if re_mod.match(r'^#{1,6}\s', s) and i + 1 < len(lines):
+                                            ns = lines[i + 1].strip()
+                                            if re_mod.search(r'\bno\b.{0,40}\b(present|found|detected|visible|shown|appear)', ns, re_mod.IGNORECASE):
+                                                i += 2
+                                                continue
+                                        cleaned.append(lines[i])
+                                        i += 1
+                                    desc = '\n'.join(cleaned).strip()
+                                    desc = re_mod.sub(r'\n{3,}', '\n\n', desc)
+                                    if desc:
+                                        st.markdown(desc)
+                                if idx < len(figures) - 1:
+                                    st.divider()
+                except Exception:
+                    pass
 
             # Action buttons
             col1, col2, col3, col4 = st.columns(4)

@@ -7,12 +7,13 @@ from enum import Enum
 
 from src.agents.retriever import RetrieverAgent
 from src.agents.scraper import ScraperAgent
-from src.agents.summarizer import SummarizerAgent
+from src.agents.content_agent import ContentAgent
 from src.agents.note_maker import NoteMakerAgent
 from src.agents.web_search import WebSearchAgent
 from src.knowledge_base.vector_store import VectorStore
 from src.knowledge_base.document_processor import DocumentProcessor
 from src.utils.logger import get_logger
+from src.utils.academic_search import get_academic_search
 
 logger = get_logger(__name__)
 
@@ -27,11 +28,12 @@ class Orchestrator:
     def __init__(self):
         self.retriever = RetrieverAgent()
         self.scraper = ScraperAgent()
-        self.summarizer = SummarizerAgent()
+        self.content_agent = ContentAgent()
         self.note_maker = NoteMakerAgent()
         self.web_search = WebSearchAgent()
         self.vector_store = VectorStore()
         self.doc_processor = DocumentProcessor()
+        self.academic_search = get_academic_search()
         self.logger = logger
     
     def detect_query_type(self, query: str) -> QueryType:
@@ -47,7 +49,7 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto") -> Dict[str, Any]:
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
         """Process a topic-based query with configurable search mode.
 
         Args:
@@ -62,12 +64,18 @@ class Orchestrator:
             # Web search only mode - skip KB entirely
             if search_mode in ("web_search", "web_only"):
                 self.logger.info("Search mode: web_search - going directly to web search")
-                return await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                if research_mode and result.get('success'):
+                    result = await self._append_related_papers(result, query)
+                return result
 
             # Both mode - search KB and web, combine results
             if search_mode == "both":
                 self.logger.info("Search mode: both - searching KB and web")
-                return await self._process_both_sources(query, summarization_mode, output_length)
+                result = await self._process_both_sources(query, summarization_mode, output_length)
+                if research_mode and result.get('success'):
+                    result = await self._append_related_papers(result, query)
+                return result
 
             # Search knowledge base (for 'auto' and 'kb_only' modes)
             retrieval_result = await self.retriever.process({
@@ -99,11 +107,16 @@ class Orchestrator:
                 all_content = ' '.join(documents[:5])
                 self.logger.info(f"Processing {len(documents)} documents with total length: {len(all_content)}")
 
-                detailed_summary = await self.summarizer.process({
+                detailed_summary = await self.content_agent.process({
                     'content': all_content,
                     'mode': summarization_mode,
                     'output_length': output_length
                 })
+
+                # Gap resolution
+                detailed_summary = await self._resolve_gaps(
+                    detailed_summary, all_content, query, summarization_mode, output_length
+                )
 
                 # Determine title based on summarization mode
                 title_suffix_map = {
@@ -123,7 +136,7 @@ class Orchestrator:
                     'summarization_mode': summarization_mode
                 })
 
-                return {
+                result = {
                     'success': True,
                     'query_type': 'topic',
                     'query': query,
@@ -131,6 +144,9 @@ class Orchestrator:
                     'sources_used': len(sources),
                     'from_kb': True
                 }
+                if research_mode:
+                    result = await self._append_related_papers(result, query)
+                return result
 
             else:
                 # No relevant documents found in KB
@@ -148,7 +164,10 @@ class Orchestrator:
 
                 # Auto mode: fall back to web search
                 self.logger.info("No relevant documents in KB, falling back to web search...")
-                return await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                if research_mode and result.get('success'):
+                    result = await self._append_related_papers(result, query)
+                return result
 
         except Exception as e:
             self.logger.error(f"Error processing topic query: {e}")
@@ -185,11 +204,16 @@ class Orchestrator:
                 }
 
             # Step 2: Summarize the content
-            summary_result = await self.summarizer.process({
+            summary_result = await self.content_agent.process({
                 'content': search_result['content'],
                 'mode': summarization_mode,
                 'output_length': output_length
             })
+
+            # Gap resolution
+            summary_result = await self._resolve_gaps(
+                summary_result, search_result['content'], query, summarization_mode, output_length
+            )
 
             # Step 3: Create notes with source references
             title_suffix_map = {
@@ -324,11 +348,16 @@ class Orchestrator:
             self.logger.info(f"Combined content: {len(combined_content)} chars from {len(combined_parts)} sources")
 
             # Step 5: Summarize the combined content
-            summary_result = await self.summarizer.process({
+            summary_result = await self.content_agent.process({
                 'content': combined_content,
                 'mode': summarization_mode,
                 'output_length': output_length
             })
+
+            # Gap resolution
+            summary_result = await self._resolve_gaps(
+                summary_result, combined_content, query, summarization_mode, output_length
+            )
 
             # Step 6: Build deduplicated source list (KB + Web)
             all_sources = kb_sources + web_sources
@@ -397,7 +426,57 @@ class Orchestrator:
                 'error': str(e)
             }
 
-    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
+    async def _append_related_papers(self, result: Dict[str, Any], query: str) -> Dict[str, Any]:
+        """Append related academic papers to notes when research_mode is enabled."""
+        try:
+            self.logger.info(f"Research Mode: searching for related papers on '{query[:50]}'")
+            papers = self.academic_search.search_papers(query, max_results=5)
+
+            if papers:
+                papers_md = self.academic_search.format_papers_markdown(papers)
+                result['notes'] = result.get('notes', '') + papers_md
+                result['related_papers'] = papers
+                self.logger.info(f"Research Mode: appended {len(papers)} related papers")
+            else:
+                result['related_papers'] = []
+                self.logger.info("Research Mode: no related papers found")
+        except Exception as e:
+            self.logger.warning(f"Research Mode: paper discovery failed: {e}")
+            result['related_papers'] = []
+
+        return result
+
+    async def _fill_content_gaps(self, original_query: str, gap_queries: List[str]) -> Optional[str]:
+        """Use WebSearchAgent to fill knowledge gaps identified by ContentAgent."""
+        all_content = []
+        for gap_query in gap_queries[:2]:  # Max 2 gap queries to limit API calls
+            search_query = f"{original_query} {gap_query}"
+            self.logger.info(f"Gap resolution: searching for '{search_query}'")
+            result = await self.web_search.search_and_get_content(search_query)
+            if result and result.get('content'):
+                all_content.append(result['content'][:3000])  # Limit each gap fill
+
+        return "\n\n".join(all_content) if all_content else None
+
+    async def _resolve_gaps(self, result: Dict[str, Any], content: str, query: str,
+                            summarization_mode: str, output_length: str) -> Dict[str, Any]:
+        """Check ContentAgent result for gaps and resolve them if needed (max 1 iteration)."""
+        if result.get('needs_more_info') and result.get('gap_queries'):
+            self.logger.info(f"ContentAgent identified gaps: {result['gap_queries']}")
+
+            gap_content = await self._fill_content_gaps(query, result['gap_queries'])
+
+            if gap_content:
+                enriched = content + "\n\n--- Additional Information ---\n\n" + gap_content
+                result = await self.content_agent.process({
+                    'content': enriched,
+                    'mode': summarization_mode,
+                    'output_length': output_length
+                })
+
+        return result
+
+    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
             self.logger.info(f"Processing URL: {url}")
@@ -422,11 +501,13 @@ class Orchestrator:
                     'error': f"Scraped content too short ({content_length} chars). Check URL accessibility."
                 }
 
-            # Pass the summarization_mode and output_length directly to the summarizer
-            detailed_summary = await self.summarizer.process({
+            # Pass the summarization_mode and output_length directly to the content agent
+            # skip_evaluation=True: URL content is authoritative, no gap resolution needed
+            detailed_summary = await self.content_agent.process({
                 'content': scrape_result['content'],
                 'mode': summarization_mode,
-                'output_length': output_length
+                'output_length': output_length,
+                'skip_evaluation': True
             })
 
             # Determine title based on summarization mode
@@ -462,7 +543,7 @@ class Orchestrator:
                     self.vector_store.add_documents([doc])
                     self.logger.info("Added scraped content to knowledge base")
             
-            return {
+            result = {
                 'success': True,
                 'query_type': 'url',
                 'query': url,
@@ -470,7 +551,12 @@ class Orchestrator:
                 'sources_used': 1,
                 'from_kb': False
             }
-            
+            if research_mode:
+                # Use page title as search query for paper discovery
+                paper_query = scrape_result.get('title', url)
+                result = await self._append_related_papers(result, paper_query)
+            return result
+
         except Exception as e:
             self.logger.error(f"Error processing URL: {e}")
             return {
@@ -478,7 +564,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto") -> Dict[str, Any]:
+    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
         """Process direct text input"""
         try:
             self.logger.info(f"Processing direct text input of length: {len(text)}")
@@ -490,11 +576,13 @@ class Orchestrator:
                     'error': 'Input text too short. Please provide at least 10 characters.'
                 }
 
-            # Pass the summarization_mode and output_length directly to the summarizer
-            detailed_summary = await self.summarizer.process({
+            # Pass the summarization_mode and output_length directly to the content agent
+            # skip_evaluation=True: Direct text/PDF input is authoritative, no gap resolution needed
+            detailed_summary = await self.content_agent.process({
                 'content': text.strip(),
                 'mode': summarization_mode,
-                'output_length': output_length
+                'output_length': output_length,
+                'skip_evaluation': True
             })
 
             # Check if summarization was successful
@@ -532,7 +620,7 @@ class Orchestrator:
                     'error': f"Failed to create notes: {notes_result.get('error', 'Unknown error')}"
                 }
 
-            return {
+            result = {
                 'success': True,
                 'query_type': 'text',
                 'query': text[:100] + "..." if len(text) > 100 else text,
@@ -540,7 +628,15 @@ class Orchestrator:
                 'sources_used': 0,
                 'from_kb': False
             }
-            
+            if research_mode:
+                # Clean markdown formatting for better academic search results
+                paper_query = text.strip()[:200]
+                for ch in '#*[](){}|`~>\n\r':
+                    paper_query = paper_query.replace(ch, ' ')
+                paper_query = ' '.join(paper_query.split()).strip()[:80]
+                result = await self._append_related_papers(result, paper_query)
+            return result
+
         except Exception as e:
             self.logger.error(f"Error processing text: {e}")
             return {
@@ -548,21 +644,21 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto") -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
             query_type = self.detect_query_type(query)
 
-            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}")
+            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}, research_mode: {research_mode}")
 
             # Process based on type
             if query_type == QueryType.URL:
-                return await self.process_url_query(query, summarization_mode, output_length)
+                return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode)
             elif query_type == QueryType.TEXT:
-                return await self.process_text_query(query, summarization_mode, output_length)
+                return await self.process_text_query(query, summarization_mode, output_length, research_mode=research_mode)
             else:  # TOPIC
-                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode)
+                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode, research_mode=research_mode)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")
@@ -581,15 +677,15 @@ class Orchestrator:
             llm_client = get_llm_client()
             llm_info = llm_client.get_provider_info() if llm_client else {}
         except Exception:
-            # Fallback to summarizer if direct access fails
-            llm_info = self.summarizer.get_provider_info()
+            # Fallback to content_agent if direct access fails
+            llm_info = self.content_agent.get_provider_info()
 
         return {
             'knowledge_base': kb_stats,
             'agents': {
                 'retriever': 'active',
                 'scraper': 'active',
-                'summarizer': 'active',
+                'content_agent': 'active',
                 'note_maker': 'active',
                 'web_search': 'active'
             },

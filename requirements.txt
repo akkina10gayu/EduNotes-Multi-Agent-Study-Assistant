@@ -39,6 +39,8 @@ diskcache
 # Data Processing
 numpy
 PyPDF2
+pymupdf4llm
+pymupdf
 
 # UI
 streamlit

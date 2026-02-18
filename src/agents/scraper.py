@@ -57,6 +57,7 @@ class ScraperAgent(BaseAgent):
                 'publish_date': str(article.publish_date) if article.publish_date else None,
                 'keywords': article.keywords,
                 'summary': article.summary,
+                'top_image': article.top_image or '',
                 'url': url,
                 'scraper': 'newspaper3k'
             }
@@ -112,10 +113,17 @@ class ScraperAgent(BaseAgent):
         title_tag = soup.find('title')
         title = title_tag.string if title_tag else "Untitled"
 
+        # Extract top image from og:image meta tag
+        top_image = ''
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            top_image = og_image['content']
+
         return {
             'success': True,
             'content': text,
             'title': title,
+            'top_image': top_image,
             'url': url,
             'scraper': scraper_name
         }

@@ -106,7 +106,8 @@ YOUR QUERIES FOR "{topic}":"""
                 prompt=prompt,
                 max_tokens=200,
                 temperature=0.3,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                model_override=getattr(self.llm_client, 'light_model', None)
             )
 
             if not response:
@@ -362,7 +363,8 @@ YOUR TOP 3 PICKS:"""
                 prompt=prompt,
                 max_tokens=50,
                 temperature=0.1,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                model_override=getattr(self.llm_client, 'light_model', None)
             )
 
             if not response:
@@ -489,7 +491,8 @@ Answer (YES/NO + reason):"""
                 response = self.llm_client.generate(
                     prompt=prompt,
                     max_tokens=30,
-                    temperature=0.1
+                    temperature=0.1,
+                    model_override=getattr(self.llm_client, 'light_model', None)
                 )
 
                 if response and 'YES' in response.upper():

@@ -36,6 +36,7 @@ USE_LOCAL_MODEL = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 # Groq API (FREE - 14,400 requests/day)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 # HuggingFace API (FREE - 30,000 requests/month)
 HF_TOKEN = os.getenv("HF_TOKEN", "")

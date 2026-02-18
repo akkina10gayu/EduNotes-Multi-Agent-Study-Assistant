@@ -30,7 +30,7 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
 
 def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
     """Format content as markdown based on summarization mode"""
-    md = f"# {title}\n\n"
+    md = f"### {title}\n\n"
 
     if "summary" in content:
         # Determine section header and formatting based on summarization mode
@@ -39,11 +39,11 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
         # Define section headers for each mode
         # Note: important_points and key_highlights don't need headers since title already indicates the type
         section_headers = {
-            'paragraph_summary': '## Overview\n\n',
+            'paragraph_summary': '#### Overview\n\n',
             'important_points': '',
             'key_highlights': ''
         }
-        md += section_headers.get(summarization_mode, '## Overview\n\n')
+        md += section_headers.get(summarization_mode, '#### Overview\n\n')
 
         summary_text = content['summary']
 
@@ -128,7 +128,7 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                         md += f"{paragraph}\n\n"
 
     if "key_points" in content and content["key_points"]:
-        md += "## Additional Points\n\n"
+        md += "#### Additional Points\n\n"
         for point in content["key_points"]:
             md += f"- {point}\n"
         md += "\n"
@@ -140,7 +140,7 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
             if s.get('url') and s['url'].startswith(('http://', 'https://'))
         ]
         if valid_sources:
-            md += "## Sources\n\n"
+            md += "#### Sources\n\n"
             for source in valid_sources:
                 md += f"- [{source['title']}]({source['url']})\n"
             md += "\n"

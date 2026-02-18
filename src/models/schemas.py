@@ -12,6 +12,7 @@ class GenerateNotesRequest(BaseModel):
     summarization_mode: Optional[str] = Field("paragraph_summary", description="Format: 'paragraph_summary' for flowing paragraphs, 'important_points' for detailed bullets, 'key_highlights' for key terms")
     summary_length: Optional[str] = Field("auto", description="Length: 'auto' for smart sizing, 'brief' (~350 words), 'medium' (~800 words), 'detailed' (~2,300 words)")
     search_mode: Optional[str] = Field("auto", description="Search mode: 'auto' (KB first, web fallback), 'kb_only' (knowledge base only), 'web_search' (web search only), 'both' (KB and web search combined)")
+    research_mode: Optional[bool] = Field(False, description="Research Mode: enables academic paper discovery, enhanced PDF extraction, and vision analysis of figures")
     
 class GenerateNotesResponse(BaseModel):
     """Response model for generated notes"""
@@ -25,6 +26,7 @@ class GenerateNotesResponse(BaseModel):
     message: Optional[str] = None
     source_file: Optional[str] = None  # PDF filename if from PDF
     extracted_text: Optional[str] = None  # Phase 5: Extracted text for caching
+    vision_data: Optional[str] = None  # JSON: figure images + descriptions for Research Mode
 
 class UpdateKBRequest(BaseModel):
     """Request model for updating knowledge base"""

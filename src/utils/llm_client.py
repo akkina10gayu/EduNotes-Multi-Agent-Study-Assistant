@@ -71,8 +71,9 @@ class LLMClient:
         try:
             from groq import Groq
             self.client = Groq(api_key=api_key)
-            self.model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
-            logger.info(f"Initialized Groq client with model: {self.model}")
+            self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+            self.light_model = os.getenv("GROQ_LIGHT_MODEL", "llama-3.1-8b-instant")
+            logger.info(f"Initialized Groq client with model: {self.model}, light model: {self.light_model}")
         except ImportError:
             raise ImportError("groq package not installed. Run: pip install groq")
 
@@ -103,7 +104,8 @@ class LLMClient:
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.7,
-        system_prompt: str = None
+        system_prompt: str = None,
+        model_override: str = None
     ) -> str:
         """
         Generate text using the configured LLM provider.
@@ -113,13 +115,14 @@ class LLMClient:
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (0.0-1.0)
             system_prompt: Optional system prompt for context
+            model_override: Use a specific model instead of the default (e.g. light_model for helper tasks)
 
         Returns:
             Generated text string
         """
         try:
             if self.provider == "groq":
-                return self._generate_groq(prompt, max_tokens, temperature, system_prompt)
+                return self._generate_groq(prompt, max_tokens, temperature, system_prompt, model_override)
             elif self.provider == "huggingface":
                 return self._generate_huggingface(prompt, max_tokens, temperature)
             elif self.provider == "local":
@@ -137,7 +140,8 @@ class LLMClient:
         prompt: str,
         max_tokens: int,
         temperature: float,
-        system_prompt: str = None
+        system_prompt: str = None,
+        model_override: str = None
     ) -> str:
         """Generate using Groq API."""
         messages = []
@@ -147,8 +151,9 @@ class LLMClient:
 
         messages.append({"role": "user", "content": prompt})
 
+        use_model = model_override or self.model
         response = self.client.chat.completions.create(
-            model=self.model,
+            model=use_model,
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature
@@ -178,7 +183,8 @@ class LLMClient:
         text: str,
         max_length: int = 1024,
         style: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        extra_instructions: str = None
     ) -> str:
         """
         Summarize text using the LLM.
@@ -188,6 +194,7 @@ class LLMClient:
             max_length: Maximum summary length in tokens
             style: 'paragraph_summary', 'important_points', or 'key_highlights'
             output_length: 'auto', 'detailed', 'medium', or 'brief' (only for paragraph_summary)
+            extra_instructions: Optional content-specific instructions from ContentAgent
 
         Returns:
             Summary string
@@ -292,6 +299,11 @@ BAD OUTPUT (DO NOT DO THIS):
 • Neural networks are computational systems inspired by biological neural networks. They consist of layers of interconnected nodes...
 [Too long! Keep each item brief]
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+            prompt += f"""
 ---
 CONTENT:
 {text}
@@ -339,6 +351,11 @@ CORRECT (DO THIS - always start from 1):
 
 3. Neural networks consist of layers of interconnected nodes that transform input data through weighted connections.
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+            prompt += f"""
 ---
 CONTENT:
 {text}
@@ -427,6 +444,19 @@ BAD OUTPUT (NEVER DO THIS):
 - Adding headers like "Summary:" or "Overview:"
 • Using any kind of list format
 
+"""
+            if extra_instructions:
+                prompt += f"\n\nCONTENT-SPECIFIC INSTRUCTIONS (HIGHEST PRIORITY - these override format rules above):\n{extra_instructions}\n"
+
+                prompt += f"""
+---
+CONTENT TO SUMMARIZE:
+{text}
+
+---
+NOW write the summary (follow content-specific instructions above, embed any tables/equations/code verbatim within your text):"""
+            else:
+                prompt += f"""
 ---
 CONTENT TO SUMMARIZE:
 {text}
@@ -533,6 +563,53 @@ Generate {num_questions} quiz questions:"""
         except Exception as e:
             logger.error(f"Error generating quiz: {e}")
             raise
+
+    def describe_image(self, image_base64: str, prompt: str) -> Optional[str]:
+        """
+        Analyze an image using Groq Vision model.
+
+        Used in Research Mode to describe figures, equations, and tables
+        from PDF pages.
+
+        Args:
+            image_base64: Base64-encoded PNG image
+            prompt: Description prompt for the vision model
+
+        Returns:
+            Text description of the image, or None if vision unavailable
+        """
+        if self.provider != "groq" or not self.client:
+            logger.info("Vision analysis requires Groq provider, skipping")
+            return None
+
+        vision_model = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+        try:
+            response = self.client.chat.completions.create(
+                model=vision_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }],
+                max_tokens=1024,
+                temperature=0.3
+            )
+
+            result = response.choices[0].message.content
+            logger.info(f"Vision analysis returned {len(result)} chars")
+            return result
+
+        except Exception as e:
+            logger.warning(f"Vision analysis failed (model: {vision_model}): {e}")
+            return None
 
     def is_local_mode(self) -> bool:
         """Check if using local model mode."""
