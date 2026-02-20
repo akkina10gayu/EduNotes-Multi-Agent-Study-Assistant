@@ -7,8 +7,10 @@ Supports two extraction backends:
 - PyPDF2 (fallback): Basic text extraction
 """
 import base64
+import hashlib
 from typing import Optional, Dict, Any, List
 from src.utils.logger import get_logger
+from src.utils.cache_utils import cache, get_cache_key
 
 logger = get_logger(__name__)
 
@@ -75,6 +77,14 @@ class PDFProcessor:
         Returns:
             Extracted text as string, or None if extraction fails
         """
+        # Check cache by content hash (first 10KB is fast and unique enough)
+        content_hash = hashlib.md5(pdf_bytes[:10000]).hexdigest()
+        cache_key = get_cache_key("pdf_text", content_hash)
+        cached_text = cache.get(cache_key)
+        if cached_text is not None:
+            self.logger.info(f"PDF text extraction cache HIT ({len(cached_text)} chars)")
+            return cached_text
+
         try:
             if HAS_PYMUPDF4LLM:
                 doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
@@ -86,16 +96,23 @@ class PDFProcessor:
                     return None
 
                 self.logger.info(f"Successfully extracted {len(md_text)} characters from uploaded PDF (pymupdf4llm)")
+                cache.set(cache_key, md_text, expire=86400)
                 return md_text
             else:
-                return self._extract_with_pypdf2_bytes(pdf_bytes)
+                result = self._extract_with_pypdf2_bytes(pdf_bytes)
+                if result:
+                    cache.set(cache_key, result, expire=86400)
+                return result
 
         except Exception as e:
             self.logger.error(f"Error extracting text from uploaded PDF: {e}")
             if HAS_PYMUPDF4LLM:
                 self.logger.info("Falling back to PyPDF2 for bytes extraction")
                 try:
-                    return self._extract_with_pypdf2_bytes(pdf_bytes)
+                    result = self._extract_with_pypdf2_bytes(pdf_bytes)
+                    if result:
+                        cache.set(cache_key, result, expire=86400)
+                    return result
                 except Exception as e2:
                     self.logger.error(f"PyPDF2 fallback also failed: {e2}")
             return None
@@ -121,6 +138,14 @@ class PDFProcessor:
                 'pages_with_figures': int
             }
         """
+        # Check cache by content hash
+        content_hash = hashlib.md5(pdf_bytes[:10000]).hexdigest()
+        cache_key = get_cache_key("pdf_research", content_hash)
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            self.logger.info(f"PDF research extraction cache HIT ({len(cached_result.get('text', ''))} chars)")
+            return cached_result
+
         result = {
             'text': '',
             'figure_pages': [],
@@ -177,6 +202,7 @@ class PDFProcessor:
                 f"{result['pages_with_figures']} with figures, "
                 f"{len(result['figure_pages'])} converted to images"
             )
+            cache.set(cache_key, result, expire=86400)
             return result
 
         except Exception as e:
@@ -246,49 +272,6 @@ class PDFProcessor:
         self.logger.info(f"Successfully extracted {len(full_text)} characters (PyPDF2)")
         return full_text
 
-    def get_pdf_metadata(self, pdf_path: str) -> Dict[str, Any]:
-        """
-        Extract metadata from a PDF file.
-
-        Args:
-            pdf_path: Path to the PDF file
-
-        Returns:
-            Dictionary containing PDF metadata
-        """
-        try:
-            if HAS_PYMUPDF4LLM:
-                doc = pymupdf.open(pdf_path)
-                metadata = {
-                    'num_pages': len(doc),
-                    'title': doc.metadata.get('title', None) if doc.metadata else None,
-                    'author': doc.metadata.get('author', None) if doc.metadata else None,
-                    'subject': doc.metadata.get('subject', None) if doc.metadata else None,
-                    'creator': doc.metadata.get('creator', None) if doc.metadata else None,
-                }
-                doc.close()
-                return metadata
-            else:
-                import PyPDF2
-                with open(pdf_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    metadata = {
-                        'num_pages': len(pdf_reader.pages),
-                        'title': None,
-                        'author': None,
-                        'subject': None,
-                        'creator': None
-                    }
-                    if pdf_reader.metadata:
-                        metadata['title'] = pdf_reader.metadata.get('/Title', None)
-                        metadata['author'] = pdf_reader.metadata.get('/Author', None)
-                        metadata['subject'] = pdf_reader.metadata.get('/Subject', None)
-                        metadata['creator'] = pdf_reader.metadata.get('/Creator', None)
-                    return metadata
-
-        except Exception as e:
-            self.logger.error(f"Error extracting PDF metadata: {e}")
-            return {'num_pages': 0}
 
 
 # Singleton instance

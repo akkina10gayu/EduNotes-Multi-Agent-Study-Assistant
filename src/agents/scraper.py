@@ -2,7 +2,6 @@
 Web scraping agent for fetching content from URLs
 """
 import asyncio
-import aiohttp
 from newspaper import Article
 from bs4 import BeautifulSoup
 import requests

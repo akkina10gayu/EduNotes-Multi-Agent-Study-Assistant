@@ -4,7 +4,7 @@ Note-making agent for creating structured study notes
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from src.agents.base import BaseAgent
-from src.utils.text_utils import format_as_markdown, extract_keywords
+from src.utils.text_utils import format_as_markdown
 
 class NoteMakerAgent(BaseAgent):
     """Agent for creating structured study notes"""
