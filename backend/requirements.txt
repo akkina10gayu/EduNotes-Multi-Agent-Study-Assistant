@@ -1,0 +1,54 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# Supabase
+supabase
+pyjwt
+
+# ML Models - Embeddings (always needed)
+sentence-transformers
+numpy
+
+# Free LLM APIs
+groq
+huggingface_hub
+
+# Web Scraping
+newspaper3k
+beautifulsoup4
+lxml
+requests
+aiohttp
+
+# Web Search
+ddgs
+duckduckgo_search
+googlesearch-python
+
+# Caching
+diskcache
+
+# Data Processing
+PyPDF2
+pymupdf4llm
+pymupdf
+
+# Text Processing
+langchain
+langchain-community
+
+# Utilities
+python-dotenv
+pyyaml
+loguru
+tqdm
+
+# API Extensions
+slowapi
+
+# Development & Testing
+pytest
+pytest-asyncio

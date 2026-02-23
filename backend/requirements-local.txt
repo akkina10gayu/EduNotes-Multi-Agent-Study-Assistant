@@ -1,0 +1,4 @@
+# Only needed when ENABLE_LOCAL_FALLBACK=true
+transformers
+torch
+tokenizers
