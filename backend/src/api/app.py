@@ -1,7 +1,7 @@
 """
 FastAPI application for EduNotes
 """
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -22,11 +22,11 @@ from src.models.schemas import (
     StatsResponse, HealthResponse
 )
 from src.agents.orchestrator import Orchestrator
-from src.knowledge_base.vector_store import VectorStore
-from src.knowledge_base.document_processor import DocumentProcessor
+from src.db import document_store
+from src.db.progress_store import record_activity
+from src.api.auth import get_current_user
 from src.utils.logger import get_logger
 from src.utils.pdf_processor import get_pdf_processor
-from src.utils.progress_store import get_progress_store
 from src.api.study_routes import router as study_router
 from config import settings
 
@@ -80,7 +80,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,8 +103,6 @@ app.include_router(study_router)
 
 # Initialize components
 orchestrator = Orchestrator()
-vector_store = VectorStore()
-doc_processor = DocumentProcessor()
 
 @app.on_event("startup")
 async def startup_event():
@@ -169,7 +167,7 @@ async def health_check():
           response_model=GenerateNotesResponse,
           tags=["Notes"])
 @limiter.limit(f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
-async def generate_notes(request: Request, body: GenerateNotesRequest):
+async def generate_notes(request: Request, body: GenerateNotesRequest, user_id: str = Depends(get_current_user)):
     """Generate study notes from query"""
     try:
         # Input validation
@@ -312,7 +310,8 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
                     extracted_text,
                     summarization_mode=body.summarization_mode,
                     output_length=body.summary_length,
-                    research_mode=body.research_mode or False
+                    research_mode=body.research_mode or False,
+                    user_id=user_id
                 )
 
                 if not result.get('success', False):
@@ -333,8 +332,7 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
 
                 if result.get('success', False):
                     try:
-                        progress_store = get_progress_store()
-                        progress_store.record_note_generated(f"PDF: {query.split('/')[-1][:30]}")
+                        record_activity(user_id, "note_generated", f"PDF: {query.split('/')[-1][:30]}", {})
                     except Exception:
                         pass
 
@@ -361,7 +359,8 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
             summarization_mode=body.summarization_mode,
             output_length=body.summary_length,
             search_mode=body.search_mode or "auto",
-            research_mode=body.research_mode or False
+            research_mode=body.research_mode or False,
+            user_id=user_id
         )
 
         # Ensure error responses have all required fields for the response model
@@ -375,12 +374,11 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
         # Record activity for progress tracking (updates streak)
         if result.get('success', False):
             try:
-                progress_store = get_progress_store()
                 # Use query type as topic, or first 50 chars of query
                 topic = result.get('query_type', 'general')
                 if topic == 'text':
                     topic = query[:50].strip() if len(query) > 50 else query.strip()
-                progress_store.record_note_generated(topic)
+                record_activity(user_id, "note_generated", topic, {})
                 logger.debug(f"Recorded note generation activity for topic: {topic}")
             except Exception as e:
                 logger.warning(f"Failed to record activity: {e}")
@@ -398,7 +396,7 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
           response_model=UpdateKBResponse,
           tags=["Knowledge Base"])
 @limiter.limit("10/minute")
-async def update_knowledge_base(request: Request, body: UpdateKBRequest):
+async def update_knowledge_base(request: Request, body: UpdateKBRequest, user_id: str = Depends(get_current_user)):
     """Update knowledge base with new documents"""
     try:
         # Input validation
@@ -429,16 +427,26 @@ async def update_knowledge_base(request: Request, body: UpdateKBRequest):
 
         logger.info(f"Updating KB with {len(body.documents)} documents")
 
-        # Process documents
-        processed = doc_processor.process_batch(body.documents)
+        # Process documents — loop and add each via document_store
+        documents_added = 0
+        for doc in body.documents:
+            try:
+                document_store.add_document(
+                    user_id,
+                    title=doc.get('title', ''),
+                    topic=doc.get('topic', ''),
+                    content=doc.get('content', ''),
+                    source=doc.get('source', ''),
+                    url=doc.get('url', '')
+                )
+                documents_added += 1
+            except Exception as e:
+                logger.warning(f"Failed to add document: {e}")
 
-        # Add to vector store
-        if processed:
-            success = vector_store.add_documents(processed)
-
+        if documents_added > 0:
             return UpdateKBResponse(
-                success=success,
-                documents_added=len(processed)
+                success=True,
+                documents_added=documents_added
             )
         else:
             return UpdateKBResponse(
@@ -453,28 +461,29 @@ async def update_knowledge_base(request: Request, body: UpdateKBRequest):
         logger.error(f"Error updating KB: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.post("/api/v1/search-kb", 
-          response_model=SearchKBResponse, 
+@app.post("/api/v1/search-kb",
+          response_model=SearchKBResponse,
           tags=["Knowledge Base"])
 @limiter.limit(f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
-async def search_knowledge_base(request: Request, body: SearchKBRequest):
+async def search_knowledge_base(request: Request, body: SearchKBRequest, user_id: str = Depends(get_current_user)):
     """Search the knowledge base"""
     try:
         logger.info(f"Searching KB for: {body.query[:50]}...")
-        
-        results = vector_store.search(
+
+        results = document_store.search(
+            user_id,
             query=body.query,
             k=body.k,
-            score_threshold=body.threshold
+            threshold=body.threshold
         )
-        
+
         return SearchKBResponse(
             success=True,
             query=body.query,
             results=results,
             count=len(results)
         )
-        
+
     except Exception as e:
         logger.error(f"Error searching KB: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -490,7 +499,8 @@ async def process_pdf(
     output_length: str = Form("auto"),
     cached_text: str = Form(None),
     cached_filename: str = Form(None),
-    research_mode: bool = Form(False)
+    research_mode: bool = Form(False),
+    user_id: str = Depends(get_current_user)
 ):
     """Process PDF file and generate study notes.
 
@@ -611,7 +621,8 @@ async def process_pdf(
             extracted_text,
             summarization_mode=summarization_mode,
             output_length=output_length,
-            research_mode=research_mode
+            research_mode=research_mode,
+            user_id=user_id
         )
 
         logger.info(f"PDF processing completed - Success: {result.get('success', False)}")
@@ -639,9 +650,8 @@ async def process_pdf(
             result['extracted_text'] = extracted_text  # Phase 5: Return for UI caching
             # Record activity for progress tracking (updates streak)
             try:
-                progress_store = get_progress_store()
                 topic = f"PDF: {filename[:30]}"
-                progress_store.record_note_generated(topic)
+                record_activity(user_id, "note_generated", topic, {})
                 logger.debug(f"Recorded PDF note generation activity")
             except Exception as e:
                 logger.warning(f"Failed to record activity: {e}")
@@ -657,11 +667,11 @@ async def process_pdf(
 
 @app.get("/api/v1/topics",
          tags=["Knowledge Base"])
-async def get_topics():
+async def get_topics(user_id: str = Depends(get_current_user)):
     """Get available topics from knowledge base"""
     try:
-        # Get unique topics from vector store
-        topics = vector_store.get_unique_topics()
+        # Get unique topics from document store
+        topics = document_store.get_unique_topics(user_id)
 
         return {
             "success": True,
@@ -676,13 +686,13 @@ async def get_topics():
 
 @app.get("/api/v1/documents",
          tags=["Knowledge Base"])
-async def list_documents(keyword: str = None):
+async def list_documents(keyword: str = None, user_id: str = Depends(get_current_user)):
     """List all documents in the knowledge base, optionally filtered by keyword"""
     try:
         if keyword and keyword.strip():
-            documents = doc_processor.search_documents(keyword.strip())
+            documents = document_store.search_documents_semantic(user_id, keyword.strip())
         else:
-            documents = doc_processor.list_all_documents()
+            documents = document_store.list_documents(user_id)
 
         return {
             "success": True,
@@ -696,7 +706,7 @@ async def list_documents(keyword: str = None):
 
 @app.get("/api/v1/documents/search",
          tags=["Knowledge Base"])
-async def search_documents_semantic(query: str, k: int = 20):
+async def search_documents_semantic(query: str, k: int = 20, user_id: str = Depends(get_current_user)):
     """Semantic search for full documents via vector DB chunk matching.
     Searches chunks by meaning, then maps matching chunks back to their
     parent documents using title metadata.
@@ -705,23 +715,8 @@ async def search_documents_semantic(query: str, k: int = 20):
         if not query or not query.strip():
             return {"success": True, "documents": [], "count": 0}
 
-        # Search chunks semantically in vector DB
-        chunk_results = vector_store.search(
-            query=query.strip(), k=k, score_threshold=1.0
-        )
-
-        if not chunk_results:
-            return {"success": True, "documents": [], "count": 0}
-
-        # Extract unique titles from matching chunks
-        titles = set()
-        for chunk in chunk_results:
-            title = chunk.get('metadata', {}).get('title', '')
-            if title:
-                titles.add(title)
-
-        # Map titles back to full document metadata
-        documents = doc_processor.find_docs_by_titles(titles)
+        # Search documents semantically via document_store
+        documents = document_store.search_documents_semantic(user_id, query.strip())
 
         return {
             "success": True,
@@ -735,10 +730,10 @@ async def search_documents_semantic(query: str, k: int = 20):
 
 @app.get("/api/v1/documents/{doc_id}",
          tags=["Knowledge Base"])
-async def get_document(doc_id: str):
+async def get_document(doc_id: str, user_id: str = Depends(get_current_user)):
     """Get full document text by ID"""
     try:
-        document = doc_processor.get_document_by_id(doc_id)
+        document = document_store.get_document(user_id, doc_id)
         if document is None:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -755,10 +750,10 @@ async def get_document(doc_id: str):
 
 @app.get("/api/v1/documents/{doc_id}/raw",
          tags=["Knowledge Base"])
-async def get_document_raw(doc_id: str):
+async def get_document_raw(doc_id: str, user_id: str = Depends(get_current_user)):
     """Serve raw document as plain text for viewing in browser tab"""
     try:
-        document = doc_processor.get_document_by_id(doc_id)
+        document = document_store.get_document(user_id, doc_id)
         if document is None:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -776,7 +771,7 @@ async def get_document_raw(doc_id: str):
 @app.get("/api/v1/stats",
          response_model=StatsResponse,
          tags=["System"])
-async def get_stats():
+async def get_stats(user_id: str = Depends(get_current_user)):
     """Get system statistics"""
     try:
         stats = orchestrator.get_stats()
@@ -788,7 +783,7 @@ async def get_stats():
 
 
 @app.get("/api/v1/dashboard-stats", tags=["System"])
-async def get_dashboard_stats():
+async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
     """Get combined dashboard statistics in a single call (Phase 5 optimization).
 
     Returns health, KB stats, study progress, and flashcard count in ONE response.
@@ -807,36 +802,17 @@ async def get_dashboard_stats():
 
         # Get KB stats
         try:
-            kb_stats = vector_store.get_collection_stats()
+            kb_stats = document_store.get_collection_stats(user_id)
             result["kb_documents"] = kb_stats.get("total_documents", 0)
         except Exception as e:
             logger.warning(f"Failed to get KB stats: {e}")
 
         # Get topics count
         try:
-            topics = vector_store.get_unique_topics()
+            topics = document_store.get_unique_topics(user_id)
             result["topics_count"] = len(topics)
         except Exception as e:
             logger.warning(f"Failed to get topics: {e}")
-
-        # Get study progress
-        try:
-            progress_store = get_progress_store()
-            progress = progress_store.get_progress()
-            overall_stats = progress.get("overall_stats", {})
-            streak = progress.get("streak", {})
-            result["total_quizzes"] = overall_stats.get("total_quizzes_completed", 0)
-            result["current_streak"] = streak.get("current_streak", 0)
-        except Exception as e:
-            logger.warning(f"Failed to get progress: {e}")
-
-        # Get flashcard sets count
-        try:
-            progress_store = get_progress_store()
-            flashcard_sets = progress_store.get_all_flashcard_sets()
-            result["flashcard_sets"] = len(flashcard_sets)
-        except Exception as e:
-            logger.warning(f"Failed to get flashcard sets: {e}")
 
         return result
 
