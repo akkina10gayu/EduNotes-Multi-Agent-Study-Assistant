@@ -24,7 +24,7 @@ class SummarizerAgent(BaseAgent):
     def __init__(self):
         super().__init__("SummarizerAgent")
         self.llm_client = None
-        self.use_local = settings.USE_LOCAL_MODEL
+        self.use_local = getattr(settings, 'USE_LOCAL_MODEL', False) and settings.ENABLE_LOCAL_FALLBACK
 
         # Local model components (lazy loaded)
         self._tokenizer = None
@@ -51,12 +51,18 @@ class SummarizerAgent(BaseAgent):
 
         except Exception as e:
             self.logger.error(f"Error initializing summarizer: {e}")
-            self.logger.info("Falling back to local model")
-            self.use_local = True
-            self._initialize_local_model()
+            if settings.ENABLE_LOCAL_FALLBACK:
+                self.logger.info("Falling back to local model")
+                self.use_local = True
+                self._initialize_local_model()
+            else:
+                raise
 
     def _initialize_local_model(self):
         """Initialize local Flan-T5/BART model (lazy loading)."""
+        if not settings.ENABLE_LOCAL_FALLBACK:
+            self.logger.warning("Local model disabled by ENABLE_LOCAL_FALLBACK=false")
+            return
         # Models are loaded on first use via properties
         self.use_local = True
         self.logger.info(f"Local model configured: {settings.SUMMARIZATION_MODEL}")
@@ -65,6 +71,8 @@ class SummarizerAgent(BaseAgent):
     def tokenizer(self):
         """Lazy load tokenizer."""
         if self._tokenizer is None:
+            if not settings.ENABLE_LOCAL_FALLBACK:
+                raise RuntimeError("Local model disabled. Set ENABLE_LOCAL_FALLBACK=true in .env to enable.")
             self.logger.info("Loading local tokenizer...")
             from transformers import AutoTokenizer
             self._tokenizer = AutoTokenizer.from_pretrained(
@@ -77,6 +85,8 @@ class SummarizerAgent(BaseAgent):
     def model(self):
         """Lazy load model."""
         if self._model is None:
+            if not settings.ENABLE_LOCAL_FALLBACK:
+                raise RuntimeError("Local model disabled. Set ENABLE_LOCAL_FALLBACK=true in .env to enable.")
             self.logger.info("Loading local model...")
             import torch
             from transformers import AutoModelForSeq2SeqLM
@@ -91,6 +101,8 @@ class SummarizerAgent(BaseAgent):
     def pipe(self):
         """Lazy load pipeline."""
         if self._pipe is None:
+            if not settings.ENABLE_LOCAL_FALLBACK:
+                raise RuntimeError("Local model disabled. Set ENABLE_LOCAL_FALLBACK=true in .env to enable.")
             self.logger.info("Creating local summarization pipeline...")
             from transformers import pipeline
             self._pipe = pipeline(

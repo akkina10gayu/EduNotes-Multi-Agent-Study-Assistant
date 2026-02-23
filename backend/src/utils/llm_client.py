@@ -6,6 +6,7 @@ Keeps local model as fallback when USE_LOCAL_MODEL=true
 import os
 from typing import Optional, Dict, Any
 from src.utils.logger import get_logger
+from config import settings
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,11 @@ class LLMClient:
         # Check if local mode is forced
         use_local = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
         if use_local:
+            if not settings.ENABLE_LOCAL_FALLBACK:
+                raise RuntimeError(
+                    "USE_LOCAL_MODEL=true but ENABLE_LOCAL_FALLBACK=false. "
+                    "Set ENABLE_LOCAL_FALLBACK=true to use local models."
+                )
             self.provider = "local"
             logger.info("Using local model (USE_LOCAL_MODEL=true)")
 
@@ -56,9 +62,15 @@ class LLMClient:
 
         except Exception as e:
             logger.error(f"Failed to initialize {self.provider} client: {e}")
-            logger.info("Falling back to local model")
-            self.provider = "local"
-            self._init_local()
+            if settings.ENABLE_LOCAL_FALLBACK:
+                logger.info("Falling back to local model")
+                self.provider = "local"
+                self._init_local()
+            else:
+                raise RuntimeError(
+                    f"Failed to initialize LLM provider '{self.provider}': {e}. "
+                    "Set ENABLE_LOCAL_FALLBACK=true to use local models as fallback."
+                )
 
     def _init_groq(self):
         """Initialize Groq client (FREE - 14,400 requests/day)."""
@@ -95,6 +107,10 @@ class LLMClient:
 
     def _init_local(self):
         """Initialize local model flag (actual model loaded in summarizer)."""
+        if not settings.ENABLE_LOCAL_FALLBACK:
+            raise RuntimeError(
+                "Local model disabled. Set ENABLE_LOCAL_FALLBACK=true in .env to enable."
+            )
         self.client = None
         self.model = "local"
         logger.info("Using local model mode (BART/Flan-T5)")
