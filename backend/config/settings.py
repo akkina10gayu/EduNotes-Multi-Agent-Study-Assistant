@@ -26,6 +26,18 @@ API_PORT = int(os.getenv("API_PORT", 8000))
 API_VERSION = os.getenv("API_VERSION", "v1")
 DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 
+# Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+
+# Feature flags
+ENABLE_LOCAL_FALLBACK = os.getenv("ENABLE_LOCAL_FALLBACK", "false").lower() == "true"
+
+# CORS
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+
 # =============================================================================
 # LLM API Settings (FREE APIs - No cost)
 # =============================================================================
@@ -50,18 +62,7 @@ SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "google/flan-t5-base")
 QA_MODEL = os.getenv("QA_MODEL", "deepset/roberta-base-squad2")
 MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", str(MODELS_DIR / "downloaded")))
 
-# LangChain Settings
-LANGCHAIN_CACHE = os.getenv("LANGCHAIN_CACHE", "sqlite")
-LANGCHAIN_CACHE_PATH = os.getenv("LANGCHAIN_CACHE_PATH", "./.langchain.db")
-LANGCHAIN_VERBOSE = os.getenv("LANGCHAIN_VERBOSE", "False").lower() == "true"
-
-# ChromaDB Settings
-CHROMA_PERSIST_DIR = Path(os.getenv("CHROMA_PERSIST_DIR", str(DATA_DIR / "vector_db" / "chroma")))
-CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "edunotes_kb")
-EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", 384))
-
 # Knowledge Base
-KB_PATH = Path(os.getenv("KB_PATH", str(DATA_DIR / "knowledge_base")))
 KB_UPDATE_BATCH_SIZE = int(os.getenv("KB_UPDATE_BATCH_SIZE", 100))
 KB_CHUNK_SIZE = int(os.getenv("KB_CHUNK_SIZE", 512))
 KB_CHUNK_OVERLAP = int(os.getenv("KB_CHUNK_OVERLAP", 50))
@@ -107,11 +108,5 @@ WEB_SEARCH_CACHE_TTL = int(os.getenv("WEB_SEARCH_CACHE_TTL", 3600))
 # =============================================================================
 # Study Features Settings
 # =============================================================================
-FLASHCARD_STORAGE = Path(os.getenv("FLASHCARD_STORAGE", str(DATA_DIR / "flashcards")))
-PROGRESS_STORAGE = Path(os.getenv("PROGRESS_STORAGE", str(DATA_DIR / "progress")))
 MAX_FLASHCARDS_PER_NOTE = int(os.getenv("MAX_FLASHCARDS_PER_NOTE", 20))
 QUIZ_QUESTIONS_COUNT = int(os.getenv("QUIZ_QUESTIONS_COUNT", 10))
-
-# Create study feature directories
-for dir_path in [FLASHCARD_STORAGE, PROGRESS_STORAGE]:
-    dir_path.mkdir(parents=True, exist_ok=True)
