@@ -3,7 +3,7 @@ Retriever agent for searching knowledge base
 """
 from typing import Dict, Any, List
 from src.agents.base import BaseAgent
-from src.knowledge_base.vector_store import VectorStore
+from src.db import document_store
 from src.utils.cache_utils import cached
 from config import settings
 
@@ -12,16 +12,16 @@ class RetrieverAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("RetrieverAgent")
-        self.vector_store = VectorStore()
     
     @cached("retriever", ttl=settings.CACHE_EMBEDDING_TTL)
-    def search_knowledge_base(self, query: str, k: int = 5, threshold: float = 1.0) -> List[Dict[str, Any]]:
+    def search_knowledge_base(self, query: str, k: int = 5, threshold: float = 1.0, user_id: str = None) -> List[Dict[str, Any]]:
         """Search the knowledge base for relevant documents"""
         try:
-            results = self.vector_store.search(
+            results = document_store.search(
+                user_id=user_id,
                 query=query,
                 k=k,
-                score_threshold=threshold
+                threshold=threshold
             )
             
             if results:
@@ -44,12 +44,13 @@ class RetrieverAgent(BaseAgent):
             query = input_data.get('query', '')
             k = input_data.get('k', 5)
             threshold = input_data.get('threshold', 0.7)
-            
+            user_id = input_data.get('user_id')
+
             if not query:
                 return self.handle_error(ValueError("No query provided"))
-            
+
             # Search knowledge base
-            results = self.search_knowledge_base(query, k, threshold)
+            results = self.search_knowledge_base(query, k, threshold, user_id=user_id)
             
             # Format response
             return {
@@ -64,5 +65,5 @@ class RetrieverAgent(BaseAgent):
             return self.handle_error(e)
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get knowledge base statistics"""
-        return self.vector_store.get_collection_stats()
+        """Get knowledge base statistics (user-independent summary)"""
+        return {'status': 'active'}

@@ -10,8 +10,7 @@ from src.agents.scraper import ScraperAgent
 from src.agents.content_agent import ContentAgent
 from src.agents.note_maker import NoteMakerAgent
 from src.agents.web_search import WebSearchAgent
-from src.knowledge_base.vector_store import VectorStore
-from src.knowledge_base.document_processor import DocumentProcessor
+from src.db import document_store
 from src.utils.logger import get_logger
 from src.utils.academic_search import get_academic_search
 
@@ -31,8 +30,6 @@ class Orchestrator:
         self.content_agent = ContentAgent()
         self.note_maker = NoteMakerAgent()
         self.web_search = WebSearchAgent()
-        self.vector_store = VectorStore()
-        self.doc_processor = DocumentProcessor()
         self.academic_search = get_academic_search()
         self.logger = logger
     
@@ -49,7 +46,7 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False, user_id: str = None) -> Dict[str, Any]:
         """Process a topic-based query with configurable search mode.
 
         Args:
@@ -57,6 +54,7 @@ class Orchestrator:
             summarization_mode: Format for notes output
             output_length: Length of summary output
             search_mode: 'auto' (KB first, web fallback), 'kb_only', 'web_search' (web only)
+            user_id: Optional user ID for scoping KB searches and storage
         """
         try:
             self.logger.info(f"Processing topic query: {query[:50]}... (search_mode={search_mode})")
@@ -64,7 +62,7 @@ class Orchestrator:
             # Web search only mode - skip KB entirely
             if search_mode in ("web_search", "web_only"):
                 self.logger.info("Search mode: web_search - going directly to web search")
-                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length, user_id=user_id)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -72,7 +70,7 @@ class Orchestrator:
             # Both mode - search KB and web, combine results
             if search_mode == "both":
                 self.logger.info("Search mode: both - searching KB and web")
-                result = await self._process_both_sources(query, summarization_mode, output_length)
+                result = await self._process_both_sources(query, summarization_mode, output_length, user_id=user_id)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -81,7 +79,8 @@ class Orchestrator:
             retrieval_result = await self.retriever.process({
                 'query': query,
                 'k': 5,
-                'threshold': 1.0
+                'threshold': 1.0,
+                'user_id': user_id
             })
 
             if retrieval_result['success'] and retrieval_result['count'] > 0:
@@ -164,7 +163,7 @@ class Orchestrator:
 
                 # Auto mode: fall back to web search
                 self.logger.info("No relevant documents in KB, falling back to web search...")
-                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length, user_id=user_id)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -180,7 +179,8 @@ class Orchestrator:
         self,
         query: str,
         summarization_mode: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        user_id: str = None
     ) -> Dict[str, Any]:
         """
         Use WebSearchAgent to find content, then summarize and make notes.
@@ -234,18 +234,17 @@ class Orchestrator:
             })
 
             # Step 4: Add to KB for future queries
-            if search_result.get('content'):
+            if user_id and search_result.get('content'):
                 try:
-                    doc = self.doc_processor.process_document(
+                    document_store.add_document(
+                        user_id=user_id,
+                        title=f"Web search: {query}",
+                        topic=query.lower().replace(' ', '-'),
                         content=search_result['content'],
                         source='web_search',
-                        title=f"Web search: {query}",
                         url=search_result['sources'][0]['url'] if search_result.get('sources') else '',
-                        topic=query.lower().replace(' ', '-')
                     )
-                    if doc:
-                        self.vector_store.add_documents([doc])
-                        self.logger.info(f"Added web search content about '{query}' to KB")
+                    self.logger.info(f"Added web search content about '{query}' to KB")
                 except Exception as e:
                     self.logger.warning(f"Failed to add web search content to KB: {e}")
 
@@ -270,7 +269,8 @@ class Orchestrator:
         self,
         query: str,
         summarization_mode: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        user_id: str = None
     ) -> Dict[str, Any]:
         """
         Search both KB and web, combine results, then summarize.
@@ -291,7 +291,8 @@ class Orchestrator:
                 retrieval_result = await self.retriever.process({
                     'query': query,
                     'k': 5,
-                    'threshold': 1.0
+                    'threshold': 1.0,
+                    'user_id': user_id
                 })
                 if retrieval_result['success'] and retrieval_result['count'] > 0:
                     documents = [doc['content'] for doc in retrieval_result['results']]
@@ -387,18 +388,17 @@ class Orchestrator:
             })
 
             # Step 8: Add web content to KB for future queries
-            if web_content:
+            if user_id and web_content:
                 try:
-                    doc = self.doc_processor.process_document(
+                    document_store.add_document(
+                        user_id=user_id,
+                        title=f"Web search: {query}",
+                        topic=query.lower().replace(' ', '-'),
                         content=web_content,
                         source='web_search',
-                        title=f"Web search: {query}",
                         url=web_sources[0]['url'] if web_sources else '',
-                        topic=query.lower().replace(' ', '-')
                     )
-                    if doc:
-                        self.vector_store.add_documents([doc])
-                        self.logger.info(f"Added web content from 'both' mode to KB")
+                    self.logger.info(f"Added web content from 'both' mode to KB")
                 except Exception as e:
                     self.logger.warning(f"Failed to add web content to KB: {e}")
 
@@ -476,7 +476,7 @@ class Orchestrator:
 
         return result
 
-    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False, user_id: str = None) -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
             self.logger.info(f"Processing URL: {url}")
@@ -531,17 +531,19 @@ class Orchestrator:
             })
             
             # Optionally add to knowledge base
-            if scrape_result['content']:
-                doc = self.doc_processor.process_document(
-                    content=scrape_result['content'],
-                    source='web',
-                    title=scrape_result.get('title'),
-                    url=url,
-                    topic='web_content'
-                )
-                if doc:
-                    self.vector_store.add_documents([doc])
+            if user_id and scrape_result['content']:
+                try:
+                    document_store.add_document(
+                        user_id=user_id,
+                        title=scrape_result.get('title', 'Web Article'),
+                        topic='web_content',
+                        content=scrape_result['content'],
+                        source='web',
+                        url=url,
+                    )
                     self.logger.info("Added scraped content to knowledge base")
+                except Exception as e:
+                    self.logger.warning(f"Failed to add scraped content to KB: {e}")
             
             result = {
                 'success': True,
@@ -564,7 +566,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process_text_query(self, text: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False, user_id: str = None) -> Dict[str, Any]:
         """Process direct text input"""
         try:
             self.logger.info(f"Processing direct text input of length: {len(text)}")
@@ -644,7 +646,7 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False, user_id: str = None) -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
@@ -654,11 +656,11 @@ class Orchestrator:
 
             # Process based on type
             if query_type == QueryType.URL:
-                return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode)
+                return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode, user_id=user_id)
             elif query_type == QueryType.TEXT:
-                return await self.process_text_query(query, summarization_mode, output_length, research_mode=research_mode)
+                return await self.process_text_query(query, summarization_mode, output_length, research_mode=research_mode, user_id=user_id)
             else:  # TOPIC
-                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode, research_mode=research_mode)
+                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode, research_mode=research_mode, user_id=user_id)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")
@@ -669,8 +671,6 @@ class Orchestrator:
     
     def get_stats(self) -> Dict[str, Any]:
         """Get system statistics"""
-        kb_stats = self.retriever.get_stats()
-
         # Get LLM provider info directly from the LLM client singleton for accuracy
         try:
             from src.utils.llm_client import get_llm_client
@@ -681,7 +681,6 @@ class Orchestrator:
             llm_info = self.content_agent.get_provider_info()
 
         return {
-            'knowledge_base': kb_stats,
             'agents': {
                 'retriever': 'active',
                 'scraper': 'active',
