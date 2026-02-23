@@ -1,7 +1,7 @@
 """
 API Routes for Study Features (Flashcards, Quizzes, Progress)
 """
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -21,9 +21,11 @@ from src.models.progress import (
 )
 
 from src.utils.flashcard_generator import get_flashcard_generator
-from src.utils.flashcard_store import get_flashcard_store
-from src.utils.quiz_generator import get_quiz_generator, get_quiz_store
-from src.utils.progress_store import get_progress_store
+from src.db.flashcard_store import FlashcardStore
+from src.utils.quiz_generator import get_quiz_generator
+from src.db import quiz_store
+from src.db import progress_store as progress_db
+from src.api.auth import get_current_user
 from src.utils.logger import get_logger
 from config import settings
 
@@ -42,7 +44,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/flashcards/generate", response_model=CreateFlashcardResponse)
 @limiter.limit("30/minute")
-async def generate_flashcards(request: Request, body: CreateFlashcardRequest):
+async def generate_flashcards(request: Request, body: CreateFlashcardRequest, user_id: str = Depends(get_current_user)):
     """Generate flashcards from content"""
     try:
         logger.info(f"Generating flashcards for topic: {body.topic}")
@@ -56,9 +58,12 @@ async def generate_flashcards(request: Request, body: CreateFlashcardRequest):
         )
 
         if flashcard_set:
+            # Save to Supabase store
+            store = FlashcardStore()
+            store.save_set(user_id, topic=body.topic, cards=flashcard_set.cards, source_content=body.content)
+
             # Record activity
-            progress_store = get_progress_store()
-            progress_store.record_note_generated(body.topic)
+            progress_db.record_activity(user_id, "note_generated", body.topic, {})
 
             return CreateFlashcardResponse(
                 success=True,
@@ -78,11 +83,11 @@ async def generate_flashcards(request: Request, body: CreateFlashcardRequest):
 
 
 @router.get("/flashcards/sets", response_model=ListFlashcardSetsResponse)
-async def list_flashcard_sets():
+async def list_flashcard_sets(user_id: str = Depends(get_current_user)):
     """List all flashcard sets"""
     try:
-        store = get_flashcard_store()
-        sets = store.list_sets()
+        store = FlashcardStore()
+        sets = store.list_sets(user_id)
 
         return ListFlashcardSetsResponse(
             success=True,
@@ -96,16 +101,16 @@ async def list_flashcard_sets():
 
 
 @router.get("/flashcards/sets/{set_id}")
-async def get_flashcard_set(set_id: str):
+async def get_flashcard_set(set_id: str, user_id: str = Depends(get_current_user)):
     """Get a specific flashcard set"""
     try:
-        store = get_flashcard_store()
-        flashcard_set = store.load_set(set_id)
+        store = FlashcardStore()
+        flashcard_set = store.load_set(user_id, set_id)
 
         if flashcard_set:
             return {
                 "success": True,
-                "flashcard_set": flashcard_set.model_dump()
+                "flashcard_set": flashcard_set
             }
         else:
             raise HTTPException(status_code=404, detail="Flashcard set not found")
@@ -118,18 +123,18 @@ async def get_flashcard_set(set_id: str):
 
 
 @router.post("/flashcards/review", response_model=ReviewFlashcardResponse)
-async def review_flashcard(body: ReviewFlashcardRequest):
+async def review_flashcard(body: ReviewFlashcardRequest, user_id: str = Depends(get_current_user)):
     """Record a flashcard review"""
     try:
-        store = get_flashcard_store()
-        card = store.update_card_review(body.set_id, body.card_id, body.correct)
+        store = FlashcardStore()
+        card = store.update_card_review(user_id, body.set_id, body.card_id, body.correct)
 
         if card:
             # Record progress
-            flashcard_set = store.load_set(body.set_id)
+            flashcard_set = store.load_set(user_id, body.set_id)
             if flashcard_set:
-                progress_store = get_progress_store()
-                progress_store.record_flashcard_review(flashcard_set.topic, body.correct)
+                topic = flashcard_set.get("topic", "unknown")
+                progress_db.record_activity(user_id, "flashcard_reviewed", topic, {"correct": body.correct})
 
             return ReviewFlashcardResponse(
                 success=True,
@@ -149,11 +154,11 @@ async def review_flashcard(body: ReviewFlashcardRequest):
 
 
 @router.delete("/flashcards/sets/{set_id}")
-async def delete_flashcard_set(set_id: str):
+async def delete_flashcard_set(set_id: str, user_id: str = Depends(get_current_user)):
     """Delete a flashcard set"""
     try:
-        store = get_flashcard_store()
-        success = store.delete_set(set_id)
+        store = FlashcardStore()
+        success = store.delete_set(user_id, set_id)
 
         return {
             "success": success,
@@ -166,18 +171,18 @@ async def delete_flashcard_set(set_id: str):
 
 
 @router.get("/flashcards/export/{set_id}/anki")
-async def export_flashcards_to_anki(set_id: str):
+async def export_flashcards_to_anki(set_id: str, user_id: str = Depends(get_current_user)):
     """Export a flashcard set to Anki-compatible format"""
     try:
         from fastapi.responses import PlainTextResponse
 
-        store = get_flashcard_store()
-        anki_export = store.export_to_anki(set_id)
+        store = FlashcardStore()
+        anki_export = store.export_to_anki(user_id, set_id)
 
         if anki_export:
             # Get set name for filename
-            flashcard_set = store.load_set(set_id)
-            filename = f"{flashcard_set.name.replace(' ', '_')}_anki.txt" if flashcard_set else "flashcards_anki.txt"
+            flashcard_set = store.load_set(user_id, set_id)
+            filename = f"{flashcard_set.get('name', 'flashcards').replace(' ', '_')}_anki.txt" if flashcard_set else "flashcards_anki.txt"
 
             return PlainTextResponse(
                 content=anki_export,
@@ -195,13 +200,13 @@ async def export_flashcards_to_anki(set_id: str):
 
 
 @router.get("/flashcards/export/all/anki")
-async def export_all_flashcards_to_anki():
+async def export_all_flashcards_to_anki(user_id: str = Depends(get_current_user)):
     """Export all flashcard sets to Anki-compatible format"""
     try:
         from fastapi.responses import PlainTextResponse
 
-        store = get_flashcard_store()
-        anki_export = store.export_all_to_anki()
+        store = FlashcardStore()
+        anki_export = store.export_all_to_anki(user_id)
 
         if anki_export:
             return PlainTextResponse(
@@ -227,7 +232,7 @@ async def export_all_flashcards_to_anki():
 
 @router.post("/quizzes/generate", response_model=CreateQuizResponse)
 @limiter.limit("20/minute")
-async def generate_quiz(request: Request, body: CreateQuizRequest):
+async def generate_quiz(request: Request, body: CreateQuizRequest, user_id: str = Depends(get_current_user)):
     """Generate a quiz from content"""
     try:
         logger.info(f"Generating quiz for topic: {body.topic}")
@@ -241,6 +246,9 @@ async def generate_quiz(request: Request, body: CreateQuizRequest):
         )
 
         if quiz:
+            # Save to Supabase store
+            quiz_store.save_quiz(user_id, topic=body.topic, questions=quiz.questions)
+
             return CreateQuizResponse(
                 success=True,
                 quiz=quiz,
@@ -259,11 +267,10 @@ async def generate_quiz(request: Request, body: CreateQuizRequest):
 
 
 @router.get("/quizzes", response_model=ListQuizzesResponse)
-async def list_quizzes():
+async def list_quizzes(user_id: str = Depends(get_current_user)):
     """List all quizzes"""
     try:
-        store = get_quiz_store()
-        quizzes = store.list_quizzes()
+        quizzes = quiz_store.list_quizzes(user_id)
 
         return ListQuizzesResponse(
             success=True,
@@ -277,16 +284,15 @@ async def list_quizzes():
 
 
 @router.get("/quizzes/{quiz_id}")
-async def get_quiz(quiz_id: str):
+async def get_quiz(quiz_id: str, user_id: str = Depends(get_current_user)):
     """Get a specific quiz"""
     try:
-        store = get_quiz_store()
-        quiz = store.load_quiz(quiz_id)
+        quiz = quiz_store.load_quiz(user_id, quiz_id)
 
         if quiz:
             return {
                 "success": True,
-                "quiz": quiz.model_dump()
+                "quiz": quiz
             }
         else:
             raise HTTPException(status_code=404, detail="Quiz not found")
@@ -299,31 +305,30 @@ async def get_quiz(quiz_id: str):
 
 
 @router.post("/quizzes/{quiz_id}/start")
-async def start_quiz_attempt(quiz_id: str):
+async def start_quiz_attempt(quiz_id: str, user_id: str = Depends(get_current_user)):
     """Start a new quiz attempt"""
     try:
-        store = get_quiz_store()
-        quiz = store.load_quiz(quiz_id)
+        attempt_id = quiz_store.start_attempt(user_id, quiz_id)
+        quiz = quiz_store.load_quiz(user_id, quiz_id)
 
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
 
-        attempt = quiz.start_attempt()
-        store.save_quiz(quiz)
+        questions = quiz.get("questions", [])
 
         return {
             "success": True,
-            "attempt_id": attempt.id,
+            "attempt_id": attempt_id,
             "quiz_id": quiz_id,
-            "total_questions": len(quiz.questions),
+            "total_questions": len(questions),
             "questions": [
                 {
-                    "id": q.id,
-                    "question": q.question,
-                    "options": q.options,
-                    "question_type": q.question_type.value
+                    "id": q.get("id"),
+                    "question": q.get("question"),
+                    "options": q.get("options"),
+                    "question_type": q.get("question_type")
                 }
-                for q in quiz.questions
+                for q in questions
             ]
         }
 
@@ -335,16 +340,10 @@ async def start_quiz_attempt(quiz_id: str):
 
 
 @router.post("/quizzes/submit-answer", response_model=SubmitAnswerResponse)
-async def submit_quiz_answer(body: SubmitAnswerRequest):
+async def submit_quiz_answer(body: SubmitAnswerRequest, user_id: str = Depends(get_current_user)):
     """Submit an answer for a quiz question"""
     try:
-        generator = get_quiz_generator()
-        result = generator.submit_answer(
-            body.quiz_id,
-            body.attempt_id,
-            body.question_id,
-            body.answer
-        )
+        result = quiz_store.submit_answer(body.attempt_id, body.question_id, body.answer)
 
         if result.get("success"):
             return SubmitAnswerResponse(
@@ -368,30 +367,24 @@ async def submit_quiz_answer(body: SubmitAnswerRequest):
 
 
 @router.post("/quizzes/complete", response_model=CompleteQuizResponse)
-async def complete_quiz_attempt(body: CompleteQuizRequest):
+async def complete_quiz_attempt(body: CompleteQuizRequest, user_id: str = Depends(get_current_user)):
     """Complete a quiz attempt and get results"""
     try:
-        generator = get_quiz_generator()
-        result = generator.complete_attempt(body.quiz_id, body.attempt_id)
+        result = quiz_store.complete_attempt(body.attempt_id)
 
         if result.get("success"):
+            score = result["score"]
+            total = result["total_questions"]
+            topic = result.get("topic", "unknown")
+
             # Record progress
-            store = get_quiz_store()
-            quiz = store.load_quiz(body.quiz_id)
-            if quiz:
-                progress_store = get_progress_store()
-                progress_store.record_quiz_completed(
-                    quiz.topic,
-                    result["score"],
-                    result["total_questions"],
-                    result["correct_count"]
-                )
+            progress_db.record_activity(user_id, "quiz_completed", topic, {"score": score, "total": total})
 
             return CompleteQuizResponse(
                 success=True,
-                score=result["score"],
+                score=score,
                 correct_count=result["correct_count"],
-                total_questions=result["total_questions"],
+                total_questions=total,
                 results=result["results"],
                 detailed_results=result.get("detailed_results", []),
                 message="Quiz completed"
@@ -412,11 +405,10 @@ async def complete_quiz_attempt(body: CompleteQuizRequest):
 
 
 @router.delete("/quizzes/{quiz_id}")
-async def delete_quiz(quiz_id: str):
+async def delete_quiz(quiz_id: str, user_id: str = Depends(get_current_user)):
     """Delete a quiz"""
     try:
-        store = get_quiz_store()
-        success = store.delete_quiz(quiz_id)
+        success = quiz_store.delete_quiz(user_id, quiz_id)
 
         return {
             "success": success,
@@ -432,47 +424,38 @@ async def delete_quiz(quiz_id: str):
 # PROGRESS ENDPOINTS
 # =============================================================================
 
-@router.get("/progress", response_model=GetProgressResponse)
-async def get_progress():
+@router.get("/progress")
+async def get_progress(user_id: str = Depends(get_current_user)):
     """Get user study progress"""
     try:
-        store = get_progress_store()
-        progress = store.load_progress()
+        statistics = progress_db.get_statistics(user_id)
+        topic_rankings = progress_db.get_topic_rankings(user_id)
+        weekly_summary = progress_db.get_weekly_summary(user_id)
+        recent_activities = progress_db.get_recent_activities(user_id, limit=10)
 
-        return GetProgressResponse(
-            success=True,
-            overall_stats=progress.get_overall_stats(),
-            topic_rankings=progress.get_topic_rankings(),
-            weekly_summary=progress.get_weekly_summary(),
-            recent_activities=store.get_recent_activities(limit=10),
-            streak={
-                "current_streak": progress.streak.current_streak,
-                "longest_streak": progress.streak.longest_streak,
-                "last_study_date": str(progress.streak.last_study_date) if progress.streak.last_study_date else None
-            }
-        )
+        return {
+            "success": True,
+            "statistics": statistics,
+            "topic_rankings": topic_rankings,
+            "weekly_summary": weekly_summary,
+            "recent_activities": recent_activities
+        }
 
     except Exception as e:
         logger.error(f"Error getting progress: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/progress/record", response_model=RecordActivityResponse)
-async def record_activity(body: RecordActivityRequest):
+@router.post("/progress/record")
+async def record_activity(body: RecordActivityRequest, user_id: str = Depends(get_current_user)):
     """Record a study activity"""
     try:
-        store = get_progress_store()
-        progress = store.record_activity(
-            body.activity_type,
-            body.topic,
-            body.details
-        )
+        progress_db.record_activity(user_id, body.activity_type, body.topic, body.details)
 
-        return RecordActivityResponse(
-            success=True,
-            message="Activity recorded",
-            current_streak=progress.streak.current_streak
-        )
+        return {
+            "success": True,
+            "message": "Activity recorded"
+        }
 
     except Exception as e:
         logger.error(f"Error recording activity: {e}")
@@ -480,16 +463,14 @@ async def record_activity(body: RecordActivityRequest):
 
 
 @router.get("/progress/stats")
-async def get_study_stats():
+async def get_study_stats(user_id: str = Depends(get_current_user)):
     """Get detailed study statistics"""
     try:
-        store = get_progress_store()
-
         return {
             "success": True,
-            "statistics": store.get_statistics(),
-            "topic_rankings": store.get_topic_rankings(),
-            "weekly_summary": store.get_weekly_summary()
+            "statistics": progress_db.get_statistics(user_id),
+            "topic_rankings": progress_db.get_topic_rankings(user_id),
+            "weekly_summary": progress_db.get_weekly_summary(user_id)
         }
 
     except Exception as e:
@@ -498,11 +479,10 @@ async def get_study_stats():
 
 
 @router.delete("/progress/reset")
-async def reset_progress():
+async def reset_progress(user_id: str = Depends(get_current_user)):
     """Reset all progress (use with caution!)"""
     try:
-        store = get_progress_store()
-        success = store.reset_progress()
+        success = progress_db.reset_progress(user_id)
 
         return {
             "success": success,
