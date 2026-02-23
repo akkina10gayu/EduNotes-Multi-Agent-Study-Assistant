@@ -1,0 +1,2 @@
+-- Seed data is inserted after user signup via the app.
+-- This file is a placeholder for future seeding needs.
