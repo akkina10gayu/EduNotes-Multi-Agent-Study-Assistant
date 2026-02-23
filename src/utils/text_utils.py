@@ -28,6 +28,39 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
             unique_keywords.append(kw)
     return unique_keywords[:max_keywords]
 
+def _sanitize_llm_summary(text: str) -> str:
+    """Remove overly long code blocks and trailing artifacts from LLM output.
+
+    LLM summaries from code-heavy pages (tutorials, API docs) may include
+    full class definitions or function implementations verbatim.  These raw
+    dumps clutter study notes.  Short code blocks (<=10 content lines) are
+    kept as illustrative snippets; longer ones are removed.
+
+    Also strips 'undefined' artifacts that appear when JavaScript-rendered
+    pages are scraped statically (unresolved template variables).
+    """
+    # Remove code blocks with more than 10 lines of actual code
+    def _replace_long_blocks(match):
+        code_lines = match.group(0).split('\n')
+        # Subtract the opening ``` and closing ``` lines
+        content_lines = [ln for ln in code_lines[1:] if not ln.strip().startswith('```')]
+        if len(content_lines) > 10:
+            return ''  # Drop the entire block
+        return match.group(0)  # Keep short blocks
+
+    text = re.sub(r'```[^\n]*\n.*?```', _replace_long_blocks, text, flags=re.DOTALL)
+
+    # Strip standalone "undefined" (JS artifact from statically-scraped pages)
+    # Only removes it on its own line or at the very end — not inside sentences
+    text = re.sub(r'\n\s*undefined\s*$', '', text)
+    text = re.sub(r'\n\s*undefined\s*\n', '\n', text)
+
+    # Collapse excessive blank lines left behind
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
+
+
 def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
     """Format content as markdown based on summarization mode"""
     md = f"### {title}\n\n"
@@ -46,6 +79,10 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
         md += section_headers.get(summarization_mode, '#### Overview\n\n')
 
         summary_text = content['summary']
+
+        # Sanitize LLM output: strip overly long code blocks and JS artifacts
+        if isinstance(summary_text, str):
+            summary_text = _sanitize_llm_summary(summary_text)
 
         if isinstance(summary_text, list):
             # Format as bullet points if it's a list
@@ -126,6 +163,12 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                 for paragraph in paragraphs:
                     if paragraph.strip():
                         md += f"{paragraph}\n\n"
+
+    # Close any unclosed code fences from LLM output before appending
+    # structural sections (sources, metadata) so they render properly
+    _fence_count = sum(1 for ln in md.split('\n') if ln.lstrip().startswith('```'))
+    if _fence_count % 2 != 0:
+        md = md.rstrip() + '\n```\n\n'
 
     if "key_points" in content and content["key_points"]:
         md += "#### Additional Points\n\n"
