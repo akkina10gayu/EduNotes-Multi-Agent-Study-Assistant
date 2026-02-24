@@ -9,10 +9,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from datetime import datetime
-import asyncio
 import json
 import re
-import base64
 import time as _time
 
 from src.models.schemas import (
@@ -66,6 +64,63 @@ def _clean_vision_desc(desc: str) -> str:
     # Collapse 3+ blank lines to 2
     desc = re.sub(r'\n{3,}', '\n\n', desc)
     return desc.strip()
+
+
+def _run_vision_analysis(figure_pages: list, log) -> list:
+    """Run vision model analysis on PDF figure pages.
+    Returns list of {"page": int, "description": str, "image_b64": str} dicts."""
+    if not figure_pages:
+        return []
+
+    figures_for_ui = []
+    try:
+        from src.utils.llm_client import get_llm_client
+        llm_client = get_llm_client()
+
+        vision_prompt = (
+            "Analyze this page. Describe ONLY what you actually see.\n\n"
+            "Rules:\n"
+            "- NEVER use HTML tags (no <br>, <b>, <table> etc). Use markdown only.\n"
+            "- NEVER mention categories that have nothing on this page.\n"
+            "- NEVER write \"No X present\" or \"No X found\" for any category.\n"
+            "- If only a figure exists, describe only the figure. Skip everything else silently.\n\n"
+            "Always start with the figure/table identifier from the caption "
+            "(e.g. 'Figure 1:', 'Table 3:', 'Fig. 2:') if one is visible.\n"
+            "For figures/diagrams: What it shows, key trends, data points.\n"
+            "For equations: LaTeX inline (e.g. $E = mc^2$).\n"
+            "For tables: Proper markdown table with | and --- separators. "
+            "One value per cell, one row per line. Never combine rows with <br>.\n"
+            "For charts/plots: Axes labels, trends, key values.\n\n"
+            "Be concise and technical. No preamble, no step numbers."
+        )
+
+        for fig_page in figure_pages:
+            desc = llm_client.describe_image(fig_page['image_base64'], vision_prompt)
+            desc = _clean_vision_desc(desc) if desc else ''
+            if desc:
+                figures_for_ui.append({
+                    "page": fig_page['page_num'],
+                    "description": desc,
+                    "image_b64": fig_page['image_base64']
+                })
+                log.info(f"Vision analysis complete for page {fig_page['page_num']}")
+
+        if figures_for_ui:
+            log.info(f"Prepared {len(figures_for_ui)} figure entries for UI expander")
+
+    except Exception as e:
+        log.warning(f"Vision analysis failed, proceeding with text only: {e}")
+
+    return figures_for_ui
+
+
+def _ensure_result_fields(result: dict, query_type: str = 'unknown', query: str = ''):
+    """Ensure all required GenerateNotesResponse fields exist."""
+    result.setdefault('query_type', query_type)
+    result.setdefault('query', query[:100])
+    result.setdefault('notes', '')
+    result.setdefault('sources_used', 0)
+    result.setdefault('from_kb', False)
 
 
 # Initialize FastAPI app
@@ -196,7 +251,6 @@ async def generate_notes(request: Request, body: GenerateNotesRequest, user_id: 
 
         # Validate URL format if it looks like a URL
         if query.startswith(('http://', 'https://', 'www.')):
-            import re
             url_pattern = re.compile(
                 r'^(?:http|https)://(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'
                 r'localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
@@ -252,49 +306,7 @@ async def generate_notes(request: Request, body: GenerateNotesRequest, user_id: 
                 if body.research_mode:
                     research_data = pdf_processor.extract_for_research(pdf_content)
                     extracted_text = research_data.get('text', '')
-
-                    # Vision analysis for figure pages (same as process_pdf)
-                    figure_pages = research_data.get('figure_pages', [])
-                    if figure_pages:
-                        try:
-                            from src.utils.llm_client import get_llm_client
-                            llm_client = get_llm_client()
-
-                            vision_prompt = (
-                                "Analyze this page. Describe ONLY what you actually see.\n\n"
-                                "Rules:\n"
-                                "- NEVER use HTML tags (no <br>, <b>, <table> etc). Use markdown only.\n"
-                                "- NEVER mention categories that have nothing on this page.\n"
-                                "- NEVER write \"No X present\" or \"No X found\" for any category.\n"
-                                "- If only a figure exists, describe only the figure. Skip everything else silently.\n\n"
-                                "Always start with the figure/table identifier from the caption "
-                                "(e.g. 'Figure 1:', 'Table 3:', 'Fig. 2:') if one is visible.\n"
-                                "For figures/diagrams: What it shows, key trends, data points.\n"
-                                "For equations: LaTeX inline (e.g. $E = mc^2$).\n"
-                                "For tables: Proper markdown table with | and --- separators. "
-                                "One value per cell, one row per line. Never combine rows with <br>.\n"
-                                "For charts/plots: Axes labels, trends, key values.\n\n"
-                                "Be concise and technical. No preamble, no step numbers."
-                            )
-
-                            for fig_page in figure_pages:
-                                desc = llm_client.describe_image(
-                                    fig_page['image_base64'], vision_prompt
-                                )
-                                desc = _clean_vision_desc(desc) if desc else ''
-                                if desc:
-                                    figures_for_ui.append({
-                                        "page": fig_page['page_num'],
-                                        "description": desc,
-                                        "image_b64": fig_page['image_base64']
-                                    })
-                                    logger.info(f"PDF URL vision analysis complete for page {fig_page['page_num']}")
-
-                            if figures_for_ui:
-                                logger.info(f"PDF URL: prepared {len(figures_for_ui)} figure entries for UI expander")
-
-                        except Exception as e:
-                            logger.warning(f"PDF URL vision analysis failed, proceeding with text only: {e}")
+                    figures_for_ui = _run_vision_analysis(research_data.get('figure_pages', []), logger)
                 else:
                     extracted_text = pdf_processor.extract_text_from_bytes(pdf_content)
 
@@ -315,11 +327,7 @@ async def generate_notes(request: Request, body: GenerateNotesRequest, user_id: 
                 )
 
                 if not result.get('success', False):
-                    result.setdefault('query_type', 'url')
-                    result.setdefault('query', query[:100])
-                    result.setdefault('notes', '')
-                    result.setdefault('sources_used', 0)
-                    result.setdefault('from_kb', False)
+                    _ensure_result_fields(result, 'url', query)
 
                 # Clean any remaining HTML artifacts from output notes
                 if result.get('notes'):
@@ -365,11 +373,7 @@ async def generate_notes(request: Request, body: GenerateNotesRequest, user_id: 
 
         # Ensure error responses have all required fields for the response model
         if not result.get('success', False):
-            result.setdefault('query_type', 'unknown')
-            result.setdefault('query', query[:100])
-            result.setdefault('notes', '')
-            result.setdefault('sources_used', 0)
-            result.setdefault('from_kb', False)
+            _ensure_result_fields(result, 'unknown', query)
 
         # Record activity for progress tracking (updates streak)
         if result.get('success', False):
@@ -551,49 +555,7 @@ async def process_pdf(
                 # Research Mode: enhanced extraction + vision analysis
                 research_data = pdf_processor.extract_for_research(content)
                 extracted_text = research_data.get('text', '')
-
-                # Vision analysis for figure pages
-                figure_pages = research_data.get('figure_pages', [])
-                if figure_pages:
-                    try:
-                        from src.utils.llm_client import get_llm_client
-                        llm_client = get_llm_client()
-
-                        vision_prompt = (
-                            "Analyze this page. Describe ONLY what you actually see.\n\n"
-                            "Rules:\n"
-                            "- NEVER use HTML tags (no <br>, <b>, <table> etc). Use markdown only.\n"
-                            "- NEVER mention categories that have nothing on this page.\n"
-                            "- NEVER write \"No X present\" or \"No X found\" for any category.\n"
-                            "- If only a figure exists, describe only the figure. Skip everything else silently.\n\n"
-                            "Always start with the figure/table identifier from the caption "
-                            "(e.g. 'Figure 1:', 'Table 3:', 'Fig. 2:') if one is visible.\n"
-                            "For figures/diagrams: What it shows, key trends, data points.\n"
-                            "For equations: LaTeX inline (e.g. $E = mc^2$).\n"
-                            "For tables: Proper markdown table with | and --- separators. "
-                            "One value per cell, one row per line. Never combine rows with <br>.\n"
-                            "For charts/plots: Axes labels, trends, key values.\n\n"
-                            "Be concise and technical. No preamble, no step numbers."
-                        )
-
-                        for fig_page in figure_pages:
-                            desc = llm_client.describe_image(
-                                fig_page['image_base64'], vision_prompt
-                            )
-                            desc = _clean_vision_desc(desc) if desc else ''
-                            if desc:
-                                figures_for_ui.append({
-                                    "page": fig_page['page_num'],
-                                    "description": desc,
-                                    "image_b64": fig_page['image_base64']
-                                })
-                                logger.info(f"Vision analysis complete for page {fig_page['page_num']}")
-
-                        if figures_for_ui:
-                            logger.info(f"Prepared {len(figures_for_ui)} figure entries for UI expander")
-
-                    except Exception as e:
-                        logger.warning(f"Vision analysis failed, proceeding with text only: {e}")
+                figures_for_ui = _run_vision_analysis(research_data.get('figure_pages', []), logger)
             else:
                 # Standard extraction
                 extracted_text = pdf_processor.extract_text_from_bytes(content)
@@ -629,11 +591,7 @@ async def process_pdf(
 
         # Ensure error responses have all required fields for the response model
         if not result.get('success', False):
-            result.setdefault('query_type', 'text')
-            result.setdefault('query', f"PDF: {filename}"[:100])
-            result.setdefault('notes', '')
-            result.setdefault('sources_used', 0)
-            result.setdefault('from_kb', False)
+            _ensure_result_fields(result, 'text', f"PDF: {filename}")
 
         # Clean any remaining HTML artifacts from output notes
         if result.get('notes'):

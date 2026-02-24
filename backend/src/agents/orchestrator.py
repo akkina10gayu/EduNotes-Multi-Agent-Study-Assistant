@@ -23,7 +23,13 @@ class QueryType(Enum):
 
 class Orchestrator:
     """Main orchestrator for managing agent pipeline"""
-    
+
+    TITLE_SUFFIX_MAP = {
+        'paragraph_summary': '',
+        'important_points': ' - Important Points',
+        'key_highlights': ' - Key Highlights'
+    }
+
     def __init__(self):
         self.retriever = RetrieverAgent()
         self.scraper = ScraperAgent()
@@ -32,7 +38,21 @@ class Orchestrator:
         self.web_search = WebSearchAgent()
         self.academic_search = get_academic_search()
         self.logger = logger
-    
+
+    def _deduplicate_sources(self, results: list) -> list:
+        """Extract unique URL sources from retrieval results."""
+        seen_urls = set()
+        sources = []
+        for doc in results:
+            url = doc['metadata'].get('url', '')
+            if url and url not in seen_urls and url.startswith(('http://', 'https://')):
+                seen_urls.add(url)
+                sources.append({
+                    'title': doc['metadata'].get('title', 'Unknown'),
+                    'url': url
+                })
+        return sources
+
     def detect_query_type(self, query: str) -> QueryType:
         """Detect the type of query"""
         # Check if it's a URL
@@ -89,18 +109,7 @@ class Orchestrator:
 
                 # Extract content from results
                 documents = [doc['content'] for doc in retrieval_result['results']]
-
-                # Remove duplicate sources by URL - filter out empty/invalid URLs
-                seen_urls = set()
-                sources = []
-                for doc in retrieval_result['results']:
-                    url = doc['metadata'].get('url', '')
-                    if url and url not in seen_urls and url.startswith(('http://', 'https://')):
-                        seen_urls.add(url)
-                        sources.append({
-                            'title': doc['metadata'].get('title', 'Unknown'),
-                            'url': url
-                        })
+                sources = self._deduplicate_sources(retrieval_result['results'])
 
                 # Create comprehensive technical summary using ALL available documents
                 all_content = ' '.join(documents[:5])
@@ -118,12 +127,7 @@ class Orchestrator:
                 )
 
                 # Determine title based on summarization mode
-                title_suffix_map = {
-                    'paragraph_summary': '',
-                    'important_points': ' - Important Points',
-                    'key_highlights': ' - Key Highlights'
-                }
-                note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
+                note_title = f"{query.title()}{self.TITLE_SUFFIX_MAP.get(summarization_mode, '')}"
 
                 notes_result = await self.note_maker.process({
                     'mode': 'create',
@@ -216,12 +220,7 @@ class Orchestrator:
             )
 
             # Step 3: Create notes with source references
-            title_suffix_map = {
-                'paragraph_summary': '',
-                'important_points': ' - Important Points',
-                'key_highlights': ' - Key Highlights'
-            }
-            note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
+            note_title = f"{query.title()}{self.TITLE_SUFFIX_MAP.get(summarization_mode, '')}"
 
             notes_result = await self.note_maker.process({
                 'mode': 'create',
@@ -297,17 +296,7 @@ class Orchestrator:
                 if retrieval_result['success'] and retrieval_result['count'] > 0:
                     documents = [doc['content'] for doc in retrieval_result['results']]
                     kb_content = ' '.join(documents[:5])
-
-                    # Build KB sources (deduplicated by URL)
-                    seen_urls = set()
-                    for doc in retrieval_result['results']:
-                        url = doc['metadata'].get('url', '')
-                        if url and url not in seen_urls and url.startswith(('http://', 'https://')):
-                            seen_urls.add(url)
-                            kb_sources.append({
-                                'title': doc['metadata'].get('title', 'Unknown'),
-                                'url': url
-                            })
+                    kb_sources = self._deduplicate_sources(retrieval_result['results'])
                     self.logger.info(f"KB returned {len(documents)} documents, {len(kb_sources)} sources")
                 else:
                     self.logger.info("KB returned no relevant documents")
@@ -370,12 +359,7 @@ class Orchestrator:
                     unique_sources.append(s)
 
             # Step 7: Create notes
-            title_suffix_map = {
-                'paragraph_summary': '',
-                'important_points': ' - Important Points',
-                'key_highlights': ' - Key Highlights'
-            }
-            note_title = f"{query.title()}{title_suffix_map.get(summarization_mode, '')}"
+            note_title = f"{query.title()}{self.TITLE_SUFFIX_MAP.get(summarization_mode, '')}"
 
             notes_result = await self.note_maker.process({
                 'mode': 'create',
@@ -426,6 +410,23 @@ class Orchestrator:
                 'error': str(e)
             }
 
+    @staticmethod
+    def _balance_code_fences(text: str) -> str:
+        """Ensure all code fences (```) in text are properly closed.
+
+        LLM-generated summaries from code-heavy pages sometimes open a code
+        fence without closing it (token limits, long code blocks, etc.).
+        An unclosed fence causes everything appended after it to render as
+        raw text inside a code block in the markdown parser.
+        """
+        fence_count = 0
+        for line in text.split('\n'):
+            if line.lstrip().startswith('```'):
+                fence_count += 1
+        if fence_count % 2 != 0:
+            text = text.rstrip() + '\n```\n'
+        return text
+
     async def _append_related_papers(self, result: Dict[str, Any], query: str) -> Dict[str, Any]:
         """Append related academic papers to notes when research_mode is enabled."""
         try:
@@ -434,7 +435,10 @@ class Orchestrator:
 
             if papers:
                 papers_md = self.academic_search.format_papers_markdown(papers)
-                result['notes'] = result.get('notes', '') + papers_md
+                # Close any unclosed code fences from LLM output before appending,
+                # otherwise the research papers section renders as raw text
+                notes = self._balance_code_fences(result.get('notes', ''))
+                result['notes'] = notes + papers_md
                 result['related_papers'] = papers
                 self.logger.info(f"Research Mode: appended {len(papers)} related papers")
             else:
@@ -512,12 +516,7 @@ class Orchestrator:
 
             # Determine title based on summarization mode
             base_title = scrape_result.get('title', 'Web Article')
-            title_suffix_map = {
-                'paragraph_summary': '',
-                'important_points': ' - Important Points',
-                'key_highlights': ' - Key Highlights'
-            }
-            note_title = f"{base_title}{title_suffix_map.get(summarization_mode, '')}"
+            note_title = f"{base_title}{self.TITLE_SUFFIX_MAP.get(summarization_mode, '')}"
 
             # Create notes with detailed content
             notes_result = await self.note_maker.process({
@@ -554,8 +553,10 @@ class Orchestrator:
                 'from_kb': False
             }
             if research_mode:
-                # Use page title as search query for paper discovery
-                paper_query = scrape_result.get('title', url)
+                # Extract clean topic from URL path (or title fallback) for paper discovery
+                paper_query = self.academic_search.extract_search_query(
+                    scrape_result.get('title', ''), url
+                )
                 result = await self._append_related_papers(result, paper_query)
             return result
 
@@ -635,7 +636,8 @@ class Orchestrator:
                 paper_query = text.strip()[:200]
                 for ch in '#*[](){}|`~>\n\r':
                     paper_query = paper_query.replace(ch, ' ')
-                paper_query = ' '.join(paper_query.split()).strip()[:80]
+                # Limit to 60 chars to capture title without author names
+                paper_query = ' '.join(paper_query.split()).strip()[:60]
                 result = await self._append_related_papers(result, paper_query)
             return result
 
