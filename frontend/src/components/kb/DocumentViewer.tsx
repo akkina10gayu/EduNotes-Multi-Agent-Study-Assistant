@@ -36,7 +36,7 @@ export default function DocumentViewer({ document: doc }: DocumentViewerProps) {
       <div className="flex flex-wrap gap-3 text-xs text-gray-400">
         <span>Topic: <span className="text-gray-300">{doc.topic}</span></span>
         <span>Date: <span className="text-gray-300">{formatDate(doc.created_at)}</span></span>
-        {doc.word_count && <span>Words: <span className="text-gray-300">{doc.word_count}</span></span>}
+        {doc.content && <span>Words: <span className="text-gray-300">{doc.content.split(/\s+/).length}</span></span>}
       </div>
 
       {successMsg && (

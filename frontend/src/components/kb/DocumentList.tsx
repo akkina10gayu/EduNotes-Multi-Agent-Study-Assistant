@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { listDocuments, searchDocumentsSemantic, getDocument } from '@/lib/api/kb'
+import { listDocuments, searchDocumentsSemantic, getDocument, deleteDocument } from '@/lib/api/kb'
 import type { Document } from '@/types'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import DocumentViewer from './DocumentViewer'
@@ -13,6 +13,7 @@ export default function DocumentList() {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingDoc, setLoadingDoc] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchDocuments = async (keyword?: string) => {
     setLoading(true)
@@ -35,6 +36,21 @@ export default function DocumentList() {
       fetchDocuments(searchKeyword.trim())
     } else {
       fetchDocuments()
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, docId: string) => {
+    e.stopPropagation()
+    if (!confirm('Delete this document? This cannot be undone.')) return
+    setDeletingId(docId)
+    try {
+      await deleteDocument(docId)
+      setDocuments(prev => prev.filter(d => d.id !== docId))
+      if (selectedDoc?.id === docId) setSelectedDoc(null)
+    } catch (err) {
+      console.error('Failed to delete document', err)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -71,16 +87,27 @@ export default function DocumentList() {
           <p className="text-sm text-gray-500">{documents.length} document{documents.length !== 1 ? 's' : ''} found</p>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {documents.map(doc => (
-              <button
+              <div
                 key={doc.id}
                 onClick={() => handleSelectDoc(doc)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer flex items-center justify-between gap-2 ${
                   selectedDoc?.id === doc.id ? 'bg-[#6CA0DC]/20 border border-[#6CA0DC]/30' : 'bg-gray-800 hover:bg-gray-700 border border-transparent'
                 }`}
               >
-                <p className="text-white font-medium">{doc.title}</p>
-                <p className="text-xs text-gray-500">{doc.topic} | {formatDate(doc.created_at)}{doc.word_count ? ` | ${doc.word_count} words` : ''}</p>
-              </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-medium truncate">{doc.title}</p>
+                  <p className="text-xs text-gray-500">{doc.topic} | {formatDate(doc.created_at)}</p>
+                </div>
+                <button
+                  onClick={(e) => handleDelete(e, doc.id)}
+                  disabled={deletingId === doc.id}
+                  className="shrink-0 px-2 py-1 text-xs text-red-400 hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                  style={{ opacity: deletingId === doc.id ? 0.5 : undefined }}
+                  title="Delete document"
+                >
+                  {deletingId === doc.id ? '...' : 'Delete'}
+                </button>
+              </div>
             ))}
           </div>
 

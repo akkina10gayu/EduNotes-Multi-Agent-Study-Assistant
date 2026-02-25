@@ -22,8 +22,6 @@ export default function Sidebar() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [selectedHistoryNote, setSelectedHistoryNote] = useState<NoteHistoryItem | null>(null)
 
-  if (pathname.startsWith('/auth')) return null
-
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
@@ -94,6 +92,8 @@ export default function Sidebar() {
       setSelectedHistoryNote(null)
     }
   }, [selectedHistoryNote])
+
+  if (pathname.startsWith('/auth')) return null
 
   return (
     <aside className="w-64 border-r border-gray-800 bg-gray-900/30 min-h-[calc(100vh-3.5rem)] p-4 space-y-4 hidden lg:block">

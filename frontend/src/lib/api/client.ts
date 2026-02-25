@@ -23,6 +23,11 @@ export async function apiClient<T>(
     throw new Error(error || `API error: ${response.status}`)
   }
 
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('text/plain')) {
+    return response.text() as Promise<T>
+  }
+
   return response.json()
 }
 

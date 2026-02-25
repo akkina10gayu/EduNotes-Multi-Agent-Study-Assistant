@@ -8,7 +8,7 @@ from datetime import datetime
 
 from src.models.flashcard import Flashcard, FlashcardSet, Difficulty
 from src.utils.llm_client import get_llm_client
-from src.utils.flashcard_store import get_flashcard_store
+from src.db.flashcard_store import get_flashcard_store
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -69,13 +69,8 @@ class FlashcardGenerator:
                 cards=cards
             )
 
-            # Save to store
-            if self.store.save_set(flashcard_set):
-                logger.info(f"Created flashcard set with {len(cards)} cards")
-                return flashcard_set
-            else:
-                logger.error("Failed to save flashcard set")
-                return None
+            logger.info(f"Created flashcard set with {len(cards)} cards")
+            return flashcard_set
 
         except Exception as e:
             logger.error(f"Error generating flashcards: {e}")

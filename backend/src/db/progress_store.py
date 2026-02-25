@@ -41,6 +41,8 @@ def _activity_summary(activity_type: str, topic: str, metadata: dict | None) -> 
     meta = metadata or {}
     if activity_type == "note_generated":
         return f"Generated notes on {topic}" if topic else "Generated notes"
+    if activity_type == "flashcard_generated":
+        return f"Generated flashcards on {topic}" if topic else "Generated flashcards"
     if activity_type == "flashcard_review":
         result = "correctly" if meta.get("correct") else "incorrectly"
         return f"Reviewed flashcard on {topic} ({result})"
@@ -321,7 +323,7 @@ def get_recent_activities(user_id: str, limit: int = 5) -> list[dict[str, Any]]:
     return activities
 
 
-def reset_progress(user_id: str) -> None:
+def reset_progress(user_id: str) -> bool:
     """Delete all activities and streak data for *user_id*."""
     from src.db.supabase_client import get_supabase_client
 
@@ -331,3 +333,4 @@ def reset_progress(user_id: str) -> None:
     supabase.table("study_streaks").delete().eq("user_id", user_id).execute()
 
     logger.info("Reset all progress for user %s", user_id)
+    return True

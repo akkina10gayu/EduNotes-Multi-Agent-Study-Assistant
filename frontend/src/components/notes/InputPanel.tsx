@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { generateNotes, processPdf } from '@/lib/api/notes'
 import type { GenerateNotesResponse } from '@/types'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -22,13 +22,22 @@ function detectInputType(value: string): InputType {
 export default function InputPanel({ inputValue, setInputValue, onNoteGenerated }: InputPanelProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [researchMode, setResearchMode] = useState(false)
-  const [searchMode, setSearchMode] = useState('auto')
-  const [outputFormat, setOutputFormat] = useState('paragraph_summary')
+  const [searchMode, setSearchMode] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('edunotes-search-mode') || 'auto'
+    return 'auto'
+  })
+  const [outputFormat, setOutputFormat] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('edunotes-output-format') || 'paragraph_summary'
+    return 'paragraph_summary'
+  })
   const [summaryLength, setSummaryLength] = useState('auto')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { localStorage.setItem('edunotes-search-mode', searchMode) }, [searchMode])
+  useEffect(() => { localStorage.setItem('edunotes-output-format', outputFormat) }, [outputFormat])
 
   const inputType = detectInputType(inputValue)
 

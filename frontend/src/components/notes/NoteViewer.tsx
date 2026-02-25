@@ -7,6 +7,8 @@ import type { GenerateNotesResponse } from '@/types'
 import NoteEditor from './NoteEditor'
 import ResearchResults from './ResearchResults'
 import SaveToKBModal from './SaveToKBModal'
+import { generateFlashcards } from '@/lib/api/study'
+import { generateQuiz } from '@/lib/api/study'
 
 interface NoteViewerProps {
   note: GenerateNotesResponse
@@ -19,6 +21,7 @@ export default function NoteViewer({ note, onClose }: NoteViewerProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [generatingStudy, setGeneratingStudy] = useState<string | null>(null)
 
   const handleCopy = async () => {
     try {
@@ -48,6 +51,36 @@ export default function NoteViewer({ note, onClose }: NoteViewerProps) {
     setIsEditing(false)
     setSuccessMsg('Notes updated!')
     setTimeout(() => setSuccessMsg(null), 3000)
+  }
+
+  const handleGenerateFlashcards = async () => {
+    setGeneratingStudy('flashcards')
+    try {
+      const topic = note.query || 'Study Notes'
+      await generateFlashcards(currentNotes, topic, 10)
+      setSuccessMsg('Flashcards generated! View them in the Study tab.')
+      setTimeout(() => setSuccessMsg(null), 4000)
+    } catch {
+      setSuccessMsg('Failed to generate flashcards')
+      setTimeout(() => setSuccessMsg(null), 3000)
+    } finally {
+      setGeneratingStudy(null)
+    }
+  }
+
+  const handleGenerateQuiz = async () => {
+    setGeneratingStudy('quiz')
+    try {
+      const topic = note.query || 'Study Notes'
+      await generateQuiz(currentNotes, topic, 5)
+      setSuccessMsg('Quiz generated! View it in the Study tab.')
+      setTimeout(() => setSuccessMsg(null), 4000)
+    } catch {
+      setSuccessMsg('Failed to generate quiz')
+      setTimeout(() => setSuccessMsg(null), 3000)
+    } finally {
+      setGeneratingStudy(null)
+    }
   }
 
   const handleUndo = () => {
@@ -112,6 +145,20 @@ export default function NoteViewer({ note, onClose }: NoteViewerProps) {
           </button>
           <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 text-sm bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700">
             Edit
+          </button>
+          <button
+            onClick={handleGenerateFlashcards}
+            disabled={generatingStudy !== null}
+            className="px-3 py-1.5 text-sm bg-[#6CA0DC]/20 text-[#6CA0DC] rounded-lg hover:bg-[#6CA0DC]/30 disabled:opacity-50"
+          >
+            {generatingStudy === 'flashcards' ? 'Generating...' : 'Generate Flashcards'}
+          </button>
+          <button
+            onClick={handleGenerateQuiz}
+            disabled={generatingStudy !== null}
+            className="px-3 py-1.5 text-sm bg-[#6CA0DC]/20 text-[#6CA0DC] rounded-lg hover:bg-[#6CA0DC]/30 disabled:opacity-50"
+          >
+            {generatingStudy === 'quiz' ? 'Generating...' : 'Create Quiz'}
           </button>
           {previousNotes && (
             <button onClick={handleUndo} className="px-3 py-1.5 text-sm bg-yellow-900/30 text-yellow-400 rounded-lg hover:bg-yellow-900/50">

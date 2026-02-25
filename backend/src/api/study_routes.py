@@ -60,10 +60,10 @@ async def generate_flashcards(request: Request, body: CreateFlashcardRequest, us
         if flashcard_set:
             # Save to Supabase store
             store = FlashcardStore()
-            store.save_set(user_id, topic=body.topic, cards=flashcard_set.cards, source_content=body.content)
+            store.save_set(user_id, topic=body.topic, cards=[c.model_dump() for c in flashcard_set.cards], source_content=body.content)
 
             # Record activity
-            progress_db.record_activity(user_id, "note_generated", body.topic, {})
+            progress_db.record_activity(user_id, "flashcard_generated", body.topic, {})
 
             return CreateFlashcardResponse(
                 success=True,
@@ -134,7 +134,7 @@ async def review_flashcard(body: ReviewFlashcardRequest, user_id: str = Depends(
             flashcard_set = store.load_set(user_id, body.set_id)
             if flashcard_set:
                 topic = flashcard_set.get("topic", "unknown")
-                progress_db.record_activity(user_id, "flashcard_reviewed", topic, {"correct": body.correct})
+                progress_db.record_activity(user_id, "flashcard_review", topic, {"correct": body.correct})
 
             return ReviewFlashcardResponse(
                 success=True,
@@ -170,6 +170,28 @@ async def delete_flashcard_set(set_id: str, user_id: str = Depends(get_current_u
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/flashcards/export/all/anki")
+async def export_all_flashcards_to_anki(user_id: str = Depends(get_current_user)):
+    """Export all flashcard sets to Anki-compatible format"""
+    try:
+        from fastapi.responses import PlainTextResponse
+
+        store = FlashcardStore()
+        anki_export = store.export_all_to_anki(user_id)
+
+        text = anki_export.get("text", "") if anki_export else ""
+
+        return PlainTextResponse(
+            content=text,
+            media_type="text/plain",
+            headers={"Content-Disposition": "attachment; filename=all_flashcards_anki.txt"}
+        )
+
+    except Exception as e:
+        logger.error(f"Error exporting all flashcards to Anki: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/flashcards/export/{set_id}/anki")
 async def export_flashcards_to_anki(set_id: str, user_id: str = Depends(get_current_user)):
     """Export a flashcard set to Anki-compatible format"""
@@ -199,33 +221,6 @@ async def export_flashcards_to_anki(set_id: str, user_id: str = Depends(get_curr
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/flashcards/export/all/anki")
-async def export_all_flashcards_to_anki(user_id: str = Depends(get_current_user)):
-    """Export all flashcard sets to Anki-compatible format"""
-    try:
-        from fastapi.responses import PlainTextResponse
-
-        store = FlashcardStore()
-        anki_export = store.export_all_to_anki(user_id)
-
-        if anki_export:
-            return PlainTextResponse(
-                content=anki_export,
-                media_type="text/plain",
-                headers={"Content-Disposition": "attachment; filename=all_flashcards_anki.txt"}
-            )
-        else:
-            return PlainTextResponse(
-                content="",
-                media_type="text/plain",
-                headers={"Content-Disposition": "attachment; filename=all_flashcards_anki.txt"}
-            )
-
-    except Exception as e:
-        logger.error(f"Error exporting all flashcards to Anki: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # =============================================================================
 # QUIZ ENDPOINTS
 # =============================================================================
@@ -247,7 +242,7 @@ async def generate_quiz(request: Request, body: CreateQuizRequest, user_id: str 
 
         if quiz:
             # Save to Supabase store
-            quiz_store.save_quiz(user_id, topic=body.topic, questions=quiz.questions)
+            quiz_store.save_quiz(user_id, topic=body.topic, questions=[q.model_dump() for q in quiz.questions])
 
             return CreateQuizResponse(
                 success=True,
@@ -343,23 +338,15 @@ async def start_quiz_attempt(quiz_id: str, user_id: str = Depends(get_current_us
 async def submit_quiz_answer(body: SubmitAnswerRequest, user_id: str = Depends(get_current_user)):
     """Submit an answer for a quiz question"""
     try:
-        result = quiz_store.submit_answer(body.attempt_id, body.question_id, body.answer)
+        result = quiz_store.submit_answer(user_id, body.attempt_id, body.question_id, body.answer)
 
-        if result.get("success"):
-            return SubmitAnswerResponse(
-                success=True,
-                correct=result["correct"],
-                correct_answer=result["correct_answer"],
-                explanation=result.get("explanation"),
-                message="Answer submitted"
-            )
-        else:
-            return SubmitAnswerResponse(
-                success=False,
-                correct=False,
-                correct_answer="",
-                message=result.get("error", "Failed to submit answer")
-            )
+        return SubmitAnswerResponse(
+            success=True,
+            correct=result["is_correct"],
+            correct_answer=result["correct_answer"],
+            explanation=result.get("explanation"),
+            message="Answer submitted"
+        )
 
     except Exception as e:
         logger.error(f"Error submitting answer: {e}")
@@ -370,34 +357,37 @@ async def submit_quiz_answer(body: SubmitAnswerRequest, user_id: str = Depends(g
 async def complete_quiz_attempt(body: CompleteQuizRequest, user_id: str = Depends(get_current_user)):
     """Complete a quiz attempt and get results"""
     try:
-        result = quiz_store.complete_attempt(body.attempt_id)
+        result = quiz_store.complete_attempt(user_id, body.attempt_id)
 
-        if result.get("success"):
-            score = result["score"]
-            total = result["total_questions"]
-            topic = result.get("topic", "unknown")
+        score = result["score"]
+        total = result["total_questions"]
 
-            # Record progress
-            progress_db.record_activity(user_id, "quiz_completed", topic, {"score": score, "total": total})
+        # Fetch quiz topic from the attempt
+        topic = "unknown"
+        try:
+            from src.db.supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            attempt_row = sb.table("quiz_attempts").select("quiz_id").eq("id", body.attempt_id).execute()
+            if attempt_row.data:
+                quiz_id = attempt_row.data[0]["quiz_id"]
+                quiz_row = sb.table("quizzes").select("topic").eq("id", quiz_id).execute()
+                if quiz_row.data:
+                    topic = quiz_row.data[0]["topic"]
+        except Exception:
+            pass
 
-            return CompleteQuizResponse(
-                success=True,
-                score=score,
-                correct_count=result["correct_count"],
-                total_questions=total,
-                results=result["results"],
-                detailed_results=result.get("detailed_results", []),
-                message="Quiz completed"
-            )
-        else:
-            return CompleteQuizResponse(
-                success=False,
-                score=0,
-                correct_count=0,
-                total_questions=0,
-                results={},
-                message=result.get("error", "Failed to complete quiz")
-            )
+        # Record progress
+        progress_db.record_activity(user_id, "quiz_completed", topic, {"score": score, "total": total})
+
+        return CompleteQuizResponse(
+            success=True,
+            score=score,
+            correct_count=result["correct_count"],
+            total_questions=total,
+            results={},
+            detailed_results=result.get("detailed_results", []),
+            message="Quiz completed"
+        )
 
     except Exception as e:
         logger.error(f"Error completing quiz: {e}")
@@ -433,12 +423,24 @@ async def get_progress(user_id: str = Depends(get_current_user)):
         weekly_summary = progress_db.get_weekly_summary(user_id)
         recent_activities = progress_db.get_recent_activities(user_id, limit=10)
 
+        # Fetch streak data
+        from src.db.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        streak_result = sb.table("study_streaks").select("*").eq("user_id", user_id).execute()
+        streak_row = streak_result.data[0] if streak_result.data else None
+        streak = {
+            "current_streak": streak_row["current_streak"] if streak_row else 0,
+            "longest_streak": streak_row["best_streak"] if streak_row else 0,
+            "last_study_date": streak_row.get("last_activity_date") if streak_row else None,
+        }
+
         return {
             "success": True,
             "statistics": statistics,
             "topic_rankings": topic_rankings,
             "weekly_summary": weekly_summary,
-            "recent_activities": recent_activities
+            "recent_activities": recent_activities,
+            "streak": streak
         }
 
     except Exception as e:

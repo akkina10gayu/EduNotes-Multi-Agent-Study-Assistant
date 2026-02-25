@@ -27,6 +27,7 @@ class GenerateNotesResponse(BaseModel):
     source_file: Optional[str] = None  # PDF filename if from PDF
     extracted_text: Optional[str] = None  # Phase 5: Extracted text for caching
     vision_data: Optional[str] = None  # JSON: figure images + descriptions for Research Mode
+    related_papers: Optional[List[Dict[str, Any]]] = None  # Research Mode: related papers
 
 class UpdateKBRequest(BaseModel):
     """Request model for updating knowledge base"""

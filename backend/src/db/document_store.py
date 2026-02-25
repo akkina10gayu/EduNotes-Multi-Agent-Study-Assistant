@@ -82,7 +82,6 @@ def add_document(
         "source": source,
         "url": url,
         "metadata": metadata or {},
-        "word_count": len(content.split()),
     }
 
     logger.info("Inserting document '%s' for user %s", title, user_id)
@@ -107,6 +106,7 @@ def add_document(
                 "embedding": embedding,
                 "chunk_index": idx,
                 "metadata": {
+                    "document_id": doc_id,
                     "title": title,
                     "topic": topic,
                     "source": source,
@@ -196,16 +196,15 @@ def get_document(user_id: str, doc_id: str) -> dict[str, Any] | None:
 
     result = (
         supabase.table("documents")
-        .select("id, title, topic, source, url, content, metadata, created_at, word_count")
+        .select("id, title, topic, source, url, content, metadata, created_at")
         .eq("id", doc_id)
         .eq("user_id", user_id)
-        .single()
         .execute()
     )
 
     if result.data:
         logger.info("Retrieved document %s for user %s", doc_id, user_id)
-        return result.data
+        return result.data[0]
 
     logger.warning("Document %s not found for user %s", doc_id, user_id)
     return None

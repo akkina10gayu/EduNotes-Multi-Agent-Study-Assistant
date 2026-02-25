@@ -29,3 +29,7 @@ export async function updateKnowledgeBase(documents: Array<{ content: string; ti
     body: JSON.stringify({ documents }),
   })
 }
+
+export async function deleteDocument(docId: string): Promise<{ success: boolean; message: string }> {
+  return apiClient(`/documents/${docId}`, { method: 'DELETE' })
+}

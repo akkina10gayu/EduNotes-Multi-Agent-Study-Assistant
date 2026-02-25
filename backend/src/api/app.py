@@ -218,6 +218,7 @@ async def health_check():
         version="1.0.0"
     )
 
+
 @app.post("/api/v1/generate-notes",
           response_model=GenerateNotesResponse,
           tags=["Notes"])
@@ -477,7 +478,7 @@ async def search_knowledge_base(request: Request, body: SearchKBRequest, user_id
         results = document_store.search(
             user_id,
             query=body.query,
-            k=body.k,
+            top_k=body.k,
             threshold=body.threshold
         )
 
@@ -726,14 +727,12 @@ async def get_document_raw(doc_id: str, user_id: str = Depends(get_current_user)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/stats",
-         response_model=StatsResponse,
-         tags=["System"])
+@app.get("/api/v1/stats", tags=["System"])
 async def get_stats(user_id: str = Depends(get_current_user)):
     """Get system statistics"""
     try:
         stats = orchestrator.get_stats()
-        return StatsResponse(**stats)
+        return stats
 
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
@@ -771,6 +770,34 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
             result["topics_count"] = len(topics)
         except Exception as e:
             logger.warning(f"Failed to get topics: {e}")
+
+        # Get flashcard sets count
+        try:
+            from src.db.supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            fc_result = sb.table("flashcard_sets").select("id", count="exact").eq("user_id", user_id).execute()
+            result["flashcard_sets"] = fc_result.count or 0
+        except Exception as e:
+            logger.warning(f"Failed to get flashcard sets count: {e}")
+
+        # Get quizzes count
+        try:
+            from src.db.supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            quiz_result = sb.table("quizzes").select("id", count="exact").eq("user_id", user_id).execute()
+            result["total_quizzes"] = quiz_result.count or 0
+        except Exception as e:
+            logger.warning(f"Failed to get quizzes count: {e}")
+
+        # Get current streak
+        try:
+            from src.db.supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            streak_result = sb.table("study_streaks").select("current_streak").eq("user_id", user_id).execute()
+            if streak_result.data:
+                result["current_streak"] = streak_result.data[0].get("current_streak", 0)
+        except Exception as e:
+            logger.warning(f"Failed to get streak: {e}")
 
         return result
 

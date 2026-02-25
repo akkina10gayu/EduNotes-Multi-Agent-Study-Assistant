@@ -151,13 +151,14 @@ def list_quizzes(user_id: str) -> list[dict[str, Any]]:
     return quizzes
 
 
-def delete_quiz(user_id: str, quiz_id: str) -> None:
+def delete_quiz(user_id: str, quiz_id: str) -> bool:
     """Delete a quiz and all related data (cascade)."""
     sb = _supabase()
 
     logger.info("Deleting quiz %s for user %s", quiz_id, user_id)
     sb.table("quizzes").delete().eq("id", quiz_id).eq("user_id", user_id).execute()
     logger.info("Quiz %s deleted", quiz_id)
+    return True
 
 
 # ---------------------------------------------------------------------------
