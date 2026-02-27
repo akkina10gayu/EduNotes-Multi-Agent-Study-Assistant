@@ -11,6 +11,7 @@ import time
 import random
 import os
 import re as re_module
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -18,6 +19,37 @@ load_dotenv()
 
 # API configuration (defined early for cached functions)
 API_BASE_URL = "http://localhost:8000/api/v1"
+
+# =============================================================================
+# DEBUG LOGGING FOR API CALLS
+# =============================================================================
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
+api_logger = logging.getLogger("edunotes.api_debug")
+api_logger.setLevel(logging.DEBUG)
+
+
+def _log_response(response, *args, **kwargs):
+    """Hook that logs every HTTP response from the API session."""
+    body = ""
+    try:
+        body = response.text[:500]
+    except Exception:
+        body = "<unreadable>"
+    api_logger.info(
+        "API %s %s -> %s | headers=%s | body=%s",
+        response.request.method,
+        response.request.url,
+        response.status_code,
+        dict(response.headers),
+        body,
+    )
+    if response.status_code == 401:
+        api_logger.error(
+            ">>> 401 DETAIL: request_headers=%s | response_body=%s",
+            dict(response.request.headers),
+            body,
+        )
+
 
 # =============================================================================
 # CACHED FUNCTIONS FOR PERFORMANCE OPTIMIZATION (Phase 1)
@@ -29,6 +61,7 @@ def get_api_session():
     This reduces TCP handshake overhead for multiple API calls.
     """
     session = requests.Session()
+    session.hooks["response"].append(_log_response)
     return session
 
 
@@ -834,17 +867,18 @@ with st.sidebar:
         stats = fetch_system_stats()  # Uses cached function (2 min TTL)
 
         if stats:
-            # LLM Info - Read directly from environment variables for accurate display
-            use_local_env = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
+            # LLM Info
+            llm_stats = stats.get('llm', {})
+            provider = llm_stats.get('provider', 'unknown')
+            model = llm_stats.get('model', 'unknown')
+            available = llm_stats.get('available', False)
 
             st.markdown("**🧠 LLM Model**")
-            if use_local_env:
-                st.markdown("- Mode: 🖥️ Local (Offline)")
-                st.markdown("- Model: Flan-T5")
-            else:
-                st.markdown("- Mode: ☁️ Cloud API")
-                st.markdown("- Provider: Groq")
-                st.markdown("- Model: Llama-3.3-70B")
+            st.markdown(f"- Mode: ☁️ Cloud API")
+            st.markdown(f"- Provider: {provider.title() if provider else 'None'}")
+            st.markdown(f"- Model: {model}")
+            if not available:
+                st.markdown("- Status: ⚠️ No provider available")
 
             # KB Info
             kb_stats = stats.get('knowledge_base', {})

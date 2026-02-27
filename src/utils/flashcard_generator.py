@@ -93,9 +93,9 @@ class FlashcardGenerator:
             Raw LLM output string or None
         """
         try:
-            # Check if using local mode
-            if self.llm_client.is_local_mode():
-                # Fall back to rule-based generation for local mode
+            # Check if LLM is available
+            if not self.llm_client.is_available():
+                # Fall back to rule-based generation when no LLM available
                 return self._generate_local_flashcards(content, num_cards)
 
             # Use LLM client's flashcard generation

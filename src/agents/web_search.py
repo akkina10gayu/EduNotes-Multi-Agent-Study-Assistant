@@ -71,7 +71,7 @@ class WebSearchAgent(BaseAgent):
             self.logger.info(f"Stage 1 cache HIT for topic: {topic[:50]}")
             return cached_queries
 
-        if self.llm_client.is_local_mode():
+        if not self.llm_client.is_available():
             return self._generate_fallback_queries(topic)
 
         system_prompt = (
@@ -312,8 +312,8 @@ YOUR QUERIES FOR "{topic}":"""
         if not results:
             return []
 
-        # If using local model or too few results, skip LLM evaluation
-        if self.llm_client.is_local_mode() or len(results) <= 3:
+        # If no LLM available or too few results, skip LLM evaluation
+        if not self.llm_client.is_available() or len(results) <= 3:
             return results[:settings.WEB_SEARCH_MAX_URLS_TO_SCRAPE]
 
         # Cache check — avoid redundant LLM evaluation for same topic + result set
@@ -467,8 +467,8 @@ YOUR TOP 3 PICKS:"""
         if not scraped_items:
             return []
 
-        # If local mode, skip quality check (just check length)
-        if self.llm_client.is_local_mode():
+        # If no LLM available, skip quality check (just check length)
+        if not self.llm_client.is_available():
             return [
                 item for item in scraped_items
                 if len(item['content']) >= settings.WEB_SEARCH_MIN_CONTENT_LENGTH

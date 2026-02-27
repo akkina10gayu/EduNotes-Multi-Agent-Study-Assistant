@@ -29,13 +29,12 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 # =============================================================================
 # LLM API Settings (FREE APIs - No cost)
 # =============================================================================
-# Provider: groq (recommended), huggingface, local
+# Provider: groq (recommended), huggingface
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
-USE_LOCAL_MODEL = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 
 # Groq API (FREE - 14,400 requests/day)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 # HuggingFace API (FREE - 30,000 requests/month)
@@ -43,12 +42,9 @@ HF_TOKEN = os.getenv("HF_TOKEN", "")
 HF_MODEL = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
 
 # =============================================================================
-# Local Model Settings (Fallback when USE_LOCAL_MODEL=true)
+# Embedding Model Settings
 # =============================================================================
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "google/flan-t5-base")
-QA_MODEL = os.getenv("QA_MODEL", "deepset/roberta-base-squad2")
-MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", str(MODELS_DIR / "downloaded")))
 
 # LangChain Settings
 LANGCHAIN_CACHE = os.getenv("LANGCHAIN_CACHE", "sqlite")

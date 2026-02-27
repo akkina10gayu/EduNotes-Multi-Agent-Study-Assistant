@@ -1,7 +1,6 @@
 """
 LLM Client for API-based inference (FREE APIs only)
 Supports: Groq (primary), HuggingFace (backup)
-Keeps local model as fallback when USE_LOCAL_MODEL=true
 """
 import os
 from typing import Optional, Dict, Any
@@ -17,7 +16,9 @@ class LLMClient:
     Supported providers (all free, no credit card required):
     - groq: Fastest, 14,400 requests/day free (RECOMMENDED)
     - huggingface: 30,000 requests/month free
-    - local: Uses existing BART/Flan-T5 models (offline fallback)
+
+    If all providers fail to initialize, provider and client are set to None.
+    Callers should check is_available() before making requests.
     """
 
     def __init__(self, provider: str = None):
@@ -25,18 +26,12 @@ class LLMClient:
         Initialize LLM client with specified provider.
 
         Args:
-            provider: One of 'groq', 'huggingface', 'local'
+            provider: One of 'groq', 'huggingface'
                      If None, reads from LLM_PROVIDER env var (default: groq)
         """
         self.provider = provider or os.getenv("LLM_PROVIDER", "groq")
         self.client = None
         self.model = None
-
-        # Check if local mode is forced
-        use_local = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
-        if use_local:
-            self.provider = "local"
-            logger.info("Using local model (USE_LOCAL_MODEL=true)")
 
         self._init_client()
 
@@ -47,8 +42,6 @@ class LLMClient:
                 self._init_groq()
             elif self.provider == "huggingface":
                 self._init_huggingface()
-            elif self.provider == "local":
-                self._init_local()
             else:
                 logger.warning(f"Unknown provider: {self.provider}, falling back to groq")
                 self.provider = "groq"
@@ -56,9 +49,20 @@ class LLMClient:
 
         except Exception as e:
             logger.error(f"Failed to initialize {self.provider} client: {e}")
-            logger.info("Falling back to local model")
-            self.provider = "local"
-            self._init_local()
+            # Try HuggingFace as fallback
+            if self.provider != "huggingface":
+                try:
+                    logger.info("Falling back to HuggingFace provider")
+                    self._init_huggingface()
+                    self.provider = "huggingface"
+                    return
+                except Exception as e2:
+                    logger.error(f"HuggingFace fallback also failed: {e2}")
+            # No providers available
+            logger.warning("No LLM providers available. LLM features will be disabled.")
+            self.provider = None
+            self.client = None
+            self.model = None
 
     def _init_groq(self):
         """Initialize Groq client (FREE - 14,400 requests/day)."""
@@ -93,12 +97,6 @@ class LLMClient:
         except ImportError:
             raise ImportError("huggingface_hub not installed. Run: pip install huggingface_hub")
 
-    def _init_local(self):
-        """Initialize local model flag (actual model loaded in summarizer)."""
-        self.client = None
-        self.model = "local"
-        logger.info("Using local model mode (BART/Flan-T5)")
-
     def generate(
         self,
         prompt: str,
@@ -120,14 +118,14 @@ class LLMClient:
         Returns:
             Generated text string
         """
+        if not self.client:
+            return None
+
         try:
             if self.provider == "groq":
                 return self._generate_groq(prompt, max_tokens, temperature, system_prompt, model_override)
             elif self.provider == "huggingface":
                 return self._generate_huggingface(prompt, max_tokens, temperature)
-            elif self.provider == "local":
-                # Return None to signal caller should use local model
-                return None
             else:
                 raise ValueError(f"Unknown provider: {self.provider}")
 
@@ -199,8 +197,8 @@ class LLMClient:
         Returns:
             Summary string
         """
-        if self.provider == "local":
-            return None  # Signal to use local model
+        if not self.client:
+            return None
 
         # For paragraph_summary, determine actual length if auto mode
         actual_length = output_length
@@ -489,7 +487,7 @@ NOW write the paragraph summary (flowing prose, no bullets, follow the length re
         Returns:
             JSON-formatted string of flashcards
         """
-        if self.provider == "local":
+        if not self.client:
             return None
 
         system_prompt = """You are an educational assistant that creates effective flashcards for studying.
@@ -530,7 +528,7 @@ Generate {num_cards} flashcards:"""
         Returns:
             JSON-formatted string of quiz questions
         """
-        if self.provider == "local":
+        if not self.client:
             return None
 
         system_prompt = """You are an educational assistant that creates quiz questions.
@@ -611,16 +609,16 @@ Generate {num_questions} quiz questions:"""
             logger.warning(f"Vision analysis failed (model: {vision_model}): {e}")
             return None
 
-    def is_local_mode(self) -> bool:
-        """Check if using local model mode."""
-        return self.provider == "local"
+    def is_available(self) -> bool:
+        """Check if an LLM provider is available."""
+        return self.client is not None
 
     def get_provider_info(self) -> Dict[str, Any]:
         """Get information about current provider."""
         return {
-            "provider": self.provider,
-            "model": self.model,
-            "is_local": self.is_local_mode()
+            "provider": self.provider or "none",
+            "model": self.model or "none",
+            "available": self.is_available()
         }
 
 
