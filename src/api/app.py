@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 import re
 import time as _time
+import traceback as _traceback
 
 from src.models.schemas import (
     GenerateNotesRequest, GenerateNotesResponse,
@@ -29,6 +30,27 @@ from src.api.study_routes import router as study_router
 from config import settings
 
 logger = get_logger(__name__)
+
+# =============================================================================
+# DEBUG: Monkey-patch BOTH HTTPException classes to capture 401 source
+# =============================================================================
+import starlette.exceptions
+
+_orig_starlette_exc_init = starlette.exceptions.HTTPException.__init__
+
+def _patched_starlette_exc_init(self, *args, **kwargs):
+    _orig_starlette_exc_init(self, *args, **kwargs)
+    if self.status_code in (401, 403) and "authenticated" in str(getattr(self, 'detail', '')).lower():
+        stack = ''.join(_traceback.format_stack())
+        logger.error(
+            f"!!! AUTH EXCEPTION RAISED (starlette) !!!\n"
+            f"Class: {type(self).__module__}.{type(self).__name__}\n"
+            f"Status: {self.status_code}, Detail: {self.detail}\n"
+            f"Stack trace:\n{stack}"
+        )
+
+starlette.exceptions.HTTPException.__init__ = _patched_starlette_exc_init
+# =============================================================================
 
 
 def _clean_vision_desc(desc: str) -> str:
@@ -160,6 +182,45 @@ app.include_router(study_router)
 orchestrator = Orchestrator()
 vector_store = VectorStore()
 doc_processor = DocumentProcessor()
+
+@app.on_event("startup")
+async def debug_auth_diagnostic():
+    """DEBUG: Identify what is injecting Bearer auth"""
+    logger.warning("=" * 80)
+    logger.warning("AUTH DIAGNOSTIC: Inspecting all routes for security dependencies")
+    logger.warning("=" * 80)
+
+    for route in app.routes:
+        path = getattr(route, 'path', '?')
+        methods = getattr(route, 'methods', set())
+        dependant = getattr(route, 'dependant', None)
+        if dependant:
+            deps = getattr(dependant, 'dependencies', [])
+            security = getattr(dependant, 'security_requirements', [])
+            if deps:
+                for dep in deps:
+                    logger.warning(
+                        f"  ROUTE {methods} {path} -> dependency: {dep.call} "
+                        f"(module: {getattr(dep.call, '__module__', '?')})"
+                    )
+            if security:
+                logger.warning(f"  ROUTE {methods} {path} -> security: {security}")
+
+    # Check app-level dependencies
+    if app.dependency_overrides:
+        logger.warning(f"App dependency_overrides: {app.dependency_overrides}")
+
+    # Inspect middleware stack
+    middleware = app.middleware_stack
+    logger.warning(f"Middleware stack type: {type(middleware)}")
+    current = middleware
+    depth = 0
+    while current and depth < 15:
+        logger.warning(f"  Layer {depth}: {type(current).__name__} ({type(current).__module__})")
+        current = getattr(current, 'app', None)
+        depth += 1
+
+    logger.warning("=" * 80)
 
 @app.on_event("startup")
 async def startup_event():

@@ -694,6 +694,6 @@ class Orchestrator:
             'llm': {
                 'provider': llm_info.get('provider', 'unknown'),
                 'model': llm_info.get('model', 'unknown'),
-                'is_local': llm_info.get('is_local', False)
+                'available': llm_info.get('available', True)
             }
         }

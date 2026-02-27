@@ -1,14 +1,12 @@
 """
 Summarization agent with FREE API support (Groq, HuggingFace)
-Falls back to local model (Flan-T5) when USE_LOCAL_MODEL=true
 
-Version 2.0 - API-first approach with local fallback
+Version 2.0 - API-based approach with rate-limit fallback
 """
 from typing import Dict, Any, List
 from src.agents.base import BaseAgent
 from src.utils.cache_utils import cached
 from src.utils.llm_client import get_llm_client
-from config import settings
 
 
 class SummarizerAgent(BaseAgent):
@@ -18,97 +16,26 @@ class SummarizerAgent(BaseAgent):
     Supports:
     - Groq API (primary, free, fastest)
     - HuggingFace Inference API (backup, free)
-    - Local models (fallback, offline)
     """
 
     def __init__(self):
         super().__init__("SummarizerAgent")
         self.llm_client = None
-        self.use_local = settings.USE_LOCAL_MODEL
-
-        # Local model components (lazy loaded)
-        self._tokenizer = None
-        self._model = None
-        self._pipe = None
-        self._llm = None
-
         self._initialize()
 
     def _initialize(self):
-        """Initialize the appropriate summarization backend."""
+        """Initialize the LLM client for summarization."""
         try:
-            if self.use_local:
-                self.logger.info("Using LOCAL model for summarization")
-                self._initialize_local_model()
-            else:
-                self.logger.info("Using FREE API for summarization")
-                self.llm_client = get_llm_client()
-                self.logger.info(f"LLM Provider: {self.llm_client.get_provider_info()}")
-
-                # If API client fell back to local, initialize local model
-                if self.llm_client.is_local_mode():
-                    self._initialize_local_model()
-
+            self.logger.info("Initializing LLM client for summarization")
+            self.llm_client = get_llm_client()
+            self.logger.info(f"LLM Provider: {self.llm_client.get_provider_info()}")
         except Exception as e:
             self.logger.error(f"Error initializing summarizer: {e}")
-            self.logger.info("Falling back to local model")
-            self.use_local = True
-            self._initialize_local_model()
 
-    def _initialize_local_model(self):
-        """Initialize local Flan-T5/BART model (lazy loading)."""
-        # Models are loaded on first use via properties
-        self.use_local = True
-        self.logger.info(f"Local model configured: {settings.SUMMARIZATION_MODEL}")
-
-    @property
-    def tokenizer(self):
-        """Lazy load tokenizer."""
-        if self._tokenizer is None:
-            self.logger.info("Loading local tokenizer...")
-            from transformers import AutoTokenizer
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                settings.SUMMARIZATION_MODEL,
-                cache_dir=str(settings.MODEL_CACHE_DIR)
-            )
-        return self._tokenizer
-
-    @property
-    def model(self):
-        """Lazy load model."""
-        if self._model is None:
-            self.logger.info("Loading local model...")
-            import torch
-            from transformers import AutoModelForSeq2SeqLM
-            self._model = AutoModelForSeq2SeqLM.from_pretrained(
-                settings.SUMMARIZATION_MODEL,
-                cache_dir=str(settings.MODEL_CACHE_DIR),
-                torch_dtype=torch.float32
-            )
-        return self._model
-
-    @property
-    def pipe(self):
-        """Lazy load pipeline."""
-        if self._pipe is None:
-            self.logger.info("Creating local summarization pipeline...")
-            from transformers import pipeline
-            self._pipe = pipeline(
-                "summarization",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                max_length=1024,
-                min_length=200,
-                do_sample=True,
-                early_stopping=True,
-                device=-1  # CPU
-            )
-        return self._pipe
-
-    @cached("summarizer", ttl=settings.CACHE_SUMMARY_TTL)
+    @cached("summarizer", ttl=3600)
     def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """
-        Summarize text using API or local model.
+        Summarize text using LLM API.
 
         Args:
             text: Text to summarize
@@ -131,93 +58,59 @@ class SummarizerAgent(BaseAgent):
 
             self.logger.info(f"Processing {len(text)} characters with style='{style}', output_length='{output_length}'")
 
-            # Try API first (if not in local mode)
-            if not self.use_local and self.llm_client:
-                try:
-                    summary = self.llm_client.summarize(
-                        text=text,
-                        max_length=max_length or 3072,  # Tripled output space for quality
-                        style=style,
-                        output_length=output_length,
-                        extra_instructions=extra_instructions
-                    )
-                    if summary:
-                        self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
-                        return summary
-                except Exception as e:
-                    err_str = str(e)
-                    is_rate_limit = '429' in err_str and (
-                        'rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()
-                    )
-                    if is_rate_limit:
-                        self.logger.warning(f"Rate limit hit on main model: {e}")
-                        # Try light model as fallback before giving up
-                        fallback = self._summarize_rate_limit_fallback(text, style)
-                        if fallback:
-                            return fallback
-                        # Both models exhausted — return clean message (not raw error)
-                        return (
-                            "**Rate Limit Reached**\n\n"
-                            "The primary and backup models have reached their free-tier limits. "
-                            "Your notes could not be generated at this time.\n\n"
-                            "**What you can do:**\n"
-                            "- Wait for the daily rate limit to reset (resets every 24 hours)\n"
-                            "- Upgrade your Groq plan at https://console.groq.com/settings/billing\n"
-                        )
-                    self.logger.warning(f"API summarization failed: {e}, falling back to local")
+            # Check if LLM is available
+            if not self.llm_client or not self.llm_client.is_available():
+                return (
+                    "**No LLM Available**\n\n"
+                    "Summarization requires an LLM API provider. "
+                    "No provider could be initialized.\n\n"
+                    "**Setup instructions:**\n"
+                    "1. Get a free API key from [console.groq.com](https://console.groq.com)\n"
+                    "2. Add `GROQ_API_KEY=your_key` to your `.env` file\n"
+                    "3. Restart the application\n"
+                )
 
-            # Fallback to local model
-            return self._summarize_local(text, max_length)
+            try:
+                summary = self.llm_client.summarize(
+                    text=text,
+                    max_length=max_length or 3072,
+                    style=style,
+                    output_length=output_length,
+                    extra_instructions=extra_instructions
+                )
+                if summary:
+                    self.logger.info(f"Summary generated using API - Length: {len(summary)} chars, Style: {style}, OutputLength: {output_length}")
+                    return summary
+            except Exception as e:
+                err_str = str(e)
+                is_rate_limit = '429' in err_str and (
+                    'rate_limit' in err_str.lower() or 'rate limit' in err_str.lower()
+                )
+                if is_rate_limit:
+                    self.logger.warning(f"Rate limit hit on main model: {e}")
+                    # Try light model as fallback before giving up
+                    fallback = self._summarize_rate_limit_fallback(text, style)
+                    if fallback:
+                        return fallback
+                    # Both models exhausted — return clean message (not raw error)
+                    return (
+                        "**Rate Limit Reached**\n\n"
+                        "The primary and backup models have reached their free-tier limits. "
+                        "Your notes could not be generated at this time.\n\n"
+                        "**What you can do:**\n"
+                        "- Wait for the daily rate limit to reset (resets every 24 hours)\n"
+                        "- Upgrade your Groq plan at https://console.groq.com/settings/billing\n"
+                    )
+                self.logger.error(f"API summarization failed: {e}")
+
+            return (
+                "**Summarization Failed**\n\n"
+                "The LLM API returned an error. Please try again later.\n"
+            )
 
         except Exception as e:
             self.logger.error(f"Error summarizing text: {e}")
             return f"Summary of content about {text[:100]}... [Error: {str(e)}]"
-
-    def _summarize_local(self, text: str, max_length: int = None) -> str:
-        """Summarize using local model (Flan-T5)."""
-        try:
-            original_text = text
-
-            # Prepare text for local model - Flan-T5 works best with task prefix
-            if len(text) > 3000:
-                text = text[:3000]
-
-            # Add Flan-T5 task prefix for better summarization
-            task_text = f"summarize: {text}"
-
-            # Encode and truncate to model limit
-            input_tokens = self.tokenizer.encode(task_text)
-            if len(input_tokens) > 1024:
-                input_tokens = input_tokens[:1024]
-                task_text = self.tokenizer.decode(input_tokens, skip_special_tokens=True)
-
-            # Calculate output length - aim for meaningful summary
-            if max_length is None:
-                max_length = max(150, min(512, len(input_tokens) // 2))
-
-            min_len = max(50, min(max_length // 3, 150))
-
-            # Generate summary using pipeline
-            result = self.pipe(task_text, max_length=max_length, min_length=min_len)
-            summary = result[0]['summary_text'] if result else ""
-
-            # Ensure we never return empty - fallback to extractive summary
-            if not summary or len(summary.strip()) < 20:
-                self.logger.warning("Local model returned insufficient output, using extractive fallback")
-                # Simple extractive fallback - take first few sentences
-                sentences = original_text.replace('\n', ' ').split('. ')
-                summary = '. '.join(sentences[:5]) + '.'
-                if len(summary) > 500:
-                    summary = summary[:500] + '...'
-
-            self.logger.info(f"Summary generated using local model ({settings.SUMMARIZATION_MODEL}) - {len(summary)} chars")
-            return summary
-
-        except Exception as e:
-            self.logger.error(f"Error in local summarization: {e}")
-            # Last resort fallback - never return empty
-            fallback = original_text[:500] + "..." if len(original_text) > 500 else original_text
-            return f"Content Summary: {fallback}"
 
     def _summarize_rate_limit_fallback(self, text: str, style: str) -> str:
         """
@@ -335,7 +228,7 @@ Begin:"""
             List of flashcard dicts with 'front' and 'back' keys
         """
         try:
-            if not self.use_local and self.llm_client:
+            if self.llm_client and self.llm_client.is_available():
                 response = self.llm_client.generate_flashcards(text, num_cards)
                 if response:
                     return self._parse_flashcards(response)
@@ -385,7 +278,7 @@ Begin:"""
             List of quiz question dicts
         """
         try:
-            if not self.use_local and self.llm_client:
+            if self.llm_client and self.llm_client.is_available():
                 response = self.llm_client.generate_quiz(text, num_questions)
                 if response:
                     return self._parse_quiz(response)
@@ -439,7 +332,7 @@ Begin:"""
             result = {
                 'success': True,
                 'agent': self.name,
-                'provider': 'local' if self.use_local else self.llm_client.provider if self.llm_client else 'unknown'
+                'provider': self.llm_client.provider if self.llm_client and self.llm_client.is_available() else 'none'
             }
 
             if mode == 'important_points':
@@ -485,16 +378,6 @@ Begin:"""
 
     def get_provider_info(self) -> Dict[str, Any]:
         """Get information about current provider."""
-        # First check if we have an LLM client and what mode it's in
         if self.llm_client:
-            client_info = self.llm_client.get_provider_info()
-            # Return the actual client info (could be groq, huggingface, or local fallback)
-            return client_info
-        elif self.use_local:
-            return {
-                'provider': 'local',
-                'model': settings.SUMMARIZATION_MODEL,
-                'is_local': True
-            }
-        else:
-            return {'provider': 'unknown', 'model': 'unknown', 'is_local': True}
+            return self.llm_client.get_provider_info()
+        return {'provider': 'none', 'model': 'none', 'available': False}

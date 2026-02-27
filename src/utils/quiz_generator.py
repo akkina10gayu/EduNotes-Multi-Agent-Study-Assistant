@@ -206,7 +206,7 @@ class QuizGenerator:
     def _generate_raw_quiz(self, content: str, num_questions: int) -> Optional[str]:
         """Generate raw quiz text using the LLM"""
         try:
-            if self.llm_client.is_local_mode():
+            if not self.llm_client.is_available():
                 return self._generate_local_quiz(content, num_questions)
 
             result = self.llm_client.generate_quiz(content, num_questions)

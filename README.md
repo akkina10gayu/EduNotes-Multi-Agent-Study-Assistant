@@ -14,7 +14,7 @@ A multi-agent study assistant that transforms topics, articles, PDFs, and docume
 - **Build a Knowledge Base** that grows with your learning
 - **Search & Download** from your knowledge base — find stored notes and download them as text file
 - **Track Progress** with streaks and performance stats
-- **Works Offline** using local models when no API key is configured (quality may be reduced)
+- **Free to Use** with Groq (primary) and HuggingFace (backup) APIs — no credit card required
 
 ## Quick Start
 
@@ -47,7 +47,7 @@ Get a free API key from [console.groq.com](https://console.groq.com) and add it 
 GROQ_API_KEY=your_key_here
 ```
 
-The app works without it using local models, but responses will be slower.
+Alternatively, get a free HuggingFace token from [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and set `LLM_PROVIDER=huggingface` and `HF_TOKEN=your_token` in `.env`.
 
 ### Run the Application
 
@@ -130,8 +130,8 @@ EduNotes uses a multi-agent pipeline where specialized agents handle different t
          |   (if Research Mode)    |
          v                         v
   Academic References      Figures & Tables
-  (arXiv, Semantic         (Vision analysis
-   Scholar)                 of PDF pages)
+  (OpenAlex, arXiv,        (Vision analysis
+   Semantic Scholar)        of PDF pages)
 ```
 
 ### Agents
@@ -160,7 +160,7 @@ Three separate models with independent rate limits to maximize free-tier availab
 
 | Component | Technology |
 |-----------|------------|
-| LLM | Groq API (Llama 3.3 70B / 3.1 8B / 4 Scout) + local Flan-T5 fallback |
+| LLM | Groq API (Llama 3.3 70B / 3.1 8B / 4 Scout) + HuggingFace fallback |
 | Vision | Llama 4 Scout 17B via Groq (Research Mode) |
 | Web Search | DuckDuckGo + Google fallback |
 | PDF Processing | pymupdf4llm + PyPDF2 |
@@ -169,13 +169,13 @@ Three separate models with independent rate limits to maximize free-tier availab
 | Backend | FastAPI |
 | Frontend | Streamlit |
 | Caching | DiskCache |
-| Academic Search | arXiv + Semantic Scholar APIs |
+| Academic Search | OpenAlex + arXiv + Semantic Scholar APIs |
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| API errors | Add `GROQ_API_KEY` to `.env` or set `USE_LOCAL_MODEL=true` |
+| API errors | Add `GROQ_API_KEY` to `.env`, or set `LLM_PROVIDER=huggingface` with `HF_TOKEN` |
 | Rate limit reached | Wait for daily reset, or the app auto-falls back to a lighter model |
 | Port conflicts | Stop processes on ports 8000 or 8501 |
 | Database issues | Run `python scripts/setup_kb.py --reset` |

@@ -50,9 +50,9 @@ class ContentAgent(BaseAgent):
 
         Returns 'general' as fallback in local mode or on error.
         """
-        # Local mode fallback - skip LLM
-        if self.llm_client.is_local_mode():
-            self.logger.info("Stage 1: Local mode - defaulting to 'general'")
+        # No LLM available - skip classification
+        if not self.llm_client.is_available():
+            self.logger.info("Stage 1: No LLM available - defaulting to 'general'")
             return "general"
 
         # Cache check by content hash (24h TTL)
@@ -195,9 +195,9 @@ CATEGORY (one word):"""
             }
         """
         # Skip conditions
-        if self.llm_client.is_local_mode():
-            self.logger.info("Stage 4: Local mode - skipping evaluation")
-            return {"quality": "pass", "gaps": [], "reasoning": "Local mode - evaluation skipped"}
+        if not self.llm_client.is_available():
+            self.logger.info("Stage 4: No LLM available - skipping evaluation")
+            return {"quality": "pass", "gaps": [], "reasoning": "No LLM available - evaluation skipped"}
 
         if not summary or len(summary) < 100:
             self.logger.info("Stage 4: Summary too short - skipping evaluation")
