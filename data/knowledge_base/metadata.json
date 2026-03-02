@@ -141,5 +141,70 @@
       "assumptions",
       "general"
     ]
+  },
+  "89f8a8a5fe91ad98de1ba4ca64a8ddf8": {
+    "title": "Web search: transformer architecture in detail and attention mechanism",
+    "source": "web_search",
+    "date_added": "2026-02-27T00:07:19.390473",
+    "topic": "transformer-architecture-in-detail-and-attention-mechanism",
+    "keywords": [
+      "algorithm",
+      "modelling",
+      "sequential",
+      "data",
+      "standard"
+    ]
+  },
+  "48771f57dae7b278a3bfd22d73e91652": {
+    "title": "Web search: transformer architecture in detail",
+    "source": "web_search",
+    "date_added": "2026-02-27T00:08:12.577768",
+    "topic": "transformer-architecture-in-detail",
+    "keywords": [
+      "transformer",
+      "this",
+      "draft",
+      "june",
+      "2022."
+    ]
+  },
+  "5768e1ff02e1ab0f5e858f7e451b328d": {
+    "title": "Web search: Neural Networks",
+    "source": "web_search",
+    "date_added": "2026-02-27T00:08:48.603753",
+    "topic": "neural-networks",
+    "keywords": [
+      "neural",
+      "networks",
+      "machine",
+      "learning",
+      "models"
+    ]
+  },
+  "016972f1397a20722d096273592e6ad5": {
+    "title": "Web search: Deep Learning",
+    "source": "web_search",
+    "date_added": "2026-02-27T00:11:51.216592",
+    "topic": "deep-learning",
+    "keywords": [
+      "deep",
+      "learning",
+      "transforming",
+      "machines",
+      "understand,"
+    ]
+  },
+  "3740b9471b48d8b84fe2b41f6f50694c": {
+    "title": "Web search: Transformer architecture",
+    "source": "web_search",
+    "date_added": "2026-02-27T00:13:44.385375",
+    "topic": "transformer-architecture",
+    "keywords": [
+      "transformer",
+      "architecture",
+      "explained",
+      "attention",
+      "need"
+    ]
   }
 }

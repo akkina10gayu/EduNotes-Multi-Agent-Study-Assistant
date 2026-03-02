@@ -108,6 +108,18 @@ PROGRESS_STORAGE = Path(os.getenv("PROGRESS_STORAGE", str(DATA_DIR / "progress")
 MAX_FLASHCARDS_PER_NOTE = int(os.getenv("MAX_FLASHCARDS_PER_NOTE", 20))
 QUIZ_QUESTIONS_COUNT = int(os.getenv("QUIZ_QUESTIONS_COUNT", 10))
 
-# Create study feature directories
-for dir_path in [FLASHCARD_STORAGE, PROGRESS_STORAGE]:
+# =============================================================================
+# Chat AI Settings (Separate providers to avoid Groq rate limit conflicts)
+# =============================================================================
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama-3.3-70b")
+CHAT_PROVIDER = os.getenv("CHAT_PROVIDER", "gemini")
+CHAT_MAX_HISTORY = int(os.getenv("CHAT_MAX_HISTORY", 50))
+CHAT_CONTEXT_CHUNKS = int(os.getenv("CHAT_CONTEXT_CHUNKS", 5))
+CONVERSATION_STORAGE = Path(os.getenv("CONVERSATION_STORAGE", str(DATA_DIR / "conversations")))
+
+# Create study feature and chat directories
+for dir_path in [FLASHCARD_STORAGE, PROGRESS_STORAGE, CONVERSATION_STORAGE]:
     dir_path.mkdir(parents=True, exist_ok=True)

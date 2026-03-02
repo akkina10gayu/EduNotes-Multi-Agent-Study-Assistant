@@ -1,0 +1,154 @@
+{
+  "user_id": "default",
+  "created_at": "2026-02-27 00:06:19.487712",
+  "updated_at": "2026-02-27 00:13:45.549481",
+  "total_notes_generated": 6,
+  "total_flashcards_reviewed": 0,
+  "total_flashcards_correct": 0,
+  "total_quizzes_completed": 0,
+  "total_quiz_questions_answered": 0,
+  "total_quiz_questions_correct": 0,
+  "topic_progress": {
+    "topic": {
+      "topic": "topic",
+      "notes_generated": 6,
+      "flashcards_reviewed": 0,
+      "flashcards_correct": 0,
+      "quizzes_completed": 0,
+      "quiz_average_score": 0.0,
+      "total_study_time_minutes": 0,
+      "last_studied": "2026-02-27 00:13:45.549481",
+      "first_studied": "2026-02-27 00:06:19.488735"
+    }
+  },
+  "daily_progress": {
+    "2026-02-27": {
+      "date": "2026-02-27",
+      "activities": [
+        {
+          "id": "e765c704-61f5-4201-ae2d-2c04e2f792c1",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:06:19.488735"
+        },
+        {
+          "id": "789fe02f-a557-4b9e-92ce-fb901a6dde47",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:07:21.975710"
+        },
+        {
+          "id": "2897e964-a8b0-483a-8ae2-798b1aab92dd",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:08:15.137896"
+        },
+        {
+          "id": "a4dd942c-9d8a-4c79-a425-49174801d512",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:08:50.810347"
+        },
+        {
+          "id": "2b0f09cf-6f3f-4e73-8582-d0a5837feb6d",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:11:51.519873"
+        },
+        {
+          "id": "24930d4f-f584-494e-970d-5a7fd517c440",
+          "activity_type": "note_generated",
+          "topic": "topic",
+          "details": {
+            "action": "generated"
+          },
+          "timestamp": "2026-02-27 00:13:45.548483"
+        }
+      ],
+      "topics_studied": [
+        "topic"
+      ],
+      "notes_count": 6,
+      "flashcards_reviewed": 0,
+      "quizzes_completed": 0,
+      "study_time_minutes": 0
+    }
+  },
+  "streak": {
+    "current_streak": 1,
+    "longest_streak": 1,
+    "last_study_date": "2026-02-27",
+    "streak_start_date": "2026-02-27"
+  },
+  "recent_activities": [
+    {
+      "id": "24930d4f-f584-494e-970d-5a7fd517c440",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:13:45.548483"
+    },
+    {
+      "id": "2b0f09cf-6f3f-4e73-8582-d0a5837feb6d",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:11:51.519873"
+    },
+    {
+      "id": "a4dd942c-9d8a-4c79-a425-49174801d512",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:08:50.810347"
+    },
+    {
+      "id": "2897e964-a8b0-483a-8ae2-798b1aab92dd",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:08:15.137896"
+    },
+    {
+      "id": "789fe02f-a557-4b9e-92ce-fb901a6dde47",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:07:21.975710"
+    },
+    {
+      "id": "e765c704-61f5-4201-ae2d-2c04e2f792c1",
+      "activity_type": "note_generated",
+      "topic": "topic",
+      "details": {
+        "action": "generated"
+      },
+      "timestamp": "2026-02-27 00:06:19.488735"
+    }
+  ]
+}

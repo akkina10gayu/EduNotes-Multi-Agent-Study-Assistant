@@ -27,6 +27,7 @@ from src.utils.logger import get_logger
 from src.utils.pdf_processor import get_pdf_processor
 from src.utils.progress_store import get_progress_store
 from src.api.study_routes import router as study_router
+from src.api.chat_routes import router as chat_router
 from config import settings
 
 logger = get_logger(__name__)
@@ -177,6 +178,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include study routes
 app.include_router(study_router)
+
+# Include chat routes
+app.include_router(chat_router)
 
 # Initialize components
 orchestrator = Orchestrator()
