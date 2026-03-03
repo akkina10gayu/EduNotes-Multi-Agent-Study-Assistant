@@ -7,6 +7,7 @@ python-multipart
 # LangChain Ecosystem
 langchain
 langchain-community
+langchain-text-splitters
 
 # Free LLM APIs (Primary - no cost)
 groq

@@ -5,7 +5,7 @@ No torch/transformers required — uses the same MiniLM-L6-v2 model via ONNX run
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import List, Dict, Any
 import hashlib
 import time
