@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: edunotes-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api.app:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: edunotes-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: groq
+      - key: CHROMA_PERSIST_DIR
+        value: /app/data/vector_db/chroma
+      - key: KB_PATH
+        value: /app/data/knowledge_base
+      - key: CONVERSATION_STORAGE
+        value: /app/data/conversations
+
+  - type: web
+    name: edunotes-ui
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run ui/streamlit_app.py --server.port $PORT --server.headless true
+    envVars:
+      - key: API_BASE_URL
+        value: https://edunotes-api.onrender.com/api/v1
