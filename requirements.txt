@@ -8,7 +8,7 @@ python-multipart
 langchain
 langchain-community
 
-# ML Models (Local - kept as fallback)
+# Embeddings & ML
 sentence-transformers
 transformers
 torch
@@ -17,6 +17,10 @@ tokenizers
 # Free LLM APIs (Primary - no cost)
 groq
 huggingface_hub
+
+# Chat AI Providers (Separate from Groq for rate limit isolation)
+google-genai
+cerebras-cloud-sdk
 
 # Vector Database
 chromadb

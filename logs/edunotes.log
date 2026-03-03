@@ -651,3 +651,438 @@
 2026-01-20 23:44:38 | INFO     | src.agents.orchestrator:process_url_query:324 - Added scraped content to knowledge base
 2026-01-20 23:44:47 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
 2026-01-20 23:44:47 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:04:56 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-02-27 00:05:47 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:05:47 | ERROR    | src.utils.llm_client:_init_client:51 - Failed to initialize groq client: GROQ_API_KEY not found. Get free key at: https://console.groq.com
+2026-02-27 00:05:47 | INFO     | src.utils.llm_client:_init_client:55 - Falling back to HuggingFace provider
+2026-02-27 00:05:47 | ERROR    | src.utils.llm_client:_init_client:60 - HuggingFace fallback also failed: HF_TOKEN not found. Get free token at: https://huggingface.co/settings/tokens
+2026-02-27 00:05:47 | WARNING  | src.utils.llm_client:_init_client:62 - No LLM providers available. LLM features will be disabled.
+2026-02-27 00:05:47 | INFO     | src.agents.summarizer:_initialize:29 - Initializing LLM client for summarization
+2026-02-27 00:05:47 | INFO     | src.agents.summarizer:_initialize:31 - LLM Provider: {'provider': 'none', 'model': 'none', 'available': False}
+2026-02-27 00:05:47 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-02-27 00:05:47 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-02-27 00:05:49 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:05:50 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:189 - ================================================================================
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:190 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:191 - ================================================================================
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:215 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 4: APIRouter (fastapi.routing)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 5: method (builtins)
+2026-02-27 00:05:50 | WARNING  | src.api.app:debug_auth_diagnostic:223 - ================================================================================
+2026-02-27 00:05:50 | INFO     | src.api.app:startup_event:228 - Starting EduNotes API...
+2026-02-27 00:05:50 | INFO     | src.api.app:startup_event:229 - API running on 0.0.0.0:8000
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:234 - ================================================================================
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:235 - ⚠️  GROQ API KEY NOT CONFIGURED!
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:236 - ================================================================================
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:237 - The system will use local models (slower performance).
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:238 - To use the faster Groq API:
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:239 - 1. Get a free API key at: https://console.groq.com
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:240 - 2. Add it to your .env file: GROQ_API_KEY=your_key_here
+2026-02-27 00:05:50 | WARNING  | src.api.app:startup_event:241 - ================================================================================
+2026-02-27 00:05:51 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-02-27 00:05:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:05:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:05:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:05:51 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:05:51 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-02-27 00:06:18 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: transformer architecture in detail and attention m... Mode: paragraph_summary, Length: auto
+2026-02-27 00:06:18 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: auto, research_mode: True
+2026-02-27 00:06:18 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: transformer architecture in detail and attention m... (search_mode=auto)
+2026-02-27 00:06:18 | INFO     | src.knowledge_base.vector_store:search:153 - Found 5 relevant documents for query
+2026-02-27 00:06:18 | INFO     | src.agents.retriever:search_knowledge_base:28 - Found 5 relevant documents for query: transformer architecture in detail and attention m...
+2026-02-27 00:06:18 | INFO     | src.agents.orchestrator:process_topic_query:109 - Found 5 relevant documents in KB
+2026-02-27 00:06:18 | INFO     | src.agents.orchestrator:process_topic_query:117 - Processing 5 documents with total length: 2527
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:315 - Processing content (2527 chars) in 'paragraph_summary' mode
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:analyze_content_type:55 - Stage 1: No LLM available - defaulting to 'general'
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:select_strategy:173 - Stage 2: Standard processing (no extra instructions)
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:06:18 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 2527 characters in 'paragraph_summary' mode
+2026-02-27 00:06:18 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 2527 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:06:18 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:evaluate_output:199 - Stage 4: No LLM available - skipping evaluation
+2026-02-27 00:06:18 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=general, gaps=0
+2026-02-27 00:06:18 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Transformer Architecture In Detail And Attention Mechanism
+2026-02-27 00:06:18 | INFO     | src.agents.orchestrator:_append_related_papers:433 - Research Mode: searching for related papers on 'transformer architecture in detail and attention m'
+2026-02-27 00:06:18 | INFO     | src.utils.academic_search:search_papers:183 - Academic search query: 'transformer architecture in detail and attention mechanism'
+2026-02-27 00:06:19 | INFO     | src.utils.academic_search:search_papers:190 - OpenAlex returned 5 papers
+2026-02-27 00:06:19 | INFO     | src.agents.orchestrator:_append_related_papers:443 - Research Mode: appended 5 related papers
+2026-02-27 00:06:19 | INFO     | src.utils.progress_store:load_progress:55 - Creating new progress for user: default
+2026-02-27 00:06:19 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-02-27 00:07:04 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: transformer architecture in detail and attention m... Mode: paragraph_summary, Length: auto
+2026-02-27 00:07:04 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: True
+2026-02-27 00:07:04 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: transformer architecture in detail and attention m... (search_mode=web_search)
+2026-02-27 00:07:04 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-02-27 00:07:04 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: transformer architecture in detail and attention mechanism
+2026-02-27 00:07:04 | INFO     | src.agents.web_search:process:561 - Starting web search for: transformer architecture in detail and attention mechanism
+2026-02-27 00:07:04 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:07:04 | INFO     | src.agents.web_search:_generate_fallback_queries:140 - Using fallback query generation
+2026-02-27 00:07:04 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['transformer architecture in detail and attention mechanism tutorial explained', 'transformer architecture in detail and attention mechanism fundamentals guide', 'what is transformer architecture in detail and attention mechanism comprehensive overview']
+2026-02-27 00:07:04 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:07:07 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer architecture in detail and attention m
+2026-02-27 00:07:10 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer architecture in detail and attention m
+2026-02-27 00:07:13 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: what is transformer architecture in detail and att
+2026-02-27 00:07:13 | INFO     | src.agents.web_search:execute_search:288 - Search returned 28 unique results from 3 queries
+2026-02-27 00:07:13 | INFO     | src.agents.web_search:process:578 - Found 28 unique results
+2026-02-27 00:07:13 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:07:13 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:07:13 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:07:17 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://en.wikipedia.org/wiki/Transformer_(deep_learning)
+2026-02-27 00:07:17 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://en.wikipedia.org/wiki/Transformer_(deep_learning) (64089 chars)
+2026-02-27 00:07:18 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://poloclub.github.io/transformer-explainer/
+2026-02-27 00:07:18 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://poloclub.github.io/transformer-explainer/ (17597 chars)
+2026-02-27 00:07:18 | WARNING  | src.agents.scraper:scrape_with_newspaper:64 - Newspaper3k failed for https://www.datacamp.com/tutorial/how-transformers-work: Article `download()` failed with 403 Client Error: Forbidden for url: https://www.datacamp.com/tutorial/how-transformers-work on URL https://www.datacamp.com/tutorial/how-transformers-work
+2026-02-27 00:07:18 | INFO     | src.agents.scraper:process:190 - Falling back to BeautifulSoup for https://www.datacamp.com/tutorial/how-transformers-work
+2026-02-27 00:07:19 | WARNING  | src.agents.scraper:scrape_with_beautifulsoup:142 - BeautifulSoup got 403 for https://www.datacamp.com/tutorial/how-transformers-work, trying primp...
+2026-02-27 00:07:19 | INFO     | src.agents.scraper:_scrape_with_primp:169 - primp successfully fetched https://www.datacamp.com/tutorial/how-transformers-work (492443 chars)
+2026-02-27 00:07:19 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.datacamp.com/tutorial/how-transformers-work
+2026-02-27 00:07:19 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.datacamp.com/tutorial/how-transformers-work (2380 chars)
+2026-02-27 00:07:19 | INFO     | src.agents.web_search:process:600 - Successfully scraped 3 pages
+2026-02-27 00:07:19 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:07:19 | INFO     | src.agents.web_search:process:609 - Quality check: 3/3 items passed
+2026-02-27 00:07:19 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 3 sources, 84080 chars
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:315 - Processing content (84080 chars) in 'paragraph_summary' mode
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:analyze_content_type:55 - Stage 1: No LLM available - defaulting to 'general'
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:select_strategy:173 - Stage 2: Standard processing (no extra instructions)
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:07:19 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 84080 characters in 'paragraph_summary' mode
+2026-02-27 00:07:19 | WARNING  | src.agents.summarizer:summarize_text:57 - Truncated input text from 84080 to 50000 characters
+2026-02-27 00:07:19 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 50000 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:07:19 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:evaluate_output:199 - Stage 4: No LLM available - skipping evaluation
+2026-02-27 00:07:19 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=general, gaps=0
+2026-02-27 00:07:19 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Transformer Architecture In Detail And Attention Mechanism
+2026-02-27 00:07:19 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: transformer architecture in detail and attention mechanism
+2026-02-27 00:07:21 | INFO     | src.knowledge_base.vector_store:add_documents:117 - Added batch of 173 chunks to vector store
+2026-02-27 00:07:21 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'transformer architecture in detail and attention mechanism' to KB
+2026-02-27 00:07:21 | INFO     | src.agents.orchestrator:_append_related_papers:433 - Research Mode: searching for related papers on 'transformer architecture in detail and attention m'
+2026-02-27 00:07:21 | INFO     | src.utils.academic_search:search_papers:175 - Academic search cache HIT for: transformer architecture in detail and attention m
+2026-02-27 00:07:21 | INFO     | src.agents.orchestrator:_append_related_papers:443 - Research Mode: appended 5 related papers
+2026-02-27 00:07:21 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-02-27 00:08:00 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: transformer architecture in detail... Mode: paragraph_summary, Length: auto
+2026-02-27 00:08:00 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: True
+2026-02-27 00:08:00 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: transformer architecture in detail... (search_mode=web_search)
+2026-02-27 00:08:00 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-02-27 00:08:00 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: transformer architecture in detail
+2026-02-27 00:08:00 | INFO     | src.agents.web_search:process:561 - Starting web search for: transformer architecture in detail
+2026-02-27 00:08:00 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:08:00 | INFO     | src.agents.web_search:_generate_fallback_queries:140 - Using fallback query generation
+2026-02-27 00:08:00 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['transformer architecture in detail tutorial explained', 'transformer architecture in detail fundamentals guide', 'what is transformer architecture in detail comprehensive overview']
+2026-02-27 00:08:00 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:08:03 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer architecture in detail tutorial explai
+2026-02-27 00:08:05 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer architecture in detail fundamentals gu
+2026-02-27 00:08:10 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: what is transformer architecture in detail compreh
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:execute_search:288 - Search returned 28 unique results from 3 queries
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:process:578 - Found 28 unique results
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:08:10 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://sriku.org/posts/transformer/
+2026-02-27 00:08:10 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://sriku.org/posts/transformer/ (20139 chars)
+2026-02-27 00:08:11 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://myusawire.com/transformer-architecture/
+2026-02-27 00:08:11 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://myusawire.com/transformer-architecture/ (13900 chars)
+2026-02-27 00:08:12 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://arxiv.org/html/2302.07730v4
+2026-02-27 00:08:12 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://arxiv.org/html/2302.07730v4 (10666 chars)
+2026-02-27 00:08:12 | INFO     | src.agents.web_search:process:600 - Successfully scraped 3 pages
+2026-02-27 00:08:12 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:08:12 | INFO     | src.agents.web_search:process:609 - Quality check: 3/3 items passed
+2026-02-27 00:08:12 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 3 sources, 44719 chars
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:315 - Processing content (44719 chars) in 'paragraph_summary' mode
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:analyze_content_type:55 - Stage 1: No LLM available - defaulting to 'general'
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:select_strategy:173 - Stage 2: Standard processing (no extra instructions)
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:08:12 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 44719 characters in 'paragraph_summary' mode
+2026-02-27 00:08:12 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 44719 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:08:12 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:evaluate_output:199 - Stage 4: No LLM available - skipping evaluation
+2026-02-27 00:08:12 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=general, gaps=0
+2026-02-27 00:08:12 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Transformer Architecture In Detail
+2026-02-27 00:08:12 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: transformer architecture in detail
+2026-02-27 00:08:14 | INFO     | src.knowledge_base.vector_store:add_documents:117 - Added batch of 95 chunks to vector store
+2026-02-27 00:08:14 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'transformer architecture in detail' to KB
+2026-02-27 00:08:14 | INFO     | src.agents.orchestrator:_append_related_papers:433 - Research Mode: searching for related papers on 'transformer architecture in detail'
+2026-02-27 00:08:14 | INFO     | src.utils.academic_search:search_papers:183 - Academic search query: 'transformer architecture in detail'
+2026-02-27 00:08:15 | INFO     | src.utils.academic_search:search_papers:190 - OpenAlex returned 5 papers
+2026-02-27 00:08:15 | INFO     | src.agents.orchestrator:_append_related_papers:443 - Research Mode: appended 5 related papers
+2026-02-27 00:08:15 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-02-27 00:08:35 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: Neural Networks... Mode: paragraph_summary, Length: auto
+2026-02-27 00:08:35 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: True
+2026-02-27 00:08:35 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: Neural Networks... (search_mode=web_search)
+2026-02-27 00:08:35 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-02-27 00:08:35 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: Neural Networks
+2026-02-27 00:08:35 | INFO     | src.agents.web_search:process:561 - Starting web search for: Neural Networks
+2026-02-27 00:08:35 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:08:35 | INFO     | src.agents.web_search:_generate_fallback_queries:140 - Using fallback query generation
+2026-02-27 00:08:35 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['Neural Networks tutorial explained', 'Neural Networks fundamentals guide', 'what is Neural Networks comprehensive overview']
+2026-02-27 00:08:35 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:08:37 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: Neural Networks tutorial explained
+2026-02-27 00:08:40 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: Neural Networks fundamentals guide
+2026-02-27 00:08:44 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: what is Neural Networks comprehensive overview
+2026-02-27 00:08:44 | INFO     | src.agents.web_search:execute_search:288 - Search returned 25 unique results from 3 queries
+2026-02-27 00:08:44 | INFO     | src.agents.web_search:process:578 - Found 25 unique results
+2026-02-27 00:08:44 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:08:44 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:08:44 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:08:45 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.geeksforgeeks.org/machine-learning/neural-networks-a-beginners-guide/
+2026-02-27 00:08:45 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.geeksforgeeks.org/machine-learning/neural-networks-a-beginners-guide/ (13687 chars)
+2026-02-27 00:08:46 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.youtube.com/playlist?list=PLJXHwy-4vGRYJBB52JqWo5zTwbilq0OB_
+2026-02-27 00:08:46 | WARNING  | src.agents.web_search:extract_content:434 - Scrape returned insufficient content: https://www.youtube.com/playlist?list=PLJXHwy-4vGRYJBB52JqWo5zTwbilq0OB_
+2026-02-27 00:08:48 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://developers.google.com/machine-learning/crash-course/neural-networks
+2026-02-27 00:08:48 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://developers.google.com/machine-learning/crash-course/neural-networks (2956 chars)
+2026-02-27 00:08:48 | INFO     | src.agents.web_search:process:600 - Successfully scraped 2 pages
+2026-02-27 00:08:48 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:08:48 | INFO     | src.agents.web_search:process:609 - Quality check: 2/2 items passed
+2026-02-27 00:08:48 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 2 sources, 16650 chars
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:315 - Processing content (16650 chars) in 'paragraph_summary' mode
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:analyze_content_type:55 - Stage 1: No LLM available - defaulting to 'general'
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:select_strategy:173 - Stage 2: Standard processing (no extra instructions)
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:08:48 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 16650 characters in 'paragraph_summary' mode
+2026-02-27 00:08:48 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 16650 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:08:48 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:evaluate_output:199 - Stage 4: No LLM available - skipping evaluation
+2026-02-27 00:08:48 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=general, gaps=0
+2026-02-27 00:08:48 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Neural Networks
+2026-02-27 00:08:48 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: Neural Networks
+2026-02-27 00:08:49 | INFO     | src.knowledge_base.vector_store:add_documents:117 - Added batch of 36 chunks to vector store
+2026-02-27 00:08:49 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'Neural Networks' to KB
+2026-02-27 00:08:49 | INFO     | src.agents.orchestrator:_append_related_papers:433 - Research Mode: searching for related papers on 'Neural Networks'
+2026-02-27 00:08:49 | INFO     | src.utils.academic_search:search_papers:183 - Academic search query: 'Neural Networks'
+2026-02-27 00:08:50 | INFO     | src.utils.academic_search:search_papers:190 - OpenAlex returned 5 papers
+2026-02-27 00:08:50 | INFO     | src.agents.orchestrator:_append_related_papers:443 - Research Mode: appended 5 related papers
+2026-02-27 00:08:50 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-02-27 00:09:27 | INFO     | src.api.app:shutdown_event:264 - Shutting down EduNotes API...
+2026-02-27 00:09:38 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-02-27 00:10:03 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:10:04 | INFO     | src.utils.llm_client:_init_groq:80 - Initialized Groq client with model: llama-3.3-70b-versatile, light model: llama-3.1-8b-instant
+2026-02-27 00:10:04 | INFO     | src.agents.summarizer:_initialize:29 - Initializing LLM client for summarization
+2026-02-27 00:10:04 | INFO     | src.agents.summarizer:_initialize:31 - LLM Provider: {'provider': 'groq', 'model': 'llama-3.3-70b-versatile', 'available': True}
+2026-02-27 00:10:04 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-02-27 00:10:04 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-02-27 00:10:05 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:10:07 | INFO     | src.knowledge_base.vector_store:__init__:57 - Loaded existing collection: edunotes_kb
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:189 - ================================================================================
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:190 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:191 - ================================================================================
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:215 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 4: APIRouter (fastapi.routing)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:219 -   Layer 5: method (builtins)
+2026-02-27 00:10:07 | WARNING  | src.api.app:debug_auth_diagnostic:223 - ================================================================================
+2026-02-27 00:10:07 | INFO     | src.api.app:startup_event:228 - Starting EduNotes API...
+2026-02-27 00:10:07 | INFO     | src.api.app:startup_event:229 - API running on 0.0.0.0:8000
+2026-02-27 00:10:07 | INFO     | src.api.app:startup_event:243 - ✅ Groq API key configured
+2026-02-27 00:10:07 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-02-27 00:10:07 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-02-27 00:10:40 | INFO     | src.knowledge_base.vector_store:get_unique_topics:193 - Topics cache miss/expired, fetching from database...
+2026-02-27 00:10:40 | INFO     | src.knowledge_base.vector_store:get_unique_topics:220 - Found 10 unique topics in KB (cached for 300s)
+2026-02-27 00:10:57 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: Deep Learning... Mode: paragraph_summary, Length: auto
+2026-02-27 00:10:57 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: False
+2026-02-27 00:10:57 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: Deep Learning... (search_mode=web_search)
+2026-02-27 00:10:57 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-02-27 00:10:57 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: Deep Learning
+2026-02-27 00:10:57 | INFO     | src.agents.web_search:process:561 - Starting web search for: Deep Learning
+2026-02-27 00:10:57 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:10:58 | INFO     | src.agents.web_search:generate_search_queries:129 - LLM generated 3 search queries
+2026-02-27 00:10:58 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['deep learning tutorial for beginners', 'deep learning explained with examples and code', 'deep learning fundamentals and applications guide']
+2026-02-27 00:10:58 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:11:01 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning tutorial for beginners
+2026-02-27 00:11:04 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning explained with examples and code
+2026-02-27 00:11:08 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning fundamentals and applications guide
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:execute_search:288 - Search returned 30 unique results from 3 queries
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:process:578 - Found 30 unique results
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:evaluate_results:385 - LLM selected 3 results from 30 candidates
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:11:08 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:11:11 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.geeksforgeeks.org/deep-learning/introduction-deep-learning/
+2026-02-27 00:11:11 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.geeksforgeeks.org/deep-learning/introduction-deep-learning/ (6904 chars)
+2026-02-27 00:11:11 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://arxiv.org/abs/1412.6572
+2026-02-27 00:11:11 | WARNING  | src.agents.web_search:extract_content:434 - Scrape returned insufficient content: https://arxiv.org/abs/1412.6572
+2026-02-27 00:11:15 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.analyticsvidhya.com/blog/2017/04/comparison-between-deep-learning-machine-learning/
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.analyticsvidhya.com/blog/2017/04/comparison-between-deep-learning-machine-learning/ (17663 chars)
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:process:600 - Successfully scraped 2 pages
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://www.geeksforgeeks.org/deep-learning/introduction-deep-learning/
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:assess_content_quality:504 - Quality check FAILED: https://www.analyticsvidhya.com/blog/2017/04/comparison-between-deep-learning-machine-learning/ - Reason: NO
+Reason: The content preview suggests a basic and introductory explanation of the difference between machine learning and deep learning, which may not provide in-depth educational
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:process:609 - Quality check: 1/2 items passed
+2026-02-27 00:11:15 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 1 sources, 6904 chars
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:process:315 - Processing content (6904 chars) in 'paragraph_summary' mode
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:analyze_content_type:98 - Stage 1: Content classified as 'tutorial'
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:select_strategy:171 - Stage 2: Applied 'tutorial' preservation strategy
+2026-02-27 00:11:15 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:11:15 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 6904 characters in 'paragraph_summary' mode
+2026-02-27 00:11:15 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 6904 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:11:15 | INFO     | src.utils.llm_client:summarize:213 - Auto mode: input=6904 chars -> output_length='detailed'
+2026-02-27 00:11:15 | INFO     | src.utils.llm_client:summarize:215 - Building prompt for style='paragraph_summary', output_length='detailed', text_length=6904 chars
+2026-02-27 00:11:15 | INFO     | src.utils.llm_client:summarize:234 - Optimized max_tokens: 2048 (style=paragraph_summary, length=detailed)
+2026-02-27 00:11:15 | INFO     | src.utils.llm_client:summarize:466 - Sending to LLM - Provider: groq, Style: paragraph_summary, max_tokens: 2048, Prompt length: 8972 chars
+2026-02-27 00:11:19 | INFO     | src.utils.llm_client:summarize:473 - LLM response received - Length: 7006 chars
+2026-02-27 00:11:19 | INFO     | src.agents.summarizer:summarize_text:82 - Summary generated using API - Length: 7006 chars, Style: paragraph_summary, OutputLength: auto
+2026-02-27 00:11:19 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:11:19 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:11:19 | INFO     | src.agents.content_agent:_parse_evaluation:266 - Stage 4: Quality=needs_improvement, Gaps=['Difference between Machine Learning and Deep Learning (Aspect comparison table)', 'What is a Neural Network?', 'Hardware Requirement', 'Use Cases', 'Evolution of Neural Architectures', 'Variants of Neural Networks (LSTMs', 'GRUs)', 'and Methods and Techniques used in Deep Learning (dropout', 'regularization', 'batch normalization)'], Reason=The generated summary covers the high-level concepts and applications of deep learning but lacks detailed explanations and comparisons of key topics, such as the difference between machine learning and deep learning, the evolution of neural architectures, and the methods and techniques used in deep learning. Additionally, it does not provide specific examples or use cases, which are essential for a comprehensive understanding of the subject.
+2026-02-27 00:11:19 | INFO     | src.agents.content_agent:process:364 - Content gaps identified: ['Difference between Machine Learning and Deep Learning (Aspect comparison table)', 'What is a Neural Network?', 'Hardware Requirement', 'Use Cases', 'Evolution of Neural Architectures', 'Variants of Neural Networks (LSTMs', 'GRUs)', 'and Methods and Techniques used in Deep Learning (dropout', 'regularization', 'batch normalization)']
+2026-02-27 00:11:19 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=tutorial, gaps=10
+2026-02-27 00:11:19 | INFO     | src.agents.orchestrator:_resolve_gaps:469 - ContentAgent identified gaps: ['Difference between Machine Learning and Deep Learning (Aspect comparison table)', 'What is a Neural Network?', 'Hardware Requirement', 'Use Cases', 'Evolution of Neural Architectures', 'Variants of Neural Networks (LSTMs', 'GRUs)', 'and Methods and Techniques used in Deep Learning (dropout', 'regularization', 'batch normalization)']
+2026-02-27 00:11:19 | INFO     | src.agents.orchestrator:_fill_content_gaps:458 - Gap resolution: searching for 'Deep Learning Difference between Machine Learning and Deep Learning (Aspect comparison table)'
+2026-02-27 00:11:19 | INFO     | src.agents.web_search:process:561 - Starting web search for: Deep Learning Difference between Machine Learning and Deep Learning (Aspect comparison table)
+2026-02-27 00:11:19 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:11:20 | INFO     | src.agents.web_search:generate_search_queries:129 - LLM generated 3 search queries
+2026-02-27 00:11:20 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['deep learning vs machine learning tutorial comparison', 'difference between machine learning and deep learning explained basics', 'machine learning vs deep learning guide comparison table']
+2026-02-27 00:11:20 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:11:22 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning vs machine learning tutorial compari
+2026-02-27 00:11:25 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: difference between machine learning and deep learn
+2026-02-27 00:11:28 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: machine learning vs deep learning guide comparison
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:execute_search:288 - Search returned 30 unique results from 3 queries
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:process:578 - Found 30 unique results
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:evaluate_results:385 - LLM selected 3 results from 30 candidates
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:11:28 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:11:29 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://drsafavi.xyz/deep-learning-vs-machine-learning-an-in-depth-comparison-guide/
+2026-02-27 00:11:29 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://drsafavi.xyz/deep-learning-vs-machine-learning-an-in-depth-comparison-guide/ (4572 chars)
+2026-02-27 00:11:30 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://hyscaler.com/insights/machine-learning-vs-deep-learning/
+2026-02-27 00:11:30 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://hyscaler.com/insights/machine-learning-vs-deep-learning/ (12793 chars)
+2026-02-27 00:11:33 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.techno-revelation.com/machine-learning-vs-deep-learning-key-differences-explained/
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.techno-revelation.com/machine-learning-vs-deep-learning-key-differences-explained/ (17170 chars)
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:600 - Successfully scraped 3 pages
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://drsafavi.xyz/deep-learning-vs-machine-learning-an-in-depth-comparison-guide/
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://hyscaler.com/insights/machine-learning-vs-deep-learning/
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://www.techno-revelation.com/machine-learning-vs-deep-learning-key-differences-explained/
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:609 - Quality check: 3/3 items passed
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 3 sources, 34549 chars
+2026-02-27 00:11:33 | INFO     | src.agents.orchestrator:_fill_content_gaps:458 - Gap resolution: searching for 'Deep Learning What is a Neural Network?'
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:561 - Starting web search for: Deep Learning What is a Neural Network?
+2026-02-27 00:11:33 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:11:34 | INFO     | src.agents.web_search:generate_search_queries:129 - LLM generated 3 search queries
+2026-02-27 00:11:34 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['deep learning neural network basics tutorial', 'what is a neural network in deep learning explained', 'deep learning neural network fundamentals guide for beginners']
+2026-02-27 00:11:34 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:11:36 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning neural network basics tutorial
+2026-02-27 00:11:39 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: what is a neural network in deep learning explaine
+2026-02-27 00:11:42 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning neural network fundamentals guide fo
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:execute_search:288 - Search returned 29 unique results from 3 queries
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:process:578 - Found 29 unique results
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:evaluate_results:385 - LLM selected 3 results from 29 candidates
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:11:42 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:11:44 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.guru99.com/deep-learning-tutorial.html
+2026-02-27 00:11:44 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.guru99.com/deep-learning-tutorial.html (12420 chars)
+2026-02-27 00:11:45 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.analyticssteps.com/blogs/deep-learning-and-neural-networks-explained
+2026-02-27 00:11:45 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.analyticssteps.com/blogs/deep-learning-and-neural-networks-explained (13609 chars)
+2026-02-27 00:11:46 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.pluralsight.com/resources/blog/ai-and-data/deep-learning-neural-networks-explained
+2026-02-27 00:11:46 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.pluralsight.com/resources/blog/ai-and-data/deep-learning-neural-networks-explained (1155 chars)
+2026-02-27 00:11:46 | INFO     | src.agents.web_search:process:600 - Successfully scraped 3 pages
+2026-02-27 00:11:46 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:11:46 | INFO     | src.agents.web_search:assess_content_quality:504 - Quality check FAILED: https://www.guru99.com/deep-learning-tutorial.html - Reason: NO
+Reason: The content preview does not provide a clear explanation of what a Neural Network is, which is the main topic of the educational material.
+2026-02-27 00:11:47 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://www.analyticssteps.com/blogs/deep-learning-and-neural-networks-explained
+2026-02-27 00:11:47 | INFO     | src.agents.web_search:assess_content_quality:504 - Quality check FAILED: https://www.pluralsight.com/resources/blog/ai-and-data/deep-learning-neural-networks-explained - Reason: NO. 
+
+The content preview does not provide a clear explanation of what a neural network is, but rather jumps into explaining how it "learns"
+2026-02-27 00:11:47 | INFO     | src.agents.web_search:process:609 - Quality check: 1/3 items passed
+2026-02-27 00:11:47 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 1 sources, 13609 chars
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:process:315 - Processing content (12940 chars) in 'paragraph_summary' mode
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:analyze_content_type:63 - Stage 1 cache HIT: tutorial
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:select_strategy:171 - Stage 2: Applied 'tutorial' preservation strategy
+2026-02-27 00:11:47 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:11:47 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 12940 characters in 'paragraph_summary' mode
+2026-02-27 00:11:47 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 12940 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:11:47 | INFO     | src.utils.llm_client:summarize:213 - Auto mode: input=12940 chars -> output_length='detailed'
+2026-02-27 00:11:47 | INFO     | src.utils.llm_client:summarize:215 - Building prompt for style='paragraph_summary', output_length='detailed', text_length=12940 chars
+2026-02-27 00:11:47 | INFO     | src.utils.llm_client:summarize:234 - Optimized max_tokens: 2048 (style=paragraph_summary, length=detailed)
+2026-02-27 00:11:47 | INFO     | src.utils.llm_client:summarize:466 - Sending to LLM - Provider: groq, Style: paragraph_summary, max_tokens: 2048, Prompt length: 15008 chars
+2026-02-27 00:11:50 | INFO     | src.utils.llm_client:summarize:473 - LLM response received - Length: 6631 chars
+2026-02-27 00:11:50 | INFO     | src.agents.summarizer:summarize_text:82 - Summary generated using API - Length: 6631 chars, Style: paragraph_summary, OutputLength: auto
+2026-02-27 00:11:50 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:11:50 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:11:51 | INFO     | src.agents.content_agent:_parse_evaluation:266 - Stage 4: Quality=needs_improvement, Gaps=['Difference between Machine Learning and Deep Learning', 'Aspect comparison', 'Machine Learning use cases', 'Hardware Requirement', 'Use Cases for Deep Learning'], Reason=The generated summary provides a general overview of deep learning but lacks specific details and comparisons from the original content. The original content highlights the differences between machine learning and deep learning, provides a comparison of aspects, and lists specific use cases for machine learning and deep learning. Additionally, the original content mentions hardware requirements for deep learning, which is not present in the generated summary.
+2026-02-27 00:11:51 | INFO     | src.agents.content_agent:process:364 - Content gaps identified: ['Difference between Machine Learning and Deep Learning', 'Aspect comparison', 'Machine Learning use cases', 'Hardware Requirement', 'Use Cases for Deep Learning']
+2026-02-27 00:11:51 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=tutorial, gaps=5
+2026-02-27 00:11:51 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Deep Learning
+2026-02-27 00:11:51 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: Deep Learning
+2026-02-27 00:11:51 | INFO     | src.knowledge_base.vector_store:add_documents:117 - Added batch of 15 chunks to vector store
+2026-02-27 00:11:51 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'Deep Learning' to KB
+2026-02-27 00:11:51 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-02-27 00:13:20 | INFO     | src.api.app:generate_notes:329 - Generating notes for query: Transformer architecture... Mode: paragraph_summary, Length: auto
+2026-02-27 00:13:20 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: False
+2026-02-27 00:13:20 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: Transformer architecture... (search_mode=web_search)
+2026-02-27 00:13:20 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-02-27 00:13:20 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: Transformer architecture
+2026-02-27 00:13:20 | INFO     | src.agents.web_search:process:561 - Starting web search for: Transformer architecture
+2026-02-27 00:13:20 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-02-27 00:13:21 | INFO     | src.agents.web_search:generate_search_queries:129 - LLM generated 3 search queries
+2026-02-27 00:13:21 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['transformer architecture tutorial for beginners', 'transformer model explained with examples and code', 'self attention mechanism in transformer architecture fundamentals guide']
+2026-02-27 00:13:21 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-02-27 00:13:23 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer architecture tutorial for beginners
+2026-02-27 00:13:26 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: transformer model explained with examples and code
+2026-02-27 00:13:32 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: self attention mechanism in transformer architectu
+2026-02-27 00:13:32 | INFO     | src.agents.web_search:execute_search:288 - Search returned 30 unique results from 3 queries
+2026-02-27 00:13:32 | INFO     | src.agents.web_search:process:578 - Found 30 unique results
+2026-02-27 00:13:32 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-02-27 00:13:33 | INFO     | src.agents.web_search:evaluate_results:385 - LLM selected 3 results from 30 candidates
+2026-02-27 00:13:34 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-02-27 00:13:34 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-02-27 00:13:35 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://microtran.org/watch/transformer-architecture-explained-attention-is-all-you-need-foundation-of-bert-gpt-3-roberta_3tdbzCTEIHSZpT5.html
+2026-02-27 00:13:35 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://microtran.org/watch/transformer-architecture-explained-attention-is-all-you-need-foundation-of-bert-gpt-3-roberta_3tdbzCTEIHSZpT5.html (2450 chars)
+2026-02-27 00:13:39 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://github.com/huggingface/transformers
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://github.com/huggingface/transformers (9015 chars)
+2026-02-27 00:13:39 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://arxiv.org/html/2302.07730v4
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://arxiv.org/html/2302.07730v4 (10666 chars)
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:process:600 - Successfully scraped 3 pages
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://microtran.org/watch/transformer-architecture-explained-attention-is-all-you-need-foundation-of-bert-gpt-3-roberta_3tdbzCTEIHSZpT5.html
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://github.com/huggingface/transformers
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://arxiv.org/html/2302.07730v4
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:process:609 - Quality check: 3/3 items passed
+2026-02-27 00:13:39 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 3 sources, 22145 chars
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:process:315 - Processing content (22145 chars) in 'paragraph_summary' mode
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:analyze_content_type:98 - Stage 1: Content classified as 'tutorial'
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:select_strategy:171 - Stage 2: Applied 'tutorial' preservation strategy
+2026-02-27 00:13:39 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-02-27 00:13:39 | INFO     | src.agents.summarizer:summarize_text:52 - Summarizing text of length: 22145 characters in 'paragraph_summary' mode
+2026-02-27 00:13:39 | INFO     | src.agents.summarizer:summarize_text:59 - Processing 22145 characters with style='paragraph_summary', output_length='auto'
+2026-02-27 00:13:39 | INFO     | src.utils.llm_client:summarize:213 - Auto mode: input=22145 chars -> output_length='detailed'
+2026-02-27 00:13:39 | INFO     | src.utils.llm_client:summarize:215 - Building prompt for style='paragraph_summary', output_length='detailed', text_length=22145 chars
+2026-02-27 00:13:39 | INFO     | src.utils.llm_client:summarize:234 - Optimized max_tokens: 2048 (style=paragraph_summary, length=detailed)
+2026-02-27 00:13:39 | INFO     | src.utils.llm_client:summarize:466 - Sending to LLM - Provider: groq, Style: paragraph_summary, max_tokens: 2048, Prompt length: 24213 chars
+2026-02-27 00:13:43 | INFO     | src.utils.llm_client:summarize:473 - LLM response received - Length: 5599 chars
+2026-02-27 00:13:43 | INFO     | src.agents.summarizer:summarize_text:82 - Summary generated using API - Length: 5599 chars, Style: paragraph_summary, OutputLength: auto
+2026-02-27 00:13:43 | INFO     | src.agents.summarizer:process:367 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-02-27 00:13:43 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-02-27 00:13:44 | INFO     | src.agents.content_agent:_parse_evaluation:266 - Stage 4: Quality=needs_improvement, Gaps=[], Reason=
+2026-02-27 00:13:44 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=tutorial, gaps=0
+2026-02-27 00:13:44 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Transformer Architecture
+2026-02-27 00:13:44 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: Transformer architecture
+2026-02-27 00:13:45 | INFO     | src.knowledge_base.vector_store:add_documents:117 - Added batch of 47 chunks to vector store
+2026-02-27 00:13:45 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'Transformer architecture' to KB
+2026-02-27 00:13:45 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-03-01 20:56:39 | INFO     | src.api.app:shutdown_event:264 - Shutting down EduNotes API...

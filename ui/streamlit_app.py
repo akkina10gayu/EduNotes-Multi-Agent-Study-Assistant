@@ -1061,7 +1061,13 @@ else:
 st.divider()
 
 # Main content area
-tab1, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "🔍 Search Knowledge Base", "📤 Update Knowledge Base", "📖 Study Mode"])
+st.markdown("""<style>
+    button[data-baseweb="tab"] > div > p {
+        font-size: 1.05rem !important;
+        font-weight: 500 !important;
+    }
+</style>""", unsafe_allow_html=True)
+tab1, tab_chat, tab2, tab3, tab4 = st.tabs(["📝 Generate Notes", "💬 Chat with AI", "🔍 Search Knowledge Base", "📤 Update Knowledge Base", "📖 Study Mode"])
 
 # Tab 1: Generate Notes
 with tab1:
@@ -2123,6 +2129,705 @@ with tab1:
                 if st.button("❌ Cancel", use_container_width=True, key="cancel_save_kb_history"):
                     st.session_state.show_save_kb_history = False
                     st.rerun()
+
+# =============================================================================
+# AI CHAT TAB
+# =============================================================================
+with tab_chat:
+    # ---- Session state initialization ----
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+    if "chat_session_id" not in st.session_state:
+        st.session_state.chat_session_id = None
+    if "chat_provider_info" not in st.session_state:
+        st.session_state.chat_provider_info = ""
+    if "research_state" not in st.session_state:
+        st.session_state.research_state = None
+    if "editing_msg_idx" not in st.session_state:
+        st.session_state.editing_msg_idx = None
+
+    CHAT_API = f"{API_BASE_URL}/chat"
+    CHAT_INPUT_MAX_CHARS = 50000
+
+    # ---- Mode selector row ----
+    chat_col1, chat_col2, chat_col3 = st.columns([2, 1, 1])
+    with chat_col1:
+        chat_mode_labels = {
+            "chat": "Chat",
+            "answer_writer": "Exam Answer",
+            "explain": "Explain Concept",
+            "compare": "Compare Topics",
+            "socratic": "Socratic Tutor",
+            "paper_analysis": "Paper Analysis",
+            "research": "Research Writer",
+        }
+        chat_mode_descriptions = {
+            "chat": "Ask anything — your intelligent study companion",
+            "answer_writer": "Model answers for exam preparation",
+            "explain": "Concept explanations tailored to your level",
+            "compare": "Structured comparison between two topics",
+            "socratic": "Guided learning through questions",
+            "paper_analysis": "Analyze and discuss research papers",
+            "research": "Assisted research paper writing",
+        }
+        chat_mode = st.selectbox(
+            "Mode",
+            options=list(chat_mode_labels.keys()),
+            format_func=lambda x: chat_mode_labels[x],
+            key="chat_mode_select",
+        )
+        st.caption(f"ℹ️ {chat_mode_descriptions[chat_mode]}")
+    with chat_col2:
+        chat_use_kb = st.toggle("Auto Search", value=True, key="chat_kb_toggle", help="ON: Searches Knowledge Base and web for context before answering. OFF: AI answers purely from its own knowledge.")
+    with chat_col3:
+        if st.button("New Chat", key="new_chat_btn", use_container_width=True):
+            st.session_state.chat_messages = []
+            st.session_state.chat_session_id = None
+            st.session_state.chat_provider_info = ""
+            st.session_state.research_state = None
+            st.session_state.editing_msg_idx = None
+            st.rerun()
+
+    # ---- Mode-specific extra controls ----
+    extra_params = {}
+    if chat_mode == "explain":
+        ex_col1, ex_col2, ex_col3 = st.columns(3)
+        with ex_col1:
+            extra_params["explain_level"] = st.selectbox(
+                "Level", ["eli5", "beginner", "intermediate", "advanced"],
+                format_func=lambda x: {"eli5": "ELI5 (Super Simple)", "beginner": "Beginner", "intermediate": "Intermediate", "advanced": "Advanced"}[x],
+                index=2, key="explain_level"
+            )
+        with ex_col2:
+            extra_params["explain_style"] = st.selectbox(
+                "Style", ["technical", "analogy", "visual"],
+                format_func=lambda x: {"technical": "Technical", "analogy": "Using Analogies", "visual": "Visual (Diagrams & Tables)"}[x],
+                key="explain_style"
+            )
+        with ex_col3:
+            if extra_params.get("explain_style") == "analogy":
+                extra_params["analogy_domain"] = st.text_input(
+                    "Analogy domain", value="everyday life", key="analogy_domain"
+                )
+    elif chat_mode == "answer_writer":
+        extra_params["answer_depth"] = st.selectbox(
+            "Answer length", ["brief", "standard", "detailed"],
+            format_func=lambda x: {"brief": "Brief (100-150 words)", "standard": "Standard (400-600 words)", "detailed": "Detailed (800-1500 words)"}[x],
+            index=1, key="answer_depth"
+        )
+    elif chat_mode == "compare":
+        extra_params["compare_concept_2"] = st.text_input(
+            "Second topic", key="compare_concept_2",
+        )
+
+    # ---- Helper to send a chat message to the API ----
+    def _send_chat_message(user_message):
+        """Send a message to the chat API and update session state."""
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.chat_messages
+        ]
+        payload = {
+            "message": user_message,
+            "mode": chat_mode,
+            "use_kb": chat_use_kb,
+            "history": history,
+            "session_id": st.session_state.chat_session_id,
+            **extra_params,
+        }
+        try:
+            session = get_api_session()
+            resp = session.post(f"{CHAT_API}/message", json=payload, timeout=120)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success"):
+                    st.session_state.chat_session_id = data.get("session_id")
+                    st.session_state.chat_provider_info = data.get("provider_used", "")
+                    st.session_state.chat_messages.append(
+                        {"role": "user", "content": user_message}
+                    )
+                    st.session_state.chat_messages.append({
+                        "role": "assistant",
+                        "content": data["response"],
+                        "suggestions": data.get("suggestions", []),
+                        "sources": data.get("sources", []),
+                    })
+                    return True
+                else:
+                    st.error(f"Chat error: {data.get('error', 'Unknown error')}")
+            else:
+                st.error(f"API returned status {resp.status_code}")
+        except requests.exceptions.ConnectionError:
+            st.error("Cannot connect to API. Make sure the server is running.")
+        except Exception as e:
+            st.error(f"Error: {e}")
+        return False
+
+    # ==================================================================
+    # RESEARCH PAPER MODE
+    # ==================================================================
+    if chat_mode == "research":
+        st.markdown("#### Research Writer")
+
+        rs = st.session_state.research_state
+
+        # ---- Stage: Not started ----
+        if rs is None:
+            with st.form("research_start_form"):
+                r_topic = st.text_input("Paper title / topic", key="r_topic")
+                r_context = st.text_area(
+                    "Initial context (what you know so far)",
+                    height=150, key="r_context",
+                    placeholder="Describe your research question, methodology, data, results...",
+                )
+                r_type = st.selectbox(
+                    "Paper type", ["research", "survey", "case_study"],
+                    format_func=lambda x: x.replace("_", " ").title(),
+                    key="r_type",
+                )
+                r_submit = st.form_submit_button("Start Analysis", type="primary")
+
+            if r_submit and r_topic:
+                with st.spinner("Analyzing your topic..."):
+                    try:
+                        session = get_api_session()
+                        resp = session.post(
+                            f"{CHAT_API}/research/start",
+                            json={"topic": r_topic, "initial_context": r_context, "paper_type": r_type},
+                            timeout=120,
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            if data.get("success"):
+                                # Build initial AI message from analysis + questions
+                                _init_parts = []
+                                if data.get("analysis"):
+                                    _init_parts.append(data["analysis"])
+                                if data.get("info_available"):
+                                    _init_parts.append(f"\n**Available information:** {', '.join(data['info_available'])}")
+                                if data.get("info_missing"):
+                                    _init_parts.append(f"\n**Still needed:** {', '.join(data['info_missing'])}")
+                                _init_questions = data.get("questions", [])
+                                if _init_questions:
+                                    _init_parts.append("\n**Please provide the following:**")
+                                    for _qi, _q in enumerate(_init_questions, 1):
+                                        _init_parts.append(f"{_qi}. {_q}")
+                                st.session_state.research_state = {
+                                    "session_id": data["session_id"],
+                                    "topic": r_topic,
+                                    "paper_type": r_type,
+                                    "stage": data.get("stage", "gathering"),
+                                    "questions": _init_questions,
+                                    "analysis": data.get("analysis", ""),
+                                    "sufficiency": data.get("sufficiency_score", 0.0),
+                                    "info_available": data.get("info_available", []),
+                                    "info_missing": data.get("info_missing", []),
+                                    "outline": data.get("outline", []),
+                                    "sections": {},
+                                    "sections_order": [],
+                                    "full_paper": None,
+                                    "related_papers": data.get("related_papers", []),
+                                    "gathering_messages": [{"role": "assistant", "content": "\n".join(_init_parts)}] if _init_parts else [],
+                                    "response_count": 0,
+                                }
+                                st.rerun()
+                            else:
+                                st.error(data.get("error", "Failed to start analysis"))
+                        else:
+                            st.error(f"API returned status {resp.status_code}")
+                    except requests.exceptions.ConnectionError:
+                        st.error("Cannot connect to API. Make sure the server is running.")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+        # ---- Stage: Gathering (conversational) ----
+        elif rs.get("stage") == "gathering":
+            st.markdown(f"**Topic:** {rs['topic']}")
+            score = rs.get("sufficiency", 0)
+            st.progress(score, text=f"Information sufficiency: {score:.0%}")
+
+            # Initialize gathering messages if missing (backward compat)
+            if "gathering_messages" not in rs:
+                _parts = []
+                if rs.get("analysis"):
+                    _parts.append(rs["analysis"])
+                if rs.get("info_missing"):
+                    _parts.append(f"\n**Still needed:** {', '.join(rs['info_missing'])}")
+                for _qi, _q in enumerate(rs.get("questions", []), 1):
+                    _parts.append(f"{_qi}. {_q}")
+                rs["gathering_messages"] = [{"role": "assistant", "content": "\n".join(_parts)}] if _parts else []
+                rs["response_count"] = 0
+
+            # Display conversation
+            gather_container = st.container(height=320)
+            with gather_container:
+                for _gm in rs["gathering_messages"]:
+                    with st.chat_message(_gm["role"]):
+                        st.markdown(_gm["content"])
+
+            # User input
+            _r_input = st.text_area(
+                "Your response",
+                placeholder="Provide the requested information here — you can address multiple questions at once...",
+                key=f"research_gather_input_{rs.get('response_count', 0)}",
+                height=100,
+                label_visibility="collapsed",
+            )
+
+            _gc1, _gc2 = st.columns([3, 1])
+            with _gc1:
+                if st.button("Send", type="primary", key="research_gather_send", use_container_width=True):
+                    if _r_input and _r_input.strip():
+                        # Add user message to conversation
+                        rs["gathering_messages"].append({"role": "user", "content": _r_input.strip()})
+                        rs["response_count"] = rs.get("response_count", 0) + 1
+
+                        with st.spinner("Analyzing your input..."):
+                            try:
+                                session = get_api_session()
+                                resp = session.post(
+                                    f"{CHAT_API}/research/continue",
+                                    json={
+                                        "session_id": rs["session_id"],
+                                        "answers": {f"response_{rs['response_count']}": _r_input.strip()},
+                                    },
+                                    timeout=120,
+                                )
+                                if resp.status_code == 200:
+                                    data = resp.json()
+                                    rs["stage"] = data.get("stage", "gathering")
+                                    rs["sufficiency"] = data.get("sufficiency_score", 0.0)
+                                    rs["info_available"] = data.get("info_available", [])
+                                    rs["info_missing"] = data.get("info_missing", [])
+                                    rs["questions"] = data.get("questions", [])
+                                    rs["analysis"] = data.get("analysis", "")
+                                    if data.get("outline"):
+                                        rs["outline"] = data["outline"]
+
+                                    # Add new AI response to conversation
+                                    if rs["stage"] == "gathering":
+                                        _new_parts = []
+                                        if data.get("analysis"):
+                                            _new_parts.append(data["analysis"])
+                                        if data.get("info_available"):
+                                            _new_parts.append(f"\n**Available:** {', '.join(data['info_available'])}")
+                                        if data.get("info_missing"):
+                                            _new_parts.append(f"\n**Still needed:** {', '.join(data['info_missing'])}")
+                                        _new_qs = data.get("questions", [])
+                                        if _new_qs:
+                                            _new_parts.append("\n**Next, please provide:**")
+                                            for _qi, _q in enumerate(_new_qs, 1):
+                                                _new_parts.append(f"{_qi}. {_q}")
+                                        if _new_parts:
+                                            rs["gathering_messages"].append({"role": "assistant", "content": "\n".join(_new_parts)})
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                    else:
+                        st.warning("Please enter a response.")
+            with _gc2:
+                if st.button("Reset", key="reset_research", use_container_width=True):
+                    st.session_state.research_state = None
+                    st.rerun()
+
+            # Related papers (only if relevant results exist)
+            if rs.get("related_papers"):
+                with st.expander("Related Academic Papers", expanded=False):
+                    for p in rs["related_papers"][:5]:
+                        title = p.get("title", "Untitled")
+                        year = p.get("year", "")
+                        url = p.get("url", "")
+                        if url:
+                            st.markdown(f"- **[{title}]({url})** ({year})")
+                        else:
+                            st.markdown(f"- **{title}** ({year})")
+
+        # ---- Stage: Outlining ----
+        elif rs.get("stage") == "outlining":
+            st.markdown(f"**Topic:** {rs['topic']}")
+            st.progress(1.0, text="Information sufficient!")
+            st.markdown("#### Proposed Outline")
+            outline = rs.get("outline", [])
+            for item in outline:
+                st.markdown(f"- {item}")
+
+            ol_col1, ol_col2, ol_col3 = st.columns(3)
+            with ol_col1:
+                if st.button("Approve & Start Writing", type="primary", key="approve_outline"):
+                    rs["stage"] = "writing"
+                    rs["sections_order"] = [
+                        item for item in outline
+                        if not item.strip().lower().startswith(("abstract", "0."))
+                    ]
+                    st.rerun()
+            with ol_col2:
+                if st.button("Reset Research", key="reset_research_outline"):
+                    st.session_state.research_state = None
+                    st.rerun()
+
+        # ---- Stage: Writing ----
+        elif rs.get("stage") == "writing":
+            st.markdown(f"**Topic:** {rs['topic']}")
+            sections_order = rs.get("sections_order", [])
+            completed = list(rs.get("sections", {}).keys())
+            total = len(sections_order) if sections_order else 1
+            done = len(completed)
+            st.progress(done / total if total else 0, text=f"Writing: {done}/{total} sections")
+
+            # Show completed sections
+            for sec_name in completed:
+                with st.expander(f"Section: {sec_name}", expanded=False):
+                    st.markdown(rs["sections"][sec_name])
+
+            # Next section to generate
+            remaining = [s for s in sections_order if s not in completed]
+            if remaining:
+                next_sec = remaining[0]
+                st.markdown(f"**Next:** {next_sec}")
+                extra_instr = st.text_input(
+                    "Additional instructions (optional)", key="section_extra_instr"
+                )
+                if st.button(f"Generate: {next_sec}", type="primary", key="gen_section"):
+                    with st.spinner(f"Writing '{next_sec}'..."):
+                        try:
+                            session = get_api_session()
+                            resp = session.post(
+                                f"{CHAT_API}/research/generate-section",
+                                json={
+                                    "session_id": rs["session_id"],
+                                    "section_name": next_sec,
+                                    "additional_instructions": extra_instr or None,
+                                },
+                                timeout=180,
+                            )
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                if data.get("content"):
+                                    rs["sections"][next_sec] = data["content"]
+                                    st.rerun()
+                                else:
+                                    st.error(data.get("error", "No content generated"))
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+            else:
+                st.success("All sections generated!")
+                if st.button("Assemble Final Paper", type="primary", key="assemble_paper"):
+                    with st.spinner("Assembling paper and generating abstract..."):
+                        try:
+                            session = get_api_session()
+                            resp = session.post(
+                                f"{CHAT_API}/research/assemble",
+                                json={"session_id": rs["session_id"], "generate_abstract": True},
+                                timeout=180,
+                            )
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                if data.get("full_paper"):
+                                    rs["stage"] = "complete"
+                                    rs["full_paper"] = data["full_paper"]
+                                    rs["word_count"] = data.get("word_count", 0)
+                                    st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+
+            if st.button("Reset Research", key="reset_research_writing"):
+                st.session_state.research_state = None
+                st.rerun()
+
+        # ---- Stage: Complete ----
+        elif rs.get("stage") == "complete":
+            st.markdown(f"**Topic:** {rs['topic']}")
+            st.success(f"Paper complete! Word count: {rs.get('word_count', 'N/A')}")
+            st.markdown(rs.get("full_paper", ""))
+            dl_col1, dl_col2, dl_col3 = st.columns(3)
+            with dl_col1:
+                st.download_button(
+                    "Download .md",
+                    data=rs.get("full_paper", ""),
+                    file_name=f"{rs['topic'][:40].replace(' ', '_')}.md",
+                    mime="text/markdown",
+                    key="dl_research_paper",
+                )
+            with dl_col2:
+                if st.button("New Research Paper", key="new_research"):
+                    st.session_state.research_state = None
+                    st.rerun()
+
+    # ==================================================================
+    # REGULAR CHAT MODES (not research)
+    # ==================================================================
+    else:
+        # ---- Paper Analysis: text area for pasting paper ----
+        if chat_mode == "paper_analysis" and not st.session_state.chat_messages:
+            paper_text = st.text_area(
+                "Paper content",
+                height=180,
+                placeholder="Paste the research paper content here...",
+                key="paper_content_input",
+                label_visibility="collapsed",
+            )
+            if st.button("Analyze Paper", type="primary", key="analyze_paper_btn", use_container_width=True):
+                if paper_text and len(paper_text.strip()) > 50:
+                    with st.spinner("Analyzing paper..."):
+                        _send_chat_message(paper_text.strip())
+                    st.rerun()
+                else:
+                    st.warning("Please provide the paper content to analyze.")
+
+        # ---- CSS for resizable text area and chat container ----
+        st.markdown("""<style>
+            div[data-testid="stTextArea"] textarea {
+                resize: vertical !important;
+                min-height: 60px;
+                max-height: 300px;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"] > div[style*="height"] {
+                resize: vertical !important;
+                overflow: auto !important;
+                min-height: 200px !important;
+                max-height: 90vh !important;
+            }
+        </style>""", unsafe_allow_html=True)
+
+        # ---- Chat message display ----
+        chat_container = st.container(height=700)
+        with chat_container:
+            if not st.session_state.chat_messages:
+                mode_hints = {
+                    "chat": "What would you like to learn today?",
+                    "answer_writer": "Enter any exam question to get a model answer.",
+                    "explain": "Which concept would you like explained?",
+                    "compare": "Enter the first topic below, and the second above.",
+                    "socratic": "Enter a topic to begin guided learning.",
+                    "paper_analysis": "Add your paper content above to begin.",
+                }
+                hint = mode_hints.get(chat_mode, "")
+                st.markdown(
+                    f"<div style='text-align:center; color:#888; padding:3rem 1rem;'>"
+                    f"<p style='font-size:0.85rem;'>{hint}</p>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                for idx, msg in enumerate(st.session_state.chat_messages):
+                    with st.chat_message(msg["role"]):
+                        # ---- Editing mode for this message ----
+                        if st.session_state.editing_msg_idx == idx:
+                            edited_text = st.text_area(
+                                "Edit message",
+                                value=msg["content"],
+                                key=f"edit_area_{idx}",
+                                height=150,
+                                label_visibility="collapsed",
+                            )
+                            _ec1, _ec2, _ec3 = st.columns(3)
+                            with _ec1:
+                                if st.button("Save", key=f"save_edit_{idx}", type="primary", use_container_width=True):
+                                    st.session_state.chat_messages[idx]["content"] = edited_text
+                                    if msg["role"] == "user":
+                                        # Truncate conversation and regenerate from this point
+                                        st.session_state.chat_messages = st.session_state.chat_messages[:idx]
+                                        st.session_state.editing_msg_idx = None
+                                        with st.spinner("Regenerating..."):
+                                            _send_chat_message(edited_text.strip())
+                                        st.rerun()
+                                    else:
+                                        st.session_state.editing_msg_idx = None
+                                        st.rerun()
+                            with _ec2:
+                                if st.button("Cancel", key=f"cancel_edit_{idx}", use_container_width=True):
+                                    st.session_state.editing_msg_idx = None
+                                    st.rerun()
+                            with _ec3:
+                                if st.button("Delete", key=f"delete_msg_{idx}", use_container_width=True):
+                                    # Delete this message and its pair (user+assistant or just assistant)
+                                    if msg["role"] == "user" and idx + 1 < len(st.session_state.chat_messages):
+                                        st.session_state.chat_messages.pop(idx + 1)
+                                        st.session_state.chat_messages.pop(idx)
+                                    elif msg["role"] == "assistant" and idx > 0:
+                                        st.session_state.chat_messages.pop(idx)
+                                        st.session_state.chat_messages.pop(idx - 1)
+                                    else:
+                                        st.session_state.chat_messages.pop(idx)
+                                    st.session_state.editing_msg_idx = None
+                                    st.rerun()
+                        else:
+                            # ---- Normal display mode ----
+                            content = msg["content"]
+                            if msg["role"] == "user" and len(content) > 600:
+                                st.markdown(content[:500] + "...")
+                                with st.expander("Show full message"):
+                                    st.markdown(content)
+                            else:
+                                st.markdown(content)
+
+                            # Source badges for assistant messages
+                            if msg["role"] == "assistant" and msg.get("sources"):
+                                src_names = [s.get("title", "KB") for s in msg["sources"]]
+                                src_types = set(s.get("type", "kb") for s in msg["sources"])
+                                src_label = "Web" if "web" in src_types else "KB"
+                                st.caption(f"{src_label} Sources: {', '.join(src_names[:3])}")
+
+                            # Action buttons row
+                            _a1, _a2, _a3 = st.columns([1, 1, 6])
+                            with _a1:
+                                if st.button("Edit", key=f"edit_btn_{idx}", use_container_width=True):
+                                    st.session_state.editing_msg_idx = idx
+                                    st.rerun()
+                            with _a2:
+                                if msg["role"] == "user":
+                                    if st.button("Regen", key=f"regen_btn_{idx}", use_container_width=True):
+                                        # Re-send same message, remove current response
+                                        regen_text = msg["content"]
+                                        st.session_state.chat_messages = st.session_state.chat_messages[:idx]
+                                        with st.spinner("Regenerating..."):
+                                            _send_chat_message(regen_text)
+                                        st.rerun()
+
+        # ---- Follow-up suggestion buttons ----
+        if st.session_state.chat_messages:
+            last_msg = st.session_state.chat_messages[-1]
+            suggestions = last_msg.get("suggestions", []) if last_msg["role"] == "assistant" else []
+            if suggestions:
+                st.markdown(
+                    "<p style='font-size:0.8rem; color:#888; margin-bottom:0.3rem;'>Suggested follow-ups:</p>",
+                    unsafe_allow_html=True,
+                )
+                sug_cols = st.columns(min(len(suggestions), 3))
+                for i, sug in enumerate(suggestions[:3]):
+                    with sug_cols[i]:
+                        if st.button(sug, key=f"sug_{i}_{len(st.session_state.chat_messages)}", use_container_width=True):
+                            _send_chat_message(sug)
+                            st.rerun()
+
+        # ---- Input area (multi-line text area) ----
+        chat_input = st.text_area(
+            "Message",
+            placeholder="Type your message...",
+            key=f"chat_input_{len(st.session_state.chat_messages)}",
+            label_visibility="collapsed",
+            height=80,
+        )
+        # Character count and warning
+        if chat_input:
+            _char_count = len(chat_input)
+            if _char_count > CHAT_INPUT_MAX_CHARS:
+                st.error(f"Input too long ({_char_count:,} / {CHAT_INPUT_MAX_CHARS:,} chars). Please shorten your message.")
+            elif _char_count > CHAT_INPUT_MAX_CHARS * 0.8:
+                st.warning(f"Approaching limit: {_char_count:,} / {CHAT_INPUT_MAX_CHARS:,} characters")
+
+        send_clicked = st.button("Send", type="primary", use_container_width=True, key="chat_send")
+
+        if send_clicked and chat_input and chat_input.strip():
+            if len(chat_input) > CHAT_INPUT_MAX_CHARS:
+                st.error("Message is too long. Please shorten it before sending.")
+            elif chat_mode == "compare" and not extra_params.get("compare_concept_2", "").strip():
+                st.warning("Please enter the second topic to compare against.")
+            else:
+                with st.spinner("Thinking..."):
+                    if _send_chat_message(chat_input.strip()):
+                        st.rerun()
+
+        # ---- Provider info and session actions ----
+        if st.session_state.chat_messages:
+            action_col1, action_col2, action_col3, action_col4 = st.columns(4)
+            with action_col1:
+                if st.session_state.chat_provider_info:
+                    st.caption(f"Provider: {st.session_state.chat_provider_info}")
+            with action_col2:
+                if st.session_state.chat_session_id:
+                    if st.button("Export .md", key="prep_export", use_container_width=True):
+                        try:
+                            session_api = get_api_session()
+                            export_resp = session_api.post(
+                                f"{CHAT_API}/sessions/{st.session_state.chat_session_id}/export",
+                                timeout=10,
+                            )
+                            if export_resp.status_code == 200:
+                                st.session_state.chat_export_data = export_resp.json()
+                        except Exception:
+                            st.error("Export failed")
+            with action_col3:
+                if st.session_state.get("chat_export_data"):
+                    st.download_button(
+                        "Download",
+                        data=st.session_state.chat_export_data.get("markdown", ""),
+                        file_name=st.session_state.chat_export_data.get("filename", "chat.md"),
+                        mime="text/markdown",
+                        key="dl_export_chat",
+                    )
+
+        # ---- Session history (collapsible) ----
+        with st.expander("Chat History", expanded=False):
+            try:
+                session_api = get_api_session()
+                sessions_resp = session_api.get(f"{CHAT_API}/sessions", timeout=10)
+                if sessions_resp.status_code == 200:
+                    saved_sessions = sessions_resp.json().get("sessions", [])
+                    if saved_sessions:
+                        history_search = st.text_input(
+                            "Search conversations",
+                            placeholder="Search by keyword...",
+                            key="chat_history_search",
+                            label_visibility="collapsed",
+                        )
+                        if history_search and history_search.strip():
+                            search_words = history_search.strip().lower().split()
+                            filtered_sessions = [
+                                s for s in saved_sessions
+                                if all(
+                                    w in s.get("title", "").lower()
+                                    or w in s.get("content_preview", "").lower()
+                                    for w in search_words
+                                )
+                            ]
+                        else:
+                            filtered_sessions = saved_sessions
+
+                        history_box = st.container(height=320)
+                        with history_box:
+                            if filtered_sessions:
+                                for s in filtered_sessions:
+                                    raw_date = s.get("updated_at") or s.get("created_at") or ""
+                                    short_date = raw_date[:10] if raw_date else ""
+                                    s_col1, s_col2, s_col3 = st.columns([3, 1, 1])
+                                    with s_col1:
+                                        title_text = s["title"][:35]
+                                        if short_date:
+                                            st.caption(f"**{title_text}** &nbsp; `{short_date}`")
+                                        else:
+                                            st.caption(f"**{title_text}**")
+                                    with s_col2:
+                                        if st.button("Load", key=f"load_{s['id']}", use_container_width=True):
+                                            try:
+                                                detail_resp = session_api.get(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                if detail_resp.status_code == 200:
+                                                    detail = detail_resp.json()
+                                                    st.session_state.chat_session_id = s["id"]
+                                                    st.session_state.chat_messages = [
+                                                        {"role": m["role"], "content": m["content"],
+                                                         "suggestions": m.get("metadata", {}).get("suggestions", []) if isinstance(m.get("metadata"), dict) else [],
+                                                         "sources": m.get("metadata", {}).get("sources", []) if isinstance(m.get("metadata"), dict) else []}
+                                                        for m in detail.get("messages", [])
+                                                    ]
+                                                    st.rerun()
+                                            except Exception:
+                                                st.error("Failed to load session")
+                                    with s_col3:
+                                        if st.button("Del", key=f"del_{s['id']}", use_container_width=True):
+                                            try:
+                                                session_api.delete(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                st.rerun()
+                                            except Exception:
+                                                pass
+                            else:
+                                st.caption("No conversations match your search.")
+                    else:
+                        st.caption("No saved conversations yet.")
+            except requests.exceptions.ConnectionError:
+                st.caption("API offline - session history unavailable.")
+            except Exception:
+                st.caption("Could not load session history.")
 
 # Tab 2: Search Knowledge Base
 with tab2:
