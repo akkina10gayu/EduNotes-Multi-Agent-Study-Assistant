@@ -3,12 +3,8 @@ services:
     name: edunotes-api
     plan: free
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python scripts/setup_kb.py --init && python scripts/seed_data.py --sample
     startCommand: uvicorn src.api.app:app --host 0.0.0.0 --port $PORT
-    disk:
-      name: edunotes-data
-      mountPath: /app/data
-      sizeGB: 1
     envVars:
       - key: GROQ_API_KEY
         sync: false
@@ -18,12 +14,6 @@ services:
         sync: false
       - key: LLM_PROVIDER
         value: groq
-      - key: CHROMA_PERSIST_DIR
-        value: /app/data/vector_db/chroma
-      - key: KB_PATH
-        value: /app/data/knowledge_base
-      - key: CONVERSATION_STORAGE
-        value: /app/data/conversations
 
   - type: web
     name: edunotes-ui
