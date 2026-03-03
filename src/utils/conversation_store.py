@@ -62,6 +62,21 @@ class ConversationStore:
                 try:
                     with open(filepath, "r", encoding="utf-8") as f:
                         data = json.load(f)
+                    # Build a searchable preview from all messages
+                    # (data is already in memory — no extra I/O)
+                    preview_parts = []
+                    preview_len = 0
+                    for msg in data.get("messages", []):
+                        if preview_len >= 1000:
+                            break
+                        text = msg.get("content", "")
+                        # User messages carry the topic; assistant openings
+                        # elaborate on it — both are valuable for search
+                        cap = 200 if msg.get("role") == "user" else 150
+                        snippet = text[:cap]
+                        if snippet:
+                            preview_parts.append(snippet)
+                            preview_len += len(snippet)
                     sessions.append({
                         "id": data.get("id", filepath.stem),
                         "title": data.get("title", "Untitled"),
@@ -69,6 +84,7 @@ class ConversationStore:
                         "message_count": len(data.get("messages", [])),
                         "created_at": data.get("created_at", ""),
                         "updated_at": data.get("updated_at", ""),
+                        "content_preview": " ".join(preview_parts),
                     })
                 except Exception:
                     continue

@@ -2582,13 +2582,15 @@ with tab_chat:
                 max-height: 300px;
             }
             div[data-testid="stVerticalBlockBorderWrapper"] > div[style*="height"] {
-                resize: vertical;
-                overflow: auto;
+                resize: vertical !important;
+                overflow: auto !important;
+                min-height: 200px !important;
+                max-height: 90vh !important;
             }
         </style>""", unsafe_allow_html=True)
 
         # ---- Chat message display ----
-        chat_container = st.container(height=600)
+        chat_container = st.container(height=700)
         with chat_container:
             if not st.session_state.chat_messages:
                 mode_hints = {
@@ -2763,33 +2765,63 @@ with tab_chat:
                 if sessions_resp.status_code == 200:
                     saved_sessions = sessions_resp.json().get("sessions", [])
                     if saved_sessions:
-                        for s in saved_sessions[:10]:
-                            s_col1, s_col2, s_col3 = st.columns([3, 1, 1])
-                            with s_col1:
-                                st.caption(f"**{s['title'][:40]}** ({s.get('message_count', 0)} msgs)")
-                            with s_col2:
-                                if st.button("Load", key=f"load_{s['id']}", use_container_width=True):
-                                    try:
-                                        detail_resp = session_api.get(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
-                                        if detail_resp.status_code == 200:
-                                            detail = detail_resp.json()
-                                            st.session_state.chat_session_id = s["id"]
-                                            st.session_state.chat_messages = [
-                                                {"role": m["role"], "content": m["content"],
-                                                 "suggestions": m.get("metadata", {}).get("suggestions", []) if isinstance(m.get("metadata"), dict) else [],
-                                                 "sources": m.get("metadata", {}).get("sources", []) if isinstance(m.get("metadata"), dict) else []}
-                                                for m in detail.get("messages", [])
-                                            ]
-                                            st.rerun()
-                                    except Exception:
-                                        st.error("Failed to load session")
-                            with s_col3:
-                                if st.button("Del", key=f"del_{s['id']}", use_container_width=True):
-                                    try:
-                                        session_api.delete(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
-                                        st.rerun()
-                                    except Exception:
-                                        pass
+                        history_search = st.text_input(
+                            "Search conversations",
+                            placeholder="Search by keyword...",
+                            key="chat_history_search",
+                            label_visibility="collapsed",
+                        )
+                        if history_search and history_search.strip():
+                            search_words = history_search.strip().lower().split()
+                            filtered_sessions = [
+                                s for s in saved_sessions
+                                if all(
+                                    w in s.get("title", "").lower()
+                                    or w in s.get("content_preview", "").lower()
+                                    for w in search_words
+                                )
+                            ]
+                        else:
+                            filtered_sessions = saved_sessions
+
+                        history_box = st.container(height=320)
+                        with history_box:
+                            if filtered_sessions:
+                                for s in filtered_sessions:
+                                    raw_date = s.get("updated_at") or s.get("created_at") or ""
+                                    short_date = raw_date[:10] if raw_date else ""
+                                    s_col1, s_col2, s_col3 = st.columns([3, 1, 1])
+                                    with s_col1:
+                                        title_text = s["title"][:35]
+                                        if short_date:
+                                            st.caption(f"**{title_text}** &nbsp; `{short_date}`")
+                                        else:
+                                            st.caption(f"**{title_text}**")
+                                    with s_col2:
+                                        if st.button("Load", key=f"load_{s['id']}", use_container_width=True):
+                                            try:
+                                                detail_resp = session_api.get(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                if detail_resp.status_code == 200:
+                                                    detail = detail_resp.json()
+                                                    st.session_state.chat_session_id = s["id"]
+                                                    st.session_state.chat_messages = [
+                                                        {"role": m["role"], "content": m["content"],
+                                                         "suggestions": m.get("metadata", {}).get("suggestions", []) if isinstance(m.get("metadata"), dict) else [],
+                                                         "sources": m.get("metadata", {}).get("sources", []) if isinstance(m.get("metadata"), dict) else []}
+                                                        for m in detail.get("messages", [])
+                                                    ]
+                                                    st.rerun()
+                                            except Exception:
+                                                st.error("Failed to load session")
+                                    with s_col3:
+                                        if st.button("Del", key=f"del_{s['id']}", use_container_width=True):
+                                            try:
+                                                session_api.delete(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                st.rerun()
+                                            except Exception:
+                                                pass
+                            else:
+                                st.caption("No conversations match your search.")
                     else:
                         st.caption("No saved conversations yet.")
             except requests.exceptions.ConnectionError:

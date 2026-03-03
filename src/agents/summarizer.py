@@ -5,7 +5,6 @@ Version 2.0 - API-based approach with rate-limit fallback
 """
 from typing import Dict, Any, List
 from src.agents.base import BaseAgent
-from src.utils.cache_utils import cached
 from src.utils.llm_client import get_llm_client
 
 
@@ -32,7 +31,6 @@ class SummarizerAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Error initializing summarizer: {e}")
 
-    @cached("summarizer", ttl=3600)
     def summarize_text(self, text: str, max_length: int = None, style: str = "paragraph_summary", output_length: str = "auto", extra_instructions: str = None) -> str:
         """
         Summarize text using LLM API.
