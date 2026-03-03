@@ -170,8 +170,9 @@ SYSTEM_PROMPTS = {
 
 COMPLETION_INSTRUCTION = (
     "\n\nCRITICAL RULES:\n"
-    "1. NEVER output placeholder symbols like '----', '---', '...', or empty "
-    "sections. Every section must contain substantive, meaningful content.\n"
+    "1. NEVER leave sections empty or use filler text as a substitute for real "
+    "content. Every section must contain substantive, meaningful information. "
+    "Markdown tables and their column separators (|---|---|) are fine.\n"
     "2. If the provided context does not fully cover a topic, confidently use "
     "your own knowledge to fill in the gaps. You are a knowledgeable assistant "
     "— provide complete, accurate information.\n"

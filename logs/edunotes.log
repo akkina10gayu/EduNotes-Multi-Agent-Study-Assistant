@@ -1260,3 +1260,90 @@ The content preview does not provide a clear explanation of what a neural networ
 2026-03-03 01:34:09 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
 2026-03-03 01:34:11 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: nuclear fission vs nuclear fusion
 2026-03-03 01:47:35 | INFO     | src.api.app:shutdown_event:268 - Shutting down EduNotes API...
+2026-03-03 01:55:47 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-03-03 01:55:48 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:55:48 | ERROR    | src.utils.llm_client:_init_client:51 - Failed to initialize groq client: GROQ_API_KEY not found. Get free key at: https://console.groq.com
+2026-03-03 01:55:48 | INFO     | src.utils.llm_client:_init_client:55 - Falling back to HuggingFace provider
+2026-03-03 01:55:48 | ERROR    | src.utils.llm_client:_init_client:60 - HuggingFace fallback also failed: HF_TOKEN not found. Get free token at: https://huggingface.co/settings/tokens
+2026-03-03 01:55:48 | WARNING  | src.utils.llm_client:_init_client:62 - No LLM providers available. LLM features will be disabled.
+2026-03-03 01:55:48 | INFO     | src.agents.summarizer:_initialize:28 - Initializing LLM client for summarization
+2026-03-03 01:55:48 | INFO     | src.agents.summarizer:_initialize:30 - LLM Provider: {'provider': 'none', 'model': 'none', 'available': False}
+2026-03-03 01:55:48 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:55:48 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-03-03 01:55:48 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:55:48 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:193 - ================================================================================
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:194 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:195 - ================================================================================
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:219 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 4: APIRouter (fastapi.routing)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 5: method (builtins)
+2026-03-03 01:55:48 | WARNING  | src.api.app:debug_auth_diagnostic:227 - ================================================================================
+2026-03-03 01:55:48 | INFO     | src.api.app:startup_event:232 - Starting EduNotes API...
+2026-03-03 01:55:48 | INFO     | src.api.app:startup_event:233 - API running on 0.0.0.0:8000
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:238 - ================================================================================
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:239 - ⚠️  GROQ API KEY NOT CONFIGURED!
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:240 - ================================================================================
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:241 - The system will use local models (slower performance).
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:242 - To use the faster Groq API:
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:243 - 1. Get a free API key at: https://console.groq.com
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:244 - 2. Add it to your .env file: GROQ_API_KEY=your_key_here
+2026-03-03 01:55:48 | WARNING  | src.api.app:startup_event:245 - ================================================================================
+2026-03-03 01:55:54 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-03-03 01:55:54 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-03-03 01:55:54 | INFO     | src.knowledge_base.vector_store:get_unique_topics:183 - Topics cache miss/expired, fetching from database...
+2026-03-03 01:55:54 | INFO     | src.knowledge_base.vector_store:get_unique_topics:210 - Found 6 unique topics in KB (cached for 300s)
+2026-03-03 01:56:30 | WARNING  | src.utils.gemini_client:_init_providers:172 - Gemini not available: GEMINI_API_KEY not set. Get a free key at: https://aistudio.google.com/apikey
+2026-03-03 01:56:30 | WARNING  | src.utils.gemini_client:_init_providers:180 - Cerebras not available: CEREBRAS_API_KEY not set. Get a free key at: https://cloud.cerebras.ai
+2026-03-03 01:56:30 | WARNING  | src.utils.gemini_client:_init_providers:183 - No dedicated chat providers available. Chat will fall back to Groq light model if available.
+2026-03-03 01:56:30 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:56:30 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:56:30 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:56:33 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: Nuclear fusion vs nuclear fission
+2026-03-03 01:56:33 | ERROR    | src.agents.base:handle_error:29 - Error in ChatAgent: No chat providers available. Please set GEMINI_API_KEY or CEREBRAS_API_KEY in your .env file.
+2026-03-03 01:56:56 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:56:56 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:56:57 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: Nuclear fusion vs nuclear fission
+2026-03-03 01:56:57 | ERROR    | src.agents.base:handle_error:29 - Error in ChatAgent: No chat providers available. Please set GEMINI_API_KEY or CEREBRAS_API_KEY in your .env file.
+2026-03-03 01:57:06 | INFO     | src.api.app:shutdown_event:268 - Shutting down EduNotes API...
+2026-03-03 01:57:11 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-03-03 01:57:12 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:57:12 | INFO     | src.utils.llm_client:_init_groq:80 - Initialized Groq client with model: llama-3.3-70b-versatile, light model: llama-3.1-8b-instant
+2026-03-03 01:57:12 | INFO     | src.agents.summarizer:_initialize:28 - Initializing LLM client for summarization
+2026-03-03 01:57:12 | INFO     | src.agents.summarizer:_initialize:30 - LLM Provider: {'provider': 'groq', 'model': 'llama-3.3-70b-versatile', 'available': True}
+2026-03-03 01:57:12 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:57:12 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-03-03 01:57:12 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:57:12 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:193 - ================================================================================
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:194 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:195 - ================================================================================
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:219 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 4: APIRouter (fastapi.routing)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 5: method (builtins)
+2026-03-03 01:57:12 | WARNING  | src.api.app:debug_auth_diagnostic:227 - ================================================================================
+2026-03-03 01:57:12 | INFO     | src.api.app:startup_event:232 - Starting EduNotes API...
+2026-03-03 01:57:12 | INFO     | src.api.app:startup_event:233 - API running on 0.0.0.0:8000
+2026-03-03 01:57:12 | INFO     | src.api.app:startup_event:247 - ✅ Groq API key configured
+2026-03-03 01:57:22 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-03-03 01:57:22 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-03-03 01:57:48 | INFO     | src.utils.gemini_client:__init__:33 - Initialized Gemini client with model: gemini-2.5-flash
+2026-03-03 01:57:48 | INFO     | src.utils.gemini_client:_init_providers:170 - Chat provider ready: Gemini (primary)
+2026-03-03 01:57:49 | INFO     | src.utils.gemini_client:__init__:113 - Initialized Cerebras client with model: llama-3.3-70b
+2026-03-03 01:57:49 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:57:49 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:57:49 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:57:52 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: LeakyReLU vs ReLU
+2026-03-03 01:58:34 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:59:43 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:59:43 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:59:46 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: Rotary Positional Encodings vs AliBi positional em
+2026-03-03 02:02:19 | INFO     | src.api.app:shutdown_event:268 - Shutting down EduNotes API...
