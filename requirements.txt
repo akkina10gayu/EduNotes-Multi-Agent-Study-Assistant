@@ -8,12 +8,6 @@ python-multipart
 langchain
 langchain-community
 
-# Embeddings & ML
-sentence-transformers
-transformers
-torch
-tokenizers
-
 # Free LLM APIs (Primary - no cost)
 groq
 huggingface_hub
@@ -29,6 +23,7 @@ chromadb
 newspaper3k
 beautifulsoup4
 lxml
+lxml_html_clean
 requests
 aiohttp
 

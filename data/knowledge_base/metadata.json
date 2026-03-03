@@ -206,5 +206,408 @@
       "attention",
       "need"
     ]
+  },
+  "dc94cb3e45c9d86164b4dfcea3c7d7ed": {
+    "title": "Introduction to Machine Learning",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.767189",
+    "topic": "machine-learning",
+    "keywords": [
+      "machine",
+      "learning",
+      "subset",
+      "artificial",
+      "intelligence"
+    ]
+  },
+  "77e745de83af5db3c27eba7ea285bc56": {
+    "title": "Supervised Learning Explained",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.768203",
+    "topic": "machine-learning",
+    "keywords": [
+      "supervised",
+      "learning",
+      "type",
+      "machine",
+      "where"
+    ]
+  },
+  "d29ebf65f3af8258f4dc63530899cd51": {
+    "title": "Unsupervised Learning Techniques",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.769616",
+    "topic": "machine-learning",
+    "keywords": [
+      "unsupervised",
+      "learning",
+      "type",
+      "machine",
+      "where"
+    ]
+  },
+  "c0494008f8618ebdd9476884c9a1f0b5": {
+    "title": "Model Evaluation and Validation",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.771623",
+    "topic": "machine-learning",
+    "keywords": [
+      "model",
+      "evaluation",
+      "crucial",
+      "machine",
+      "learning"
+    ]
+  },
+  "5e7a127a05f90b6660c4b3c9b11d7e1e": {
+    "title": "Feature Engineering and Selection",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.773650",
+    "topic": "machine-learning",
+    "keywords": [
+      "feature",
+      "engineering",
+      "process",
+      "using",
+      "domain"
+    ]
+  },
+  "8df1eb8b0006bbca216d2f5e702e4764": {
+    "title": "Neural Networks Fundamentals",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.774795",
+    "topic": "deep-learning",
+    "keywords": [
+      "artificial",
+      "neural",
+      "networks",
+      "anns",
+      "computing"
+    ]
+  },
+  "4dce3306dc2253989c9e5503d97e5c1d": {
+    "title": "Convolutional Neural Networks (CNN)",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.776222",
+    "topic": "deep-learning",
+    "keywords": [
+      "convolutional",
+      "neural",
+      "networks",
+      "cnns",
+      "class"
+    ]
+  },
+  "d2146872d218016f779b0ded6b144107": {
+    "title": "Recurrent Neural Networks (RNN)",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.778347",
+    "topic": "deep-learning",
+    "keywords": [
+      "recurrent",
+      "neural",
+      "networks",
+      "rnns",
+      "class"
+    ]
+  },
+  "c0ef3c295a84697c382e4c41d7c4b31a": {
+    "title": "Transformer Architecture",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.779347",
+    "topic": "deep-learning",
+    "keywords": [
+      "transformer",
+      "architecture,",
+      "introduced",
+      "paper",
+      "attention"
+    ]
+  },
+  "e20e00450dfb04cda45dce1c70fbf19f": {
+    "title": "Training Deep Neural Networks",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.781844",
+    "topic": "deep-learning",
+    "keywords": [
+      "training",
+      "deep",
+      "neural",
+      "networks",
+      "effectively"
+    ]
+  },
+  "b371084d398c280b5a001e182305bf8d": {
+    "title": "Transfer Learning and Pre-trained Models",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.785915",
+    "topic": "deep-learning",
+    "keywords": [
+      "transfer",
+      "learning",
+      "machine",
+      "technique",
+      "where"
+    ]
+  },
+  "1fee4ed08024f01ee179c92d5e2bd674": {
+    "title": "Natural Language Processing Basics",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.786929",
+    "topic": "nlp",
+    "keywords": [
+      "natural",
+      "language",
+      "processing",
+      "branch",
+      "artificial"
+    ]
+  },
+  "0df1773d23bf808f9ed391fb01bb85f6": {
+    "title": "Word Embeddings and Word2Vec",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.789169",
+    "topic": "nlp",
+    "keywords": [
+      "word",
+      "embeddings",
+      "dense",
+      "vector",
+      "representations"
+    ]
+  },
+  "ade02d2bda3643be22f340e89d5b8024": {
+    "title": "BERT and Modern Language Models",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.791176",
+    "topic": "nlp",
+    "keywords": [
+      "bert",
+      "bidirectional",
+      "encoder",
+      "representations",
+      "from"
+    ]
+  },
+  "69e8a6784aedf3d810b133275c96300d": {
+    "title": "GPT and Text Generation",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.792678",
+    "topic": "nlp",
+    "keywords": [
+      "generative",
+      "pre-trained",
+      "transformer",
+      "family",
+      "large"
+    ]
+  },
+  "eda881b2393bce231dff60bcee026270": {
+    "title": "Text Classification and Sentiment Analysis",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.794688",
+    "topic": "nlp",
+    "keywords": [
+      "text",
+      "classification",
+      "task",
+      "assigning",
+      "predefined"
+    ]
+  },
+  "8cdf1019be73654483c683db027c45cc": {
+    "title": "Python Basics for Data Science",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.796700",
+    "topic": "python",
+    "keywords": [
+      "python",
+      "most",
+      "popular",
+      "programming",
+      "language"
+    ]
+  },
+  "e405532113a17e1fa579c1547ac66993": {
+    "title": "NumPy for Numerical Computing",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.797982",
+    "topic": "python",
+    "keywords": [
+      "numpy",
+      "numerical",
+      "python",
+      "fundamental",
+      "package"
+    ]
+  },
+  "06d814ddcd8697ca5520103987c6f24b": {
+    "title": "Pandas for Data Analysis",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.800257",
+    "topic": "python",
+    "keywords": [
+      "pandas",
+      "powerful",
+      "python",
+      "library",
+      "data"
+    ]
+  },
+  "315c0f6640566f4ba2b58f78de97b0ae": {
+    "title": "Data Visualization with Matplotlib and Seaborn",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.802634",
+    "topic": "python",
+    "keywords": [
+      "data",
+      "visualization",
+      "essential",
+      "understanding",
+      "data,"
+    ]
+  },
+  "c0fa02c694012796c7e1f200006dbcd6": {
+    "title": "Probability Fundamentals",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.803636",
+    "topic": "statistics",
+    "keywords": [
+      "probability",
+      "mathematical",
+      "study",
+      "uncertainty",
+      "randomness."
+    ]
+  },
+  "da458d82678c3fde906937473eef8776": {
+    "title": "Statistical Distributions",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.805890",
+    "topic": "statistics",
+    "keywords": [
+      "statistical",
+      "distributions",
+      "describe",
+      "data",
+      "spread"
+    ]
+  },
+  "dec60a49f79ef1ff82c6f5f90212ad50": {
+    "title": "Hypothesis Testing",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.807883",
+    "topic": "statistics",
+    "keywords": [
+      "hypothesis",
+      "testing",
+      "statistical",
+      "method",
+      "making"
+    ]
+  },
+  "b8e069628676626c3a1d78f5a9c9be24": {
+    "title": "Linear Algebra for Machine Learning",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.810251",
+    "topic": "statistics",
+    "keywords": [
+      "linear",
+      "algebra",
+      "mathematical",
+      "foundation",
+      "machine"
+    ]
+  },
+  "c17094dca9604d26e3f6036f902aea53": {
+    "title": "Calculus for Machine Learning",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.812555",
+    "topic": "statistics",
+    "keywords": [
+      "calculus,",
+      "particularly",
+      "derivatives",
+      "gradients,",
+      "fundamental"
+    ]
+  },
+  "c0db1e310a3bcc6e1f4afcfa81cc1e21": {
+    "title": "Data Preprocessing Pipeline",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.813639",
+    "topic": "data-engineering",
+    "keywords": [
+      "data",
+      "preprocessing",
+      "crucial",
+      "first",
+      "step"
+    ]
+  },
+  "7b813f4f2d7cf956263ed3850feddf22": {
+    "title": "Working with SQL Databases",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.816644",
+    "topic": "data-engineering",
+    "keywords": [
+      "structured",
+      "query",
+      "language",
+      "essential",
+      "data"
+    ]
+  },
+  "da24b298499bf6fc4d8aa008275fa8c1": {
+    "title": "Big Data and Distributed Computing",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.819648",
+    "topic": "data-engineering",
+    "keywords": [
+      "data",
+      "refers",
+      "datasets",
+      "that",
+      "large"
+    ]
+  },
+  "b6d2b31b00f2d192780c92ad417e54f0": {
+    "title": "Data Pipeline and ETL",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.821645",
+    "topic": "data-engineering",
+    "keywords": [
+      "data",
+      "pipelines",
+      "automated",
+      "systems",
+      "that"
+    ]
+  },
+  "a21e90e35dc55d20901eb0832b3d363b": {
+    "title": "Cloud Platforms for Data Science",
+    "source": "educational",
+    "date_added": "2026-03-03T01:11:13.825046",
+    "topic": "data-engineering",
+    "keywords": [
+      "cloud",
+      "platforms",
+      "provide",
+      "scalable",
+      "infrastructure"
+    ]
+  },
+  "96c2900ebd18a03e0297e374f7160ef1": {
+    "title": "Web search: Deep Learning",
+    "source": "web_search",
+    "date_added": "2026-03-03T01:13:08.930347",
+    "topic": "deep-learning",
+    "keywords": [
+      "blog",
+      "deep",
+      "learning",
+      "tutorial",
+      "beginners"
+    ]
   }
 }

@@ -1,0 +1,20 @@
+# Secrets
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# App runtime data (managed by persistent disk on Render)
+data/
+cache/
+logs/
+
+# Local model downloads
+models/downloaded/
+
+# IDE
+.vscode/
+.idea/

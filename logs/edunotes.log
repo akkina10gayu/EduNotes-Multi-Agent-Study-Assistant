@@ -1086,3 +1086,177 @@ The content preview does not provide a clear explanation of what a neural networ
 2026-02-27 00:13:45 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'Transformer architecture' to KB
 2026-02-27 00:13:45 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
 2026-03-01 20:56:39 | INFO     | src.api.app:shutdown_event:264 - Shutting down EduNotes API...
+2026-03-03 01:11:04 | INFO     | __main__:init_knowledge_base:20 - Initializing knowledge base...
+2026-03-03 01:11:04 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (0 documents)
+2026-03-03 01:11:04 | INFO     | __main__:init_knowledge_base:36 - Knowledge base initialized: {'total_documents': 0, 'collection_name': 'edunotes_kb', 'persist_directory': 'data\\vector_db\\chroma'}
+2026-03-03 01:11:13 | INFO     | __main__:seed_sample_documents:1609 - Seeding sample documents...
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (0 documents)
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Introduction to Machine Learning
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Supervised Learning Explained
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Unsupervised Learning Techniques
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Model Evaluation and Validation
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Feature Engineering and Selection
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Neural Networks Fundamentals
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Convolutional Neural Networks (CNN)
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Recurrent Neural Networks (RNN)
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Transformer Architecture
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Training Deep Neural Networks
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Transfer Learning and Pre-trained Models
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Natural Language Processing Basics
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Word Embeddings and Word2Vec
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: BERT and Modern Language Models
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: GPT and Text Generation
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Text Classification and Sentiment Analysis
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Python Basics for Data Science
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: NumPy for Numerical Computing
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Pandas for Data Analysis
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Data Visualization with Matplotlib and Seaborn
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Probability Fundamentals
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Statistical Distributions
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Hypothesis Testing
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Linear Algebra for Machine Learning
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Calculus for Machine Learning
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Data Preprocessing Pipeline
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Working with SQL Databases
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Big Data and Distributed Computing
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Data Pipeline and ETL
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Cloud Platforms for Data Science
+2026-03-03 01:11:13 | INFO     | src.knowledge_base.document_processor:process_batch:121 - Processed 30 out of 30 documents
+2026-03-03 01:11:16 | INFO     | src.knowledge_base.vector_store:add_documents:107 - Added batch of 100 chunks to vector store
+2026-03-03 01:11:16 | INFO     | __main__:seed_sample_documents:1624 - Successfully added 30 sample documents
+2026-03-03 01:11:16 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (100 documents)
+2026-03-03 01:12:10 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-03-03 01:12:10 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (100 documents)
+2026-03-03 01:12:11 | INFO     | src.utils.llm_client:_init_groq:80 - Initialized Groq client with model: llama-3.3-70b-versatile, light model: llama-3.1-8b-instant
+2026-03-03 01:12:11 | INFO     | src.agents.summarizer:_initialize:28 - Initializing LLM client for summarization
+2026-03-03 01:12:11 | INFO     | src.agents.summarizer:_initialize:30 - LLM Provider: {'provider': 'groq', 'model': 'llama-3.3-70b-versatile', 'available': True}
+2026-03-03 01:12:11 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:12:11 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-03-03 01:12:11 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (100 documents)
+2026-03-03 01:12:11 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (100 documents)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:193 - ================================================================================
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:194 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:195 - ================================================================================
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:219 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 4: APIRouter (fastapi.routing)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 5: method (builtins)
+2026-03-03 01:12:11 | WARNING  | src.api.app:debug_auth_diagnostic:227 - ================================================================================
+2026-03-03 01:12:11 | INFO     | src.api.app:startup_event:232 - Starting EduNotes API...
+2026-03-03 01:12:11 | INFO     | src.api.app:startup_event:233 - API running on 0.0.0.0:8000
+2026-03-03 01:12:11 | INFO     | src.api.app:startup_event:247 - ✅ Groq API key configured
+2026-03-03 01:12:26 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-03-03 01:12:26 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-03-03 01:12:26 | INFO     | src.knowledge_base.vector_store:get_unique_topics:183 - Topics cache miss/expired, fetching from database...
+2026-03-03 01:12:27 | INFO     | src.knowledge_base.vector_store:get_unique_topics:210 - Found 6 unique topics in KB (cached for 300s)
+2026-03-03 01:12:48 | INFO     | src.api.app:generate_notes:333 - Generating notes for query: Deep Learning... Mode: paragraph_summary, Length: auto
+2026-03-03 01:12:48 | INFO     | src.agents.orchestrator:process:655 - Detected query type: topic, output_length: auto, search_mode: web_search, research_mode: True
+2026-03-03 01:12:48 | INFO     | src.agents.orchestrator:process_topic_query:82 - Processing topic query: Deep Learning... (search_mode=web_search)
+2026-03-03 01:12:48 | INFO     | src.agents.orchestrator:process_topic_query:86 - Search mode: web_search - going directly to web search
+2026-03-03 01:12:48 | INFO     | src.agents.orchestrator:_web_search_and_process:194 - Starting web search for: Deep Learning
+2026-03-03 01:12:48 | INFO     | src.agents.web_search:process:561 - Starting web search for: Deep Learning
+2026-03-03 01:12:48 | INFO     | src.agents.web_search:process:564 - Stage 1: Generating search queries...
+2026-03-03 01:12:48 | INFO     | src.agents.web_search:generate_search_queries:129 - LLM generated 3 search queries
+2026-03-03 01:12:48 | INFO     | src.agents.web_search:process:566 - Generated 3 queries: ['deep learning tutorial for beginners', 'deep learning concepts explained with examples', 'a comprehensive guide to deep learning fundamentals']
+2026-03-03 01:12:48 | INFO     | src.agents.web_search:process:569 - Stage 2: Executing web search...
+2026-03-03 01:12:50 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning tutorial for beginners
+2026-03-03 01:12:54 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: deep learning concepts explained with examples
+2026-03-03 01:12:57 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 10 results for: a comprehensive guide to deep learning fundamental
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:execute_search:288 - Search returned 30 unique results from 3 queries
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:process:578 - Found 30 unique results
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:process:583 - Stage 3: Evaluating results with LLM...
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:evaluate_results:385 - LLM selected 3 results from 30 candidates
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:process:585 - Selected 3 top results
+2026-03-03 01:12:57 | INFO     | src.agents.web_search:process:590 - Stage 4: Extracting content from URLs...
+2026-03-03 01:12:59 | INFO     | src.agents.scraper:process:195 - Successfully scraped http://robotics.stanford.edu/~quocle/tutorial1.pdf
+2026-03-03 01:12:59 | WARNING  | src.agents.web_search:extract_content:434 - Scrape returned insufficient content: http://robotics.stanford.edu/~quocle/tutorial1.pdf
+2026-03-03 01:12:59 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://course.fast.ai/
+2026-03-03 01:12:59 | WARNING  | src.agents.web_search:extract_content:434 - Scrape returned insufficient content: https://course.fast.ai/
+2026-03-03 01:13:00 | WARNING  | src.agents.scraper:scrape_with_newspaper:64 - Newspaper3k failed for https://www.igmguru.com/blog/deep-learning-tutorial: Article `download()` failed with 403 Client Error: Forbidden for url: https://www.igmguru.com/blog/deep-learning-tutorial on URL https://www.igmguru.com/blog/deep-learning-tutorial
+2026-03-03 01:13:00 | INFO     | src.agents.scraper:process:190 - Falling back to BeautifulSoup for https://www.igmguru.com/blog/deep-learning-tutorial
+2026-03-03 01:13:01 | WARNING  | src.agents.scraper:scrape_with_beautifulsoup:142 - BeautifulSoup got 403 for https://www.igmguru.com/blog/deep-learning-tutorial, trying primp...
+2026-03-03 01:13:03 | INFO     | src.agents.scraper:_scrape_with_primp:169 - primp successfully fetched https://www.igmguru.com/blog/deep-learning-tutorial (263754 chars)
+2026-03-03 01:13:03 | INFO     | src.agents.scraper:process:195 - Successfully scraped https://www.igmguru.com/blog/deep-learning-tutorial
+2026-03-03 01:13:03 | INFO     | src.agents.web_search:extract_content:429 - Scraped: https://www.igmguru.com/blog/deep-learning-tutorial (17842 chars)
+2026-03-03 01:13:03 | INFO     | src.agents.web_search:process:600 - Successfully scraped 1 pages
+2026-03-03 01:13:03 | INFO     | src.agents.web_search:process:605 - Stage 5: Assessing content quality...
+2026-03-03 01:13:04 | INFO     | src.agents.web_search:assess_content_quality:500 - Quality check PASSED: https://www.igmguru.com/blog/deep-learning-tutorial
+2026-03-03 01:13:04 | INFO     | src.agents.web_search:process:609 - Quality check: 1/1 items passed
+2026-03-03 01:13:04 | INFO     | src.agents.web_search:process:625 - Web search complete. Returning 1 sources, 17842 chars
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:process:315 - Processing content (17842 chars) in 'paragraph_summary' mode
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:process:318 - Stage 1: Analyzing content type...
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:analyze_content_type:98 - Stage 1: Content classified as 'tutorial'
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:process:322 - Stage 2: Selecting processing strategy...
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:select_strategy:171 - Stage 2: Applied 'tutorial' preservation strategy
+2026-03-03 01:13:04 | INFO     | src.agents.content_agent:process:326 - Stage 3: Processing content via SummarizerAgent...
+2026-03-03 01:13:04 | INFO     | src.agents.summarizer:summarize_text:50 - Summarizing text of length: 17842 characters in 'paragraph_summary' mode
+2026-03-03 01:13:04 | INFO     | src.agents.summarizer:summarize_text:57 - Processing 17842 characters with style='paragraph_summary', output_length='auto'
+2026-03-03 01:13:04 | INFO     | src.utils.llm_client:summarize:213 - Auto mode: input=17842 chars -> output_length='detailed'
+2026-03-03 01:13:04 | INFO     | src.utils.llm_client:summarize:215 - Building prompt for style='paragraph_summary', output_length='detailed', text_length=17842 chars
+2026-03-03 01:13:04 | INFO     | src.utils.llm_client:summarize:234 - Optimized max_tokens: 2048 (style=paragraph_summary, length=detailed)
+2026-03-03 01:13:04 | INFO     | src.utils.llm_client:summarize:466 - Sending to LLM - Provider: groq, Style: paragraph_summary, max_tokens: 2048, Prompt length: 19910 chars
+2026-03-03 01:13:08 | INFO     | src.utils.llm_client:summarize:473 - LLM response received - Length: 5509 chars
+2026-03-03 01:13:08 | INFO     | src.agents.summarizer:summarize_text:80 - Summary generated using API - Length: 5509 chars, Style: paragraph_summary, OutputLength: auto
+2026-03-03 01:13:08 | INFO     | src.agents.summarizer:process:365 - Successfully processed content in paragraph_summary mode, output_length=auto
+2026-03-03 01:13:08 | INFO     | src.agents.content_agent:process:358 - Stage 4: Evaluating output quality...
+2026-03-03 01:13:08 | INFO     | src.agents.content_agent:_parse_evaluation:266 - Stage 4: Quality=needs_improvement, Gaps=[], Reason=
+2026-03-03 01:13:08 | INFO     | src.agents.content_agent:process:369 - ContentAgent complete: type=tutorial, gaps=0
+2026-03-03 01:13:08 | INFO     | src.agents.note_maker:create_notes:57 - Created notes for: Deep Learning
+2026-03-03 01:13:08 | INFO     | src.knowledge_base.document_processor:process_document:98 - Processed document: Web search: Deep Learning
+2026-03-03 01:13:12 | INFO     | src.knowledge_base.vector_store:add_documents:107 - Added batch of 38 chunks to vector store
+2026-03-03 01:13:12 | INFO     | src.agents.orchestrator:_web_search_and_process:247 - Added web search content about 'Deep Learning' to KB
+2026-03-03 01:13:12 | INFO     | src.agents.orchestrator:_append_related_papers:433 - Research Mode: searching for related papers on 'Deep Learning'
+2026-03-03 01:13:12 | INFO     | src.utils.academic_search:search_papers:183 - Academic search query: 'Deep Learning'
+2026-03-03 01:13:14 | INFO     | src.utils.academic_search:search_papers:190 - OpenAlex returned 5 papers
+2026-03-03 01:13:14 | INFO     | src.agents.orchestrator:_append_related_papers:443 - Research Mode: appended 5 related papers
+2026-03-03 01:13:14 | INFO     | src.utils.progress_store:record_activity:183 - Recorded activity: note_generated for topic: topic
+2026-03-03 01:16:06 | INFO     | src.utils.gemini_client:__init__:33 - Initialized Gemini client with model: gemini-2.5-flash
+2026-03-03 01:16:06 | INFO     | src.utils.gemini_client:_init_providers:170 - Chat provider ready: Gemini (primary)
+2026-03-03 01:16:07 | INFO     | src.utils.gemini_client:__init__:113 - Initialized Cerebras client with model: llama-3.3-70b
+2026-03-03 01:16:07 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:16:08 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:16:54 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:17:49 | INFO     | src.knowledge_base.vector_store:get_unique_topics:183 - Topics cache miss/expired, fetching from database...
+2026-03-03 01:17:49 | INFO     | src.knowledge_base.vector_store:get_unique_topics:210 - Found 6 unique topics in KB (cached for 300s)
+2026-03-03 01:17:49 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:19:28 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:20:52 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:22:21 | INFO     | src.api.app:shutdown_event:268 - Shutting down EduNotes API...
+2026-03-03 01:33:24 | INFO     | src.utils.pdf_processor:<module>:22 - Using pymupdf4llm for PDF extraction (tables, equations, structure preserved)
+2026-03-03 01:33:24 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:33:25 | INFO     | src.utils.llm_client:_init_groq:80 - Initialized Groq client with model: llama-3.3-70b-versatile, light model: llama-3.1-8b-instant
+2026-03-03 01:33:25 | INFO     | src.agents.summarizer:_initialize:28 - Initializing LLM client for summarization
+2026-03-03 01:33:25 | INFO     | src.agents.summarizer:_initialize:30 - LLM Provider: {'provider': 'groq', 'model': 'llama-3.3-70b-versatile', 'available': True}
+2026-03-03 01:33:25 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:33:25 | INFO     | src.utils.search_provider:__init__:192 - Google scraper fallback provider initialized
+2026-03-03 01:33:25 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:33:25 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:193 - ================================================================================
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:194 - AUTH DIAGNOSTIC: Inspecting all routes for security dependencies
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:195 - ================================================================================
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:219 - Middleware stack type: <class 'starlette.middleware.errors.ServerErrorMiddleware'>
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 0: ServerErrorMiddleware (starlette.middleware.errors)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 1: GZipMiddleware (starlette.middleware.gzip)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 2: CORSMiddleware (starlette.middleware.cors)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 3: ExceptionMiddleware (starlette.middleware.exceptions)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 4: APIRouter (fastapi.routing)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:223 -   Layer 5: method (builtins)
+2026-03-03 01:33:25 | WARNING  | src.api.app:debug_auth_diagnostic:227 - ================================================================================
+2026-03-03 01:33:25 | INFO     | src.api.app:startup_event:232 - Starting EduNotes API...
+2026-03-03 01:33:25 | INFO     | src.api.app:startup_event:233 - API running on 0.0.0.0:8000
+2026-03-03 01:33:25 | INFO     | src.api.app:startup_event:247 - ✅ Groq API key configured
+2026-03-03 01:33:38 | INFO     | src.utils.progress_store:__init__:35 - ProgressStore initialized at: data\progress
+2026-03-03 01:33:38 | INFO     | src.utils.flashcard_store:__init__:34 - FlashcardStore initialized at: data\flashcards
+2026-03-03 01:33:38 | INFO     | src.knowledge_base.vector_store:get_unique_topics:183 - Topics cache miss/expired, fetching from database...
+2026-03-03 01:33:38 | INFO     | src.knowledge_base.vector_store:get_unique_topics:210 - Found 6 unique topics in KB (cached for 300s)
+2026-03-03 01:34:08 | INFO     | src.utils.gemini_client:__init__:33 - Initialized Gemini client with model: gemini-2.5-flash
+2026-03-03 01:34:08 | INFO     | src.utils.gemini_client:_init_providers:170 - Chat provider ready: Gemini (primary)
+2026-03-03 01:34:08 | INFO     | src.utils.gemini_client:__init__:113 - Initialized Cerebras client with model: llama-3.3-70b
+2026-03-03 01:34:08 | INFO     | src.knowledge_base.vector_store:__init__:58 - Collection ready: edunotes_kb (138 documents)
+2026-03-03 01:34:09 | INFO     | src.knowledge_base.vector_store:search:143 - Found 5 relevant documents for query
+2026-03-03 01:34:09 | INFO     | src.utils.search_provider:__init__:50 - DDGS v9+ search provider initialized (multi-engine)
+2026-03-03 01:34:11 | INFO     | src.utils.search_provider:search:96 - DuckDuckGo returned 3 results for: nuclear fission vs nuclear fusion
+2026-03-03 01:47:35 | INFO     | src.api.app:shutdown_event:268 - Shutting down EduNotes API...

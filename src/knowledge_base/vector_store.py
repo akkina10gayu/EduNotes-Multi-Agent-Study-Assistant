@@ -1,14 +1,13 @@
 """
-Vector store management using ChromaDB
+Vector store management using ChromaDB with built-in ONNX embeddings.
+No torch/transformers required — uses the same MiniLM-L6-v2 model via ONNX runtime.
 """
 import chromadb
 from chromadb.config import Settings
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-import json
+from typing import List, Dict, Any
+import hashlib
 import time
 
 from config import settings
@@ -21,16 +20,12 @@ TOPICS_CACHE_TTL = 300
 
 class VectorStore:
     """Manages ChromaDB vector store for document embeddings"""
-    
+
     def __init__(self):
         """Initialize vector store"""
-        # Initialize embeddings
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=settings.EMBEDDING_MODEL,
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
-        
+        # ONNX embeddings (same MiniLM-L6-v2 model, no torch required)
+        self.embedding_fn = ONNXMiniLM_L6_V2()
+
         # Initialize text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.KB_CHUNK_SIZE,
@@ -38,8 +33,8 @@ class VectorStore:
             length_function=len,
             separators=["\n\n", "\n", " ", ""]
         )
-        
-        # Initialize ChromaDB client
+
+        # Initialize ChromaDB client (PersistentClient auto-persists)
         self.client = chromadb.PersistentClient(
             path=str(settings.CHROMA_PERSIST_DIR),
             settings=Settings(
@@ -48,56 +43,50 @@ class VectorStore:
                 is_persistent=True
             )
         )
-        
-        # Initialize or get collection
-        try:
-            self.collection = self.client.get_collection(
-                name=settings.CHROMA_COLLECTION
-            )
-            logger.info(f"Loaded existing collection: {settings.CHROMA_COLLECTION}")
-        except:
-            self.collection = self.client.create_collection(
-                name=settings.CHROMA_COLLECTION,
-                metadata={
-                    "hnsw:space": "cosine",
-                    "hnsw:construction_ef": 200,
-                    "hnsw:M": 16,
-                    "hnsw:search_ef": 100
-                }
-            )
-            logger.info(f"Created new collection: {settings.CHROMA_COLLECTION}")
-        
-        # Initialize Langchain Chroma
-        self.vectorstore = Chroma(
-            collection_name=settings.CHROMA_COLLECTION,
-            embedding_function=self.embeddings,
-            persist_directory=str(settings.CHROMA_PERSIST_DIR),
-            client=self.client
+
+        # Get or create collection with embedding function
+        self.collection = self.client.get_or_create_collection(
+            name=settings.CHROMA_COLLECTION,
+            embedding_function=self.embedding_fn,
+            metadata={
+                "hnsw:space": "cosine",
+                "hnsw:construction_ef": 200,
+                "hnsw:M": 16,
+                "hnsw:search_ef": 100
+            }
         )
+        logger.info(f"Collection ready: {settings.CHROMA_COLLECTION} ({self.collection.count()} documents)")
 
         # Topics cache (Phase 3 optimization)
         self._topics_cache = None
         self._topics_cache_time = 0
-    
+
+    @staticmethod
+    def _make_id(text: str, chunk_index: int) -> str:
+        """Generate a deterministic ID for a text chunk."""
+        return hashlib.md5(f"{text[:200]}:{chunk_index}".encode()).hexdigest()
+
     def add_documents(self, documents: List[Dict[str, Any]], batch_size: int = None) -> bool:
         """Add documents to vector store"""
         try:
             batch_size = batch_size or settings.KB_UPDATE_BATCH_SIZE
-            
+
             # Process documents in batches
             for i in range(0, len(documents), batch_size):
                 batch = documents[i:i + batch_size]
-                
-                # Prepare texts and metadata
+
+                # Prepare texts, metadata, and IDs
                 texts = []
                 metadatas = []
-                
+                ids = []
+
                 for doc in batch:
                     # Split text into chunks
                     chunks = self.text_splitter.split_text(doc['content'])
-                    
+
                     for chunk_idx, chunk in enumerate(chunks):
                         texts.append(chunk)
+                        ids.append(self._make_id(chunk, chunk_idx))
                         metadatas.append({
                             'source': doc.get('source', 'unknown'),
                             'title': doc.get('title', 'Untitled'),
@@ -107,17 +96,15 @@ class VectorStore:
                             'date_added': doc.get('date_added', ''),
                             'topic': doc.get('topic', 'general')
                         })
-                
-                # Add to vector store
-                self.vectorstore.add_texts(
-                    texts=texts,
-                    metadatas=metadatas
+
+                # Upsert to collection (handles duplicates gracefully)
+                self.collection.upsert(
+                    documents=texts,
+                    metadatas=metadatas,
+                    ids=ids
                 )
-                
+
                 logger.info(f"Added batch of {len(texts)} chunks to vector store")
-            
-            # Persist changes
-            self.vectorstore.persist()
 
             # Invalidate topics cache (Phase 3 optimization)
             self._topics_cache = None
@@ -129,34 +116,37 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error adding documents: {e}")
             return False
-    
+
     def search(self, query: str, k: int = 5, score_threshold: float = 1.0) -> List[Dict[str, Any]]:
         """Search for similar documents"""
         try:
-            # Perform similarity search with scores
-            results = self.vectorstore.similarity_search_with_score(
-                query=query,
-                k=k
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=k
             )
-            
-            # Filter by threshold and format results
-            # Note: ChromaDB cosine similarity returns distance, lower scores = better matches
+
+            # Format results (ChromaDB returns parallel lists under [0])
             formatted_results = []
-            for doc, score in results:
-                if score <= score_threshold:  # Lower scores are better for cosine distance
-                    formatted_results.append({
-                        'content': doc.page_content,
-                        'metadata': doc.metadata,
-                        'score': score
-                    })
-            
+            if results and results.get('documents') and results['documents'][0]:
+                docs = results['documents'][0]
+                metas = results['metadatas'][0]
+                distances = results['distances'][0]
+
+                for content, metadata, distance in zip(docs, metas, distances):
+                    if distance <= score_threshold:
+                        formatted_results.append({
+                            'content': content,
+                            'metadata': metadata,
+                            'score': distance
+                        })
+
             logger.info(f"Found {len(formatted_results)} relevant documents for query")
             return formatted_results
-            
+
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
             return []
-    
+
     def delete_collection(self):
         """Delete the entire collection"""
         try:
@@ -166,7 +156,7 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error deleting collection: {e}")
             return False
-    
+
     def get_collection_stats(self) -> Dict[str, Any]:
         """Get statistics about the collection"""
         try:
