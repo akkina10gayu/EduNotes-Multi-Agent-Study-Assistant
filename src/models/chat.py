@@ -14,6 +14,7 @@ class ChatMode(str, Enum):
     EXPLAIN = "explain"
     COMPARE = "compare"
     SOCRATIC = "socratic"
+    PAPER_ANALYSIS = "paper_analysis"
 
 
 class ExplainLevel(str, Enum):

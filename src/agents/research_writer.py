@@ -296,13 +296,39 @@ class ResearchWriter(BaseAgent):
                     result["questions"].append(q)
         return result
 
+    _STOP_WORDS = frozenset({
+        "the", "and", "for", "with", "from", "this", "that", "about",
+        "using", "based", "through", "between", "into", "over", "how",
+        "what", "when", "where", "which", "their", "these", "those",
+    })
+
     def _find_related_papers(self, topic: str) -> List[Dict]:
-        """Search for related academic papers using the existing AcademicSearch."""
+        """Search for related academic papers, filtered for relevance."""
         try:
             from src.utils.academic_search import get_academic_search
             search = get_academic_search()
-            papers = search.search_papers(topic, max_results=5)
-            return papers if papers else []
+            papers = search.search_papers(topic, max_results=8)
+            if not papers:
+                return []
+
+            # Extract meaningful keywords from the topic
+            keywords = [
+                w.lower() for w in topic.split()
+                if len(w) > 3 and w.lower() not in self._STOP_WORDS
+            ]
+            if not keywords:
+                return []
+
+            # Only keep papers whose title or abstract contains a topic keyword
+            relevant = []
+            for paper in papers:
+                text = (
+                    paper.get("title", "").lower() + " " +
+                    paper.get("abstract", "").lower()
+                )
+                if any(kw in text for kw in keywords):
+                    relevant.append(paper)
+            return relevant[:5]
         except Exception as e:
             logger.debug(f"Academic search skipped: {e}")
             return []

@@ -121,7 +121,10 @@ SYSTEM_PROMPTS = {
         "What do they have in common?\n\n"
         "## 5. When to Use Which\n"
         "Practical guidance on when each concept is the better choice.\n\n"
-        "IMPORTANT: The comparison table is MANDATORY. Do NOT skip it."
+        "IMPORTANT: The comparison table is MANDATORY. Do NOT skip it.\n\n"
+        "If the two topics provided are unrelated, nonsensical, or cannot be "
+        "meaningfully compared, politely point this out and ask the user to "
+        "clarify or provide valid topics for comparison."
     ),
     "socratic": (
         "You are a Socratic tutor. Your goal is to guide the student to "
@@ -140,7 +143,42 @@ SYSTEM_PROMPTS = {
         "Keep your questions short and focused. Ask ONE question at a time. "
         "The student should be doing most of the thinking."
     ),
+    "paper_analysis": (
+        "You are a research paper analyst. The user has provided the text of a "
+        "research paper. Provide a thorough, structured analysis:\n\n"
+        "## Paper Overview\n"
+        "Title, authors (if identifiable), and field of study.\n\n"
+        "## Research Objective\n"
+        "What problem does this paper address? What is the research question?\n\n"
+        "## Methodology\n"
+        "How did the authors approach the problem? What methods/data were used?\n\n"
+        "## Key Findings\n"
+        "What are the main results and contributions?\n\n"
+        "## Strengths & Limitations\n"
+        "What does the paper do well? Where are the gaps or weaknesses?\n\n"
+        "## Significance\n"
+        "Why does this paper matter? How does it advance the field?\n\n"
+        "After the initial analysis, be ready for follow-up questions. "
+        "The user may ask about specific sections, methodology details, "
+        "implications, related work, or anything else about the paper. "
+        "Answer based on what the paper content reveals.\n\n"
+        "If the user provides just a title or abstract instead of the full "
+        "paper, analyze what is available and note what you cannot assess "
+        "without the full text."
+    ),
 }
+
+COMPLETION_INSTRUCTION = (
+    "\n\nCRITICAL RULES:\n"
+    "1. NEVER output placeholder symbols like '----', '---', '...', or empty "
+    "sections. Every section must contain substantive, meaningful content.\n"
+    "2. If the provided context does not fully cover a topic, confidently use "
+    "your own knowledge to fill in the gaps. You are a knowledgeable assistant "
+    "— provide complete, accurate information.\n"
+    "3. Always finish your response with a proper conclusion. If approaching "
+    "your length limit, wrap up concisely rather than stopping mid-sentence. "
+    "NEVER leave a response incomplete or cut off abruptly."
+)
 
 SUGGESTION_SUFFIX = (
     "\n\nAfter your response, add a blank line then write exactly "
@@ -167,18 +205,52 @@ class ChatAgent(BaseAgent):
             history = input_data.get("history", [])
             use_kb = input_data.get("use_kb", True)
 
-            # KB context injection
-            kb_context, kb_sources = "", []
+            # Smart context injection: KB → evaluate sufficiency → supplement with web
+            context_text, all_sources = "", []
             if use_kb:
                 kb_context, kb_sources = self._search_kb(message)
+                kb_sufficient = self._is_context_sufficient(kb_context, mode, input_data)
 
-            # Build system prompt (with inline suggestion instruction)
+                if kb_sufficient:
+                    # KB alone is enough
+                    context_text = kb_context
+                    all_sources = kb_sources
+                else:
+                    # KB empty or insufficient — get web context
+                    search_query = message
+                    if mode == "compare":
+                        concept2 = input_data.get("compare_concept_2", "")
+                        if concept2 and concept2.strip():
+                            search_query = f"{message} vs {concept2.strip()}"
+                    web_context, web_sources = self._search_web(search_query)
+
+                    if kb_context and web_context:
+                        # Combine both — KB partial info + web supplement
+                        context_text = kb_context + "\n\n" + web_context
+                        all_sources = kb_sources + web_sources
+                    elif web_context:
+                        context_text = web_context
+                        all_sources = web_sources
+                    elif kb_context:
+                        # KB is all we have, even if partial
+                        context_text = kb_context
+                        all_sources = kb_sources
+
+            # Build system prompt
             system_prompt = self._get_system_prompt(mode, input_data)
-            if kb_context:
+            if context_text:
                 system_prompt += (
-                    "\n\nKNOWLEDGE BASE CONTEXT (use this to inform your answer):\n"
-                    + kb_context
+                    "\n\nREFERENCE CONTEXT (use this to supplement your answer, "
+                    "but rely on your own knowledge for anything not covered here):\n"
+                    + context_text
                 )
+            elif not use_kb:
+                system_prompt += (
+                    "\n\nNo external context is provided. Answer entirely from "
+                    "your own knowledge. Be thorough and accurate."
+                )
+            # Always add completion instruction to prevent abrupt cutoff
+            system_prompt += COMPLETION_INSTRUCTION
             # Append suggestion instruction so it comes in ONE LLM call
             if mode != "socratic":
                 system_prompt += SUGGESTION_SUFFIX
@@ -190,11 +262,19 @@ class ChatAgent(BaseAgent):
             # Enhance message for compare mode
             if mode == "compare":
                 concept2 = input_data.get("compare_concept_2", "")
-                if concept2:
+                if concept2 and concept2.strip():
                     message = (
                         f"Concept A: {message}\n"
-                        f"Concept B: {concept2}\n\n"
+                        f"Concept B: {concept2.strip()}\n\n"
                         f"Compare and contrast these two concepts in full detail."
+                    )
+                else:
+                    # No second topic — ask the user instead of producing junk
+                    message = (
+                        f"The user wants to compare \"{message}\" but has not provided "
+                        f"a second topic. Briefly explain what \"{message}\" is in "
+                        f"2-3 sentences, then ask the user to provide the second "
+                        f"topic they want to compare it against."
                     )
 
             messages.append({"role": "user", "content": message})
@@ -214,7 +294,7 @@ class ChatAgent(BaseAgent):
                 "success": True,
                 "response": response_text,
                 "suggestions": suggestions,
-                "sources": kb_sources,
+                "sources": all_sources,
                 "provider_used": provider,
                 "mode": mode,
             }
@@ -251,18 +331,20 @@ class ChatAgent(BaseAgent):
     def _get_max_tokens(mode: str, input_data: Dict) -> int:
         if mode == "answer_writer":
             depth = input_data.get("answer_depth", "standard")
-            return {"brief": 512, "standard": 1536, "detailed": 3072}.get(depth, 1536)
+            return {"brief": 800, "standard": 2048, "detailed": 4096}.get(depth, 2048)
         if mode == "compare":
-            return 2560
+            return 4096
+        if mode == "paper_analysis":
+            return 4096
         if mode == "socratic":
-            return 512
-        return 2048
+            return 800
+        return 4096
 
     @staticmethod
     def _get_temperature(mode: str) -> float:
         if mode == "socratic":
             return 0.8
-        if mode == "compare":
+        if mode in ("compare", "paper_analysis"):
             return 0.4
         return 0.7
 
@@ -299,6 +381,66 @@ class ChatAgent(BaseAgent):
             return "\n\n".join(context_parts), sources
         except Exception as e:
             logger.warning(f"KB search failed: {e}")
+            return "", []
+
+    # ------------------------------------------------------------------
+    # Context sufficiency evaluation (fast heuristic, no LLM call)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _is_context_sufficient(context: str, mode: str, input_data: dict) -> bool:
+        """Quick check if KB context is sufficient for the current task."""
+        if not context:
+            return False
+
+        # Very short context is rarely sufficient for detailed responses
+        if len(context) < 300:
+            return False
+
+        # Compare mode: both concepts must appear in context
+        if mode == "compare":
+            message = input_data.get("message", "")
+            concept2 = input_data.get("compare_concept_2", "")
+            if concept2 and concept2.strip():
+                ctx_lower = context.lower()
+                c1_words = [w.lower() for w in message.split() if len(w) > 3]
+                c2_words = [w.lower() for w in concept2.split() if len(w) > 3]
+                has_c1 = any(w in ctx_lower for w in c1_words) if c1_words else True
+                has_c2 = any(w in ctx_lower for w in c2_words) if c2_words else True
+                if not (has_c1 and has_c2):
+                    return False
+
+        # Paper analysis needs substantial content
+        if mode == "paper_analysis" and len(context) < 500:
+            return False
+
+        return True
+
+    # ------------------------------------------------------------------
+    # Web search fallback when KB context is insufficient
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _search_web(query: str) -> tuple:
+        """Quick web search for context snippets when KB has no results."""
+        try:
+            from src.utils.search_provider import get_search_provider
+            provider = get_search_provider()
+            results = provider.search(query, max_results=3)
+            if not results:
+                return "", []
+
+            context_parts = []
+            sources = []
+            for i, result in enumerate(results, 1):
+                context_parts.append(f"[Web {i}] {result.title}: {result.snippet}")
+                sources.append({
+                    "title": result.title,
+                    "url": result.url,
+                    "type": "web",
+                })
+
+            return "\n\n".join(context_parts), sources
+        except Exception as e:
+            logger.debug(f"Web search fallback skipped: {e}")
             return "", []
 
     # ------------------------------------------------------------------
