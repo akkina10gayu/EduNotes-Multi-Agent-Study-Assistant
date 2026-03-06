@@ -15,7 +15,7 @@ A multi-agent study assistant that transforms topics, articles, PDFs, and docume
 - **Build a Knowledge Base** that grows with your learning
 - **Search & Download** from your knowledge base — find stored notes and download them as text file
 - **Track Progress** with streaks and performance stats
-- **Free to Use** with Groq, Gemini, and Cerebras free-tier APIs — no credit card required
+- **Free to Use** with Groq, Gemini, and Cerebras free-tier APIs
 
 ## Quick Start
 
@@ -192,16 +192,16 @@ Topic → Sufficiency Analysis → Follow-up Questions → Outline → Section W
 
 ### Agents
 
-| Agent | Role |
+| Agent / Tool | Role |
 |-------|------|
-| **Orchestrator** | Routes input to the right pipeline and coordinates all agents |
+| **Orchestrator** | Coordinator that routes input to the right pipeline and manages all agents and tools |
 | **ChatAgent** | Conversational AI with 7 modes, assembles context from KB and web, generates inline follow-up suggestions |
-| **ResearchWriter** | Iterative information gathering with sufficiency analysis, builds outlines, and writes research papers section by section |
+| **ResearchWriterAgent** | Research Writer mode in AI Chat — gathers context iteratively with sufficiency analysis, builds outlines, and writes research papers section by section |
 | **WebSearchAgent** | Generates optimized search queries, finds web pages, ranks them by educational value, scrapes the best ones, and filters out low-quality content |
 | **ContentAgent** | Identifies content type (academic, tutorial, etc.), applies tailored processing instructions, delegates to the Summarizer, and checks output quality |
 | **Retriever** | Searches the knowledge base using semantic similarity |
-| **Scraper** | Extracts readable content from web pages |
-| **Summarizer** | Generates summaries via LLM with automatic fallback if rate-limited |
+| **Scraper** | Extracts readable content from web pages using newspaper3k with BeautifulSoup fallback |
+| **Summarizer** | Generates summaries via LLM with automatic fallback to a lighter model if rate-limited |
 | **NoteMaker** | Structures the final output into formatted markdown notes |
 
 ### Multi-Model Setup
