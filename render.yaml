@@ -27,4 +27,4 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.11"
       - key: API_BASE_URL
-        value: https://edunotes-api.onrender.com/api/v1
+        value: http://edunotes-api-s9xc:10000/api/v1

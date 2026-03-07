@@ -61,6 +61,10 @@ def get_api_session():
     This reduces TCP handshake overhead for multiple API calls.
     """
     session = requests.Session()
+    session.headers.update({
+        "User-Agent": "EduNotes-UI/1.0 (Streamlit; internal)",
+        "X-Requested-With": "EduNotes-Streamlit",
+    })
     session.hooks["response"].append(_log_response)
     return session
 
@@ -1288,7 +1292,7 @@ with tab1:
                         status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
 
                         # Send cached text to /process-pdf as form data (skips extraction)
-                        response = requests.post(
+                        response = get_api_session().post(
                             f"{API_BASE_URL}/process-pdf",
                             data={
                                 "summarization_mode": summarization_mode,
@@ -1311,7 +1315,7 @@ with tab1:
                         progress_placeholder.progress(0.5)
                         status_placeholder.info(f"🤖 Processing PDF content ({mode_text})...")
 
-                        response = requests.post(
+                        response = get_api_session().post(
                             f"{API_BASE_URL}/process-pdf",
                             files=files,
                             data={
@@ -1344,7 +1348,7 @@ with tab1:
 
                             # Update LLM provider info in session state
                             try:
-                                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=60)
+                                stats_resp = get_api_session().get(f"{API_BASE_URL}/stats", timeout=60)
                                 if stats_resp.status_code == 200:
                                     stats = stats_resp.json()
                                     llm_info = stats.get('llm', {})
@@ -1436,7 +1440,7 @@ with tab1:
 
                 # Make API request (PDF URLs need longer timeout: download + extraction + LLM)
                 _req_timeout = 180 if _is_pdf_url else 120
-                response = requests.post(
+                response = get_api_session().post(
                     f"{API_BASE_URL}/generate-notes",
                     json={
                         "query": query_input,
@@ -1477,7 +1481,7 @@ with tab1:
 
                         # Update LLM provider info in session state
                         try:
-                            stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=60)
+                            stats_resp = get_api_session().get(f"{API_BASE_URL}/stats", timeout=60)
                             if stats_resp.status_code == 200:
                                 stats = stats_resp.json()
                                 llm_info = stats.get('llm', {})
@@ -1754,7 +1758,7 @@ with tab1:
                                 try:
                                     pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
                                     if pdf_name:
-                                        check_resp = requests.post(
+                                        check_resp = get_api_session().post(
                                             f"{API_BASE_URL}/search-kb",
                                             json={"query": pdf_name, "k": 5, "threshold": 0.8},
                                             timeout=60
@@ -1847,7 +1851,7 @@ with tab1:
                     else:
                         # Make API call to save
                         try:
-                            response = requests.post(
+                            response = get_api_session().post(
                                 f"{API_BASE_URL}/update-kb",
                                 json={
                                     "documents": [{
@@ -2007,7 +2011,7 @@ with tab1:
                                 try:
                                     pdf_name = query.replace('PDF: ', '') if query.startswith('PDF: ') else ''
                                     if pdf_name:
-                                        check_resp = requests.post(
+                                        check_resp = get_api_session().post(
                                             f"{API_BASE_URL}/search-kb",
                                             json={"query": pdf_name, "k": 5, "threshold": 0.8},
                                             timeout=60
@@ -2098,7 +2102,7 @@ with tab1:
                     else:
                         # Make API call to save
                         try:
-                            response = requests.post(
+                            response = get_api_session().post(
                                 f"{API_BASE_URL}/update-kb",
                                 json={
                                     "documents": [{
@@ -2959,7 +2963,7 @@ with tab2:
             if search_query:
                 with st.spinner("Searching..."):
                     try:
-                        response = requests.post(
+                        response = get_api_session().post(
                             f"{API_BASE_URL}/search-kb",
                             json={
                                 "query": search_query,
@@ -3042,7 +3046,7 @@ with tab3:
                         "source": doc_source
                     }
                     
-                    response = requests.post(
+                    response = get_api_session().post(
                         f"{API_BASE_URL}/update-kb",
                         json={"documents": [document]}
                     )
@@ -3091,7 +3095,7 @@ with tab4:
                 if fc_content and fc_topic:
                     with st.spinner("Generating flashcards..."):
                         try:
-                            response = requests.post(
+                            response = get_api_session().post(
                                 f"{API_BASE_URL}/study/flashcards/generate",
                                 json={
                                     "content": fc_content,
@@ -3211,7 +3215,7 @@ with tab4:
                                 if st.button("✅ Got it!", use_container_width=True, type="primary"):
                                     # Record correct review
                                     try:
-                                        requests.post(
+                                        get_api_session().post(
                                             f"{API_BASE_URL}/study/flashcards/review",
                                             json={
                                                 "set_id": st.session_state.current_flashcard_set['id'],
@@ -3228,7 +3232,7 @@ with tab4:
                             with col_b:
                                 if st.button("🔄 Review Again", use_container_width=True):
                                     try:
-                                        requests.post(
+                                        get_api_session().post(
                                             f"{API_BASE_URL}/study/flashcards/review",
                                             json={
                                                 "set_id": st.session_state.current_flashcard_set['id'],
@@ -3293,7 +3297,7 @@ with tab4:
                 if quiz_content and quiz_topic:
                     with st.spinner("Generating quiz..."):
                         try:
-                            response = requests.post(
+                            response = get_api_session().post(
                                 f"{API_BASE_URL}/study/quizzes/generate",
                                 json={
                                     "content": quiz_content,
@@ -3306,7 +3310,7 @@ with tab4:
                                 result = response.json()
                                 if result['success']:
                                     # Start attempt
-                                    start_resp = requests.post(
+                                    start_resp = get_api_session().post(
                                         f"{API_BASE_URL}/study/quizzes/{result['quiz']['id']}/start"
                                     )
                                     if start_resp.status_code == 200:
@@ -3386,7 +3390,7 @@ with tab4:
                         with st.spinner("Submitting quiz..."):
                             # Submit all answers
                             for q_id, answer in st.session_state.quiz_answers.items():
-                                requests.post(
+                                get_api_session().post(
                                     f"{API_BASE_URL}/study/quizzes/submit-answer",
                                     json={
                                         "quiz_id": quiz['id'],
@@ -3397,7 +3401,7 @@ with tab4:
                                 )
 
                             # Complete the quiz
-                            complete_resp = requests.post(
+                            complete_resp = get_api_session().post(
                                 f"{API_BASE_URL}/study/quizzes/complete",
                                 json={
                                     "quiz_id": quiz['id'],
