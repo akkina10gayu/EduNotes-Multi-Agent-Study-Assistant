@@ -90,7 +90,7 @@ def check_api_health():
     # Cache expired or not set - make the API call
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/health", timeout=3)  # Increased from 2s
+        response = session.get(f"{API_BASE_URL}/health", timeout=60)  # Increased from 2s
         result = response.status_code == 200
     except:
         result = False
@@ -110,7 +110,7 @@ def fetch_topics():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/topics", timeout=2)  # Phase 4: reduced from 3s
+        response = session.get(f"{API_BASE_URL}/topics", timeout=60)  # Phase 4: reduced from 3s
         if response.status_code == 200:
             return response.json().get('topics', [])
     except:
@@ -144,8 +144,8 @@ def fetch_study_stats():
     # Cache expired or not set - make the API calls
     try:
         session = get_api_session()
-        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=3)  # Increased from 2s
-        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)  # Increased from 2s
+        progress_resp = session.get(f"{API_BASE_URL}/study/progress", timeout=60)  # Increased from 2s
+        flashcard_resp = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=60)  # Increased from 2s
 
         result = {
             'total_flashcards': 0,
@@ -190,7 +190,7 @@ def fetch_flashcard_sets():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=3)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=60)  # Phase 4: reduced from 5s
         if response.status_code == 200:
             return response.json().get('sets', [])
     except:
@@ -206,7 +206,7 @@ def fetch_quizzes_list():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=3)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=60)  # Phase 4: reduced from 5s
         if response.status_code == 200:
             return response.json().get('quizzes', [])
     except:
@@ -223,7 +223,7 @@ def fetch_detailed_progress():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/progress", timeout=3)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/progress", timeout=60)  # Phase 4: reduced from 5s
         if response.status_code == 200:
             return response.json()
     except:
@@ -241,7 +241,7 @@ def fetch_kb_documents(keyword=None):
         params = {}
         if keyword:
             params['keyword'] = keyword
-        response = session.get(f"{API_BASE_URL}/documents", params=params, timeout=5)
+        response = session.get(f"{API_BASE_URL}/documents", params=params, timeout=60)
         if response.status_code == 200:
             return response.json().get('documents', [])
     except:
@@ -259,7 +259,7 @@ def fetch_kb_documents_semantic(query):
         response = session.get(
             f"{API_BASE_URL}/documents/search",
             params={"query": query, "k": 20},
-            timeout=10
+            timeout=60
         )
         if response.status_code == 200:
             return response.json().get('documents', [])
@@ -288,7 +288,7 @@ def fetch_document_content(doc_id):
 
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/documents/{doc_id}", timeout=5)
+        response = session.get(f"{API_BASE_URL}/documents/{doc_id}", timeout=60)
         if response.status_code == 200:
             result = response.json().get('document')
         else:
@@ -327,7 +327,7 @@ def fetch_system_stats():
     # Cache expired or not set - make the API call
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/stats", timeout=3)  # Increased from 2s
+        response = session.get(f"{API_BASE_URL}/stats", timeout=60)  # Increased from 2s
         if response.status_code == 200:
             result = response.json()
         else:
@@ -1344,7 +1344,7 @@ with tab1:
 
                             # Update LLM provider info in session state
                             try:
-                                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
+                                stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=60)
                                 if stats_resp.status_code == 200:
                                     stats = stats_resp.json()
                                     llm_info = stats.get('llm', {})
@@ -1477,7 +1477,7 @@ with tab1:
 
                         # Update LLM provider info in session state
                         try:
-                            stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=2)
+                            stats_resp = requests.get(f"{API_BASE_URL}/stats", timeout=60)
                             if stats_resp.status_code == 200:
                                 stats = stats_resp.json()
                                 llm_info = stats.get('llm', {})
@@ -1757,7 +1757,7 @@ with tab1:
                                         check_resp = requests.post(
                                             f"{API_BASE_URL}/search-kb",
                                             json={"query": pdf_name, "k": 5, "threshold": 0.8},
-                                            timeout=3
+                                            timeout=60
                                         )
                                         if check_resp.status_code == 200:
                                             for doc in check_resp.json().get('results', []):
@@ -1858,7 +1858,7 @@ with tab1:
                                         "url": save_url.strip() if save_url else ""
                                     }]
                                 },
-                                timeout=10
+                                timeout=60
                             )
                             if response.status_code == 200:
                                 result = response.json()
@@ -2010,7 +2010,7 @@ with tab1:
                                         check_resp = requests.post(
                                             f"{API_BASE_URL}/search-kb",
                                             json={"query": pdf_name, "k": 5, "threshold": 0.8},
-                                            timeout=3
+                                            timeout=60
                                         )
                                         if check_resp.status_code == 200:
                                             for doc in check_resp.json().get('results', []):
@@ -2109,7 +2109,7 @@ with tab1:
                                         "url": save_url_h.strip() if save_url_h else ""
                                     }]
                                 },
-                                timeout=10
+                                timeout=60
                             )
                             if response.status_code == 200:
                                 result = response.json()
@@ -2741,7 +2741,7 @@ with tab_chat:
                             session_api = get_api_session()
                             export_resp = session_api.post(
                                 f"{CHAT_API}/sessions/{st.session_state.chat_session_id}/export",
-                                timeout=10,
+                                timeout=60,
                             )
                             if export_resp.status_code == 200:
                                 st.session_state.chat_export_data = export_resp.json()
@@ -2761,7 +2761,7 @@ with tab_chat:
         with st.expander("Chat History", expanded=False):
             try:
                 session_api = get_api_session()
-                sessions_resp = session_api.get(f"{CHAT_API}/sessions", timeout=10)
+                sessions_resp = session_api.get(f"{CHAT_API}/sessions", timeout=60)
                 if sessions_resp.status_code == 200:
                     saved_sessions = sessions_resp.json().get("sessions", [])
                     if saved_sessions:
@@ -2800,7 +2800,7 @@ with tab_chat:
                                     with s_col2:
                                         if st.button("Load", key=f"load_{s['id']}", use_container_width=True):
                                             try:
-                                                detail_resp = session_api.get(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                detail_resp = session_api.get(f"{CHAT_API}/sessions/{s['id']}", timeout=60)
                                                 if detail_resp.status_code == 200:
                                                     detail = detail_resp.json()
                                                     st.session_state.chat_session_id = s["id"]
@@ -2816,7 +2816,7 @@ with tab_chat:
                                     with s_col3:
                                         if st.button("Del", key=f"del_{s['id']}", use_container_width=True):
                                             try:
-                                                session_api.delete(f"{CHAT_API}/sessions/{s['id']}", timeout=10)
+                                                session_api.delete(f"{CHAT_API}/sessions/{s['id']}", timeout=60)
                                                 st.rerun()
                                             except Exception:
                                                 pass
