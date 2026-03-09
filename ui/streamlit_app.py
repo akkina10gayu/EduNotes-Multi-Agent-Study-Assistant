@@ -85,8 +85,8 @@ def check_api_health():
         cached_value = st.session_state[cache_key]
         cached_time = st.session_state[cache_time_key]
 
-        # Different TTL: 30s for success, 5s for failure
-        ttl = 30 if cached_value else 5
+        # Different TTL: 30s for success, 30s for failure (avoid retry storms)
+        ttl = 30 if cached_value else 30
 
         if current_time - cached_time < ttl:
             return cached_value
@@ -139,8 +139,8 @@ def fetch_study_stats():
         cached_value = st.session_state[cache_key]
         cached_time = st.session_state[cache_time_key]
 
-        # Different TTL: 60s for success, 5s for failure
-        ttl = 60 if cached_value is not None else 5
+        # Different TTL: 60s for success, 30s for failure (avoid retry storms)
+        ttl = 60 if cached_value is not None else 30
 
         if current_time - cached_time < ttl:
             return cached_value
@@ -322,8 +322,8 @@ def fetch_system_stats():
         cached_value = st.session_state[cache_key]
         cached_time = st.session_state[cache_time_key]
 
-        # Different TTL: 120s for success, 5s for failure
-        ttl = 120 if cached_value is not None else 5
+        # Different TTL: 120s for success, 30s for failure (avoid retry storms)
+        ttl = 120 if cached_value is not None else 30
 
         if current_time - cached_time < ttl:
             return cached_value
@@ -1037,7 +1037,7 @@ st.markdown("**📊 Study Stats**")
 stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
 
 notes_generated = len(st.session_state.get('note_history', []))
-study_stats = fetch_study_stats()
+study_stats = fetch_study_stats() if check_api_health() else None
 
 if study_stats:
     with stat_col1:
@@ -3122,7 +3122,7 @@ with tab4:
 
             # Load existing flashcard sets - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Set")
-            flashcard_sets = fetch_flashcard_sets()
+            flashcard_sets = fetch_flashcard_sets() if check_api_health() else []
             if flashcard_sets:
                 set_options = {f"{s['name']} ({s['card_count']} cards)": s['id'] for s in flashcard_sets}
                 selected = st.selectbox("Select a set:", [""] + list(set_options.keys()))
@@ -3332,7 +3332,7 @@ with tab4:
 
             # Load existing quizzes - Using cached function (30 sec TTL)
             st.markdown("#### Or Load Existing Quiz")
-            quizzes_list = fetch_quizzes_list()
+            quizzes_list = fetch_quizzes_list() if check_api_health() else []
             if quizzes_list:
                 quiz_options = {f"{q['title']} ({q['question_count']} Q)": q['id'] for q in quizzes_list}
                 selected = st.selectbox("Select a quiz:", [""] + list(quiz_options.keys()), key="load_quiz")
@@ -3510,7 +3510,7 @@ with tab4:
     with study_tab3:
         st.subheader("Study Progress Dashboard")
 
-        progress = fetch_detailed_progress()
+        progress = fetch_detailed_progress() if check_api_health() else None
 
         if progress:
             # Overall Stats
