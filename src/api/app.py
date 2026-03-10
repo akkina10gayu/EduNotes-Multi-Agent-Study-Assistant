@@ -434,7 +434,8 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
             summarization_mode=body.summarization_mode,
             output_length=body.summary_length,
             search_mode=body.search_mode or "auto",
-            research_mode=body.research_mode or False
+            research_mode=body.research_mode or False,
+            save_to_kb=body.save_to_kb or False
         )
 
         # Ensure error responses have all required fields for the response model

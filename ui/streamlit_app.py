@@ -1129,6 +1129,17 @@ with tab1:
     if research_mode:
         st.caption("Research Mode ON — Enhanced extraction + related papers + figure analysis")
 
+    # Save to KB Toggle
+    save_to_kb = st.toggle(
+        "Save to Knowledge Base",
+        value=False,
+        help="Save generated content to the knowledge base for future queries. "
+             "Keep this off on the hosted version to avoid memory constraints.",
+        key="save_to_kb_toggle"
+    )
+    if save_to_kb:
+        st.caption("💡 Tip: Saving to KB uses extra memory — best suited for local deployments.")
+
     # Search Mode Selection — hidden by default, shown only when topic input is detected
     search_mode = "auto"  # Default for non-topic queries
 
@@ -1400,7 +1411,8 @@ with tab1:
                         "summarization_mode": summarization_mode,
                         "summary_length": output_length,
                         "search_mode": search_mode,
-                        "research_mode": research_mode
+                        "research_mode": research_mode,
+                        "save_to_kb": save_to_kb
                     },
                     timeout=_req_timeout
                 )

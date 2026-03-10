@@ -13,6 +13,7 @@ class GenerateNotesRequest(BaseModel):
     summary_length: Optional[str] = Field("auto", description="Length: 'auto' for smart sizing, 'brief' (~350 words), 'medium' (~800 words), 'detailed' (~2,300 words)")
     search_mode: Optional[str] = Field("auto", description="Search mode: 'auto' (KB first, web fallback), 'kb_only' (knowledge base only), 'web_search' (web search only), 'both' (KB and web search combined)")
     research_mode: Optional[bool] = Field(False, description="Research Mode: enables academic paper discovery, enhanced PDF extraction, and vision analysis of figures")
+    save_to_kb: Optional[bool] = Field(False, description="Whether to save generated content to the knowledge base")
     
 class GenerateNotesResponse(BaseModel):
     """Response model for generated notes"""

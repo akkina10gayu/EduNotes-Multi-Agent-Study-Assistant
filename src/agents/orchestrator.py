@@ -69,7 +69,7 @@ class Orchestrator:
         # Otherwise, it's a topic query
         return QueryType.TOPIC
     
-    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process_topic_query(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False, save_to_kb: bool = False) -> Dict[str, Any]:
         """Process a topic-based query with configurable search mode.
 
         Args:
@@ -84,7 +84,7 @@ class Orchestrator:
             # Web search only mode - skip KB entirely
             if search_mode in ("web_search", "web_only"):
                 self.logger.info("Search mode: web_search - going directly to web search")
-                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length, save_to_kb=save_to_kb)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -92,7 +92,7 @@ class Orchestrator:
             # Both mode - search KB and web, combine results
             if search_mode == "both":
                 self.logger.info("Search mode: both - searching KB and web")
-                result = await self._process_both_sources(query, summarization_mode, output_length)
+                result = await self._process_both_sources(query, summarization_mode, output_length, save_to_kb=save_to_kb)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -168,7 +168,7 @@ class Orchestrator:
 
                 # Auto mode: fall back to web search
                 self.logger.info("No relevant documents in KB, falling back to web search...")
-                result = await self._web_search_and_process(query, summarization_mode, output_length)
+                result = await self._web_search_and_process(query, summarization_mode, output_length, save_to_kb=save_to_kb)
                 if research_mode and result.get('success'):
                     result = await self._append_related_papers(result, query)
                 return result
@@ -184,7 +184,8 @@ class Orchestrator:
         self,
         query: str,
         summarization_mode: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        save_to_kb: bool = False
     ) -> Dict[str, Any]:
         """
         Use WebSearchAgent to find content, then summarize and make notes.
@@ -232,8 +233,8 @@ class Orchestrator:
                 'summarization_mode': summarization_mode
             })
 
-            # Step 4: Add to KB for future queries
-            if search_result.get('content'):
+            # Step 4: Add to KB for future queries (only if explicitly requested)
+            if save_to_kb and search_result.get('content'):
                 try:
                     doc = self.doc_processor.process_document(
                         content=search_result['content'],
@@ -269,7 +270,8 @@ class Orchestrator:
         self,
         query: str,
         summarization_mode: str = "paragraph_summary",
-        output_length: str = "auto"
+        output_length: str = "auto",
+        save_to_kb: bool = False
     ) -> Dict[str, Any]:
         """
         Search both KB and web, combine results, then summarize.
@@ -370,8 +372,8 @@ class Orchestrator:
                 'summarization_mode': summarization_mode
             })
 
-            # Step 8: Add web content to KB for future queries
-            if web_content:
+            # Step 8: Add web content to KB for future queries (only if explicitly requested)
+            if save_to_kb and web_content:
                 try:
                     doc = self.doc_processor.process_document(
                         content=web_content,
@@ -480,7 +482,7 @@ class Orchestrator:
 
         return result
 
-    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process_url_query(self, url: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", research_mode: bool = False, save_to_kb: bool = False) -> Dict[str, Any]:
         """Process a URL-based query"""
         try:
             self.logger.info(f"Processing URL: {url}")
@@ -529,8 +531,8 @@ class Orchestrator:
                 'summarization_mode': summarization_mode  # Pass mode for header formatting
             })
             
-            # Optionally add to knowledge base
-            if scrape_result['content']:
+            # Optionally add to knowledge base (only if explicitly requested)
+            if save_to_kb and scrape_result['content']:
                 doc = self.doc_processor.process_document(
                     content=scrape_result['content'],
                     source='web',
@@ -646,21 +648,21 @@ class Orchestrator:
                 'error': str(e)
             }
     
-    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False) -> Dict[str, Any]:
+    async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False, save_to_kb: bool = False) -> Dict[str, Any]:
         """Main processing method"""
         try:
             # Detect query type
             query_type = self.detect_query_type(query)
 
-            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}, research_mode: {research_mode}")
+            self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}, research_mode: {research_mode}, save_to_kb: {save_to_kb}")
 
             # Process based on type
             if query_type == QueryType.URL:
-                return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode)
+                return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode, save_to_kb=save_to_kb)
             elif query_type == QueryType.TEXT:
                 return await self.process_text_query(query, summarization_mode, output_length, research_mode=research_mode)
             else:  # TOPIC
-                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode, research_mode=research_mode)
+                return await self.process_topic_query(query, summarization_mode, output_length, search_mode=search_mode, research_mode=research_mode, save_to_kb=save_to_kb)
                 
         except Exception as e:
             self.logger.error(f"Error in orchestrator: {e}")
