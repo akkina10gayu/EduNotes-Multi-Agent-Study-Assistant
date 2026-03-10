@@ -5,6 +5,10 @@
 
 A multi-agent study assistant that transforms topics, articles, PDFs, and documents into structured notes, flashcards, and quizzes — with an AI chat for interactive learning — powered by free LLM APIs.
 
+## Live Demo
+
+Try the hosted version at **[https://edunotes-ui.onrender.com](https://edunotes-ui.onrender.com)** — no setup required. Runs on Render's free tier, so the first load may take up to a minute while the service wakes up, and usage is subject to free-tier API rate limits. Note that the knowledge base and chat history are not persistent on the hosted version — they reset on each service restart. For a persistent knowledge base, run the app locally using the instructions below.
+
 ## What It Does
 
 - **Generate Notes** from any topic, URL, PDF, or pasted text with customizable formats and length

@@ -843,7 +843,6 @@ with st.sidebar:
         st.success("✅ API Connected")
     else:
         st.error("❌ API Offline")
-        st.caption("Start API: uvicorn src.api.app:app --reload")
 
     st.divider()
 
@@ -899,7 +898,6 @@ with st.sidebar:
                 st.markdown(f"- {agent_display}: {status_icon} {status.title()}")
         else:
             st.warning("⚠️ Could not load system stats")
-            st.caption("API may be offline. Run: uvicorn src.api.app:app --reload")
 
     st.divider()
 
@@ -957,34 +955,7 @@ with st.sidebar:
     st.divider()
 
     # Help Section at Bottom
-    with st.expander("❓ Help & Setup Guide"):
-        st.markdown("### 🚀 Getting Started")
-
-        st.markdown("#### 1️⃣ Start the API Server")
-        st.code("uvicorn src.api.app:app --reload", language="bash")
-        st.caption("Run this command in your terminal from the project root")
-
-        st.markdown("#### 2️⃣ Start the UI")
-        st.code("streamlit run ui/streamlit_app.py", language="bash")
-        st.caption("Run this in a separate terminal")
-
-        st.markdown("---")
-
-        st.markdown("### ⚡ Setup API Key (Recommended)")
-        st.markdown("""
-        **Get FREE Groq API Key for 10x faster performance:**
-
-        1. Visit [console.groq.com](https://console.groq.com)
-        2. Sign up (no credit card required)
-        3. Copy your API key
-        4. Edit `.env` file in project root:
-        """)
-        st.code("GROQ_API_KEY=your_key_here", language="bash")
-        st.markdown("5. Restart both API and UI")
-
-        st.markdown("---")
-
-        st.markdown("### 📚 How to Use")
+    with st.expander("❓ How to Use"):
         st.markdown("""
         **Generate Notes:**
         - Enter a topic (e.g., "Machine Learning")
@@ -1004,27 +975,9 @@ with st.sidebar:
         - Copy notes directly without downloading
         """)
 
-        st.markdown("---")
-
-        st.markdown("### ⚙️ Troubleshooting")
-        st.markdown("""
-        **API Offline?**
-        - Make sure you ran `uvicorn src.api.app:app --reload`
-        - Check if port 8000 is available
-        - Look at terminal for error messages
-
-        **Slow Performance?**
-        - Add a Groq API key (see above)
-        - Local models are slower but work offline
-
-        **PDF Not Processing?**
-        - Make sure file is less than 10MB
-        - PDF must have readable text (not images only)
-        """)
-
 # First-Time User Welcome Banner
 if st.session_state.first_time_user and not st.session_state.dismissed_welcome:
-    st.info("👋 **Welcome to EduNotes!** New here? Check out the **Help & Setup Guide** in the sidebar (bottom left) to get started.")
+    st.info("👋 **Welcome to EduNotes!** New here? Check out the **How to Use** guide in the sidebar (bottom left) to get started.")
     col1, col2 = st.columns([3, 1])
     with col2:
         if st.button("Got it! ✓", key="dismiss_welcome", use_container_width=True):
