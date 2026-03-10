@@ -2147,7 +2147,7 @@ with tab_chat:
         )
         st.caption(f"ℹ️ {chat_mode_descriptions[chat_mode]}")
     with chat_col2:
-        chat_use_kb = st.toggle("Auto Search", value=True, key="chat_kb_toggle", help="ON: Searches Knowledge Base and web for context before answering. OFF: AI answers purely from its own knowledge.")
+        use_web_search = st.toggle("Web Search", value=True, key="chat_kb_toggle", help="ON: Searches the web for fresh context before answering. OFF: Searches Knowledge Base first, falls back to web if needed.")
     with chat_col3:
         if st.button("New Chat", key="new_chat_btn", use_container_width=True):
             st.session_state.chat_messages = []
@@ -2199,7 +2199,7 @@ with tab_chat:
         payload = {
             "message": user_message,
             "mode": chat_mode,
-            "use_kb": chat_use_kb,
+            "use_web_search": use_web_search,
             "history": history,
             "session_id": st.session_state.chat_session_id,
             **extra_params,

@@ -71,7 +71,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=50000)
     session_id: Optional[str] = None
     mode: ChatMode = ChatMode.CHAT
-    use_kb: bool = True
+    use_web_search: bool = True
     explain_level: Optional[ExplainLevel] = None
     explain_style: Optional[ExplainStyle] = None
     analogy_domain: Optional[str] = None

@@ -203,36 +203,39 @@ class ChatAgent(BaseAgent):
             message = input_data.get("message", "")
             mode = input_data.get("mode", "chat")
             history = input_data.get("history", [])
-            use_kb = input_data.get("use_kb", True)
+            use_web_search = input_data.get("use_web_search", True)
 
-            # Smart context injection: KB → evaluate sufficiency → supplement with web
             context_text, all_sources = "", []
-            if use_kb:
-                kb_context, kb_sources = self._search_kb(message)
-                kb_sufficient = self._is_context_sufficient(kb_context, mode, input_data)
 
-                if kb_sufficient:
-                    # KB alone is enough
+            # Build search query (compare mode searches both concepts together)
+            search_query = message
+            if mode == "compare":
+                concept2 = input_data.get("compare_concept_2", "")
+                if concept2 and concept2.strip():
+                    search_query = f"{message} vs {concept2.strip()}"
+
+            if use_web_search:
+                # Web Search ON: always go directly to web for fresh context
+                web_context, web_sources = self._search_web(search_query)
+                if web_context:
+                    context_text = web_context
+                    all_sources = web_sources
+            else:
+                # Web Search OFF: KB first, web fallback with note if insufficient
+                kb_context, kb_sources = self._search_kb(message)
+                if self._is_context_sufficient(kb_context, mode, input_data):
                     context_text = kb_context
                     all_sources = kb_sources
                 else:
-                    # KB empty or insufficient — get web context
-                    search_query = message
-                    if mode == "compare":
-                        concept2 = input_data.get("compare_concept_2", "")
-                        if concept2 and concept2.strip():
-                            search_query = f"{message} vs {concept2.strip()}"
                     web_context, web_sources = self._search_web(search_query)
-
-                    if kb_context and web_context:
-                        # Combine both — KB partial info + web supplement
-                        context_text = kb_context + "\n\n" + web_context
+                    if web_context:
+                        kb_note = (
+                            "*Note: Limited information found in the knowledge base. "
+                            "The following context is from the web.*\n\n"
+                        ) if not kb_context else ""
+                        context_text = (kb_context + "\n\n" + kb_note + web_context) if kb_context else (kb_note + web_context)
                         all_sources = kb_sources + web_sources
-                    elif web_context:
-                        context_text = web_context
-                        all_sources = web_sources
                     elif kb_context:
-                        # KB is all we have, even if partial
                         context_text = kb_context
                         all_sources = kb_sources
 
@@ -244,7 +247,7 @@ class ChatAgent(BaseAgent):
                     "but rely on your own knowledge for anything not covered here):\n"
                     + context_text
                 )
-            elif not use_kb:
+            else:
                 system_prompt += (
                     "\n\nNo external context is provided. Answer entirely from "
                     "your own knowledge. Be thorough and accurate."

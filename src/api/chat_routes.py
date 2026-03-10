@@ -54,7 +54,7 @@ async def chat_message(request: ChatRequest):
             "message": request.message,
             "mode": request.mode,
             "history": request.history,
-            "use_kb": request.use_kb,
+            "use_web_search": request.use_web_search,
             "explain_level": request.explain_level,
             "explain_style": request.explain_style,
             "analogy_domain": request.analogy_domain,
