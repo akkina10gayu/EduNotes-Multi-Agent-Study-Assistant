@@ -35,23 +35,19 @@ class NoteMakerAgent(BaseAgent):
                     content['summary'] = points if points else summary
                 else:
                     content['summary'] = summary
-            
-            # Add key points
+
             if key_points:
                 content['key_points'] = key_points
             
-            # Add sources
             if sources:
                 content['sources'] = sources
-            
-            # Add metadata
+
             content['metadata'] = {
                 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'topic': topic or 'General',
-                'summarization_mode': summarization_mode  # Pass mode to formatter
+                'summarization_mode': summarization_mode
             }
 
-            # Format as markdown
             notes = format_as_markdown(title, content)
             
             self.logger.info(f"Created notes for: {title}")
@@ -69,14 +65,11 @@ class NoteMakerAgent(BaseAgent):
             merged += "---\n\n"
             
             for idx, notes in enumerate(notes_list, 1):
-                # Add section separator
                 if idx > 1:
                     merged += "\n---\n\n"
-                
-                # Add the notes (remove the title if it exists)
+
                 lines = notes.split('\n')
                 if lines and lines[0].startswith('#'):
-                    # Convert main title to section title
                     lines[0] = f"## Section {idx}: {lines[0].lstrip('#').strip()}"
                 
                 merged += '\n'.join(lines)
@@ -94,7 +87,6 @@ class NoteMakerAgent(BaseAgent):
             organized += f"*Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
             organized += "## Table of Contents\n\n"
             
-            # Add TOC
             for topic in notes_dict.keys():
                 organized += f"- [{topic}](#{topic.lower().replace(' ', '-')})\n"
             
@@ -105,10 +97,9 @@ class NoteMakerAgent(BaseAgent):
                 organized += f"## {topic}\n\n"
                 
                 for notes in notes_list:
-                    # Remove title from individual notes
                     lines = notes.split('\n')
                     if lines and lines[0].startswith('#'):
-                        lines = lines[1:]  # Skip the title
+                        lines = lines[1:]
                     
                     organized += '\n'.join(lines)
                     organized += "\n\n"
@@ -127,7 +118,7 @@ class NoteMakerAgent(BaseAgent):
             if not self.validate_input(input_data):
                 return self.handle_error(ValueError("Invalid input"))
             
-            mode = input_data.get('mode', 'create')  # create, merge, or organize
+            mode = input_data.get('mode', 'create')
             
             if mode == 'create':
                 title = input_data.get('title', 'Study Notes')

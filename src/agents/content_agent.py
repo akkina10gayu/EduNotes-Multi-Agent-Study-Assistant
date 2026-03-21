@@ -174,12 +174,6 @@ CATEGORY (one word):"""
         return strategy
 
     # =================================================================
-    # STAGE 3: CONTENT PROCESSING (Delegates to SummarizerAgent)
-    # =================================================================
-
-    # (Handled inline in process() - calls self.summarizer.process())
-
-    # =================================================================
     # STAGE 4: SELF-EVALUATION (LLM-powered)
     # =================================================================
 

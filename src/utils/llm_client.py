@@ -214,8 +214,7 @@ class LLMClient:
 
         logger.info(f"Building prompt for style='{style}', output_length='{actual_length}', text_length={len(text)} chars")
 
-        # Optimize max_tokens based on style and output_length (Phase 3 optimization)
-        # This reduces token generation time significantly
+        # Optimize max_tokens based on style and output_length
         if style == "important_points":
             optimized_max_tokens = 1500  # 8-12 numbered points don't need 3072
         elif style == "key_highlights":
@@ -466,7 +465,7 @@ NOW write the paragraph summary (flowing prose, no bullets, follow the length re
             logger.info(f"Sending to LLM - Provider: {self.provider}, Style: {style}, max_tokens: {optimized_max_tokens}, Prompt length: {len(prompt)} chars")
             result = self.generate(
                 prompt=prompt,
-                max_tokens=optimized_max_tokens,  # Use optimized value instead of max_length
+                max_tokens=optimized_max_tokens,
                 temperature=0.7,
                 system_prompt=system_prompt
             )

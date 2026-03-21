@@ -5,21 +5,16 @@ import re
 from typing import List, Dict, Any
 
 def clean_text(text: str) -> str:
-    """Clean and normalize text"""
-    # Remove extra whitespace
+    """Clean and normalize text."""
     text = re.sub(r'\s+', ' ', text)
-    # Remove special characters but keep punctuation
     text = re.sub(r'[^\w\s\.\,\!\?\-\:\;]', '', text)
     return text.strip()
 
 def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
-    """Extract keywords from text"""
-    # Simple keyword extraction (can be enhanced with NLP)
+    """Extract keywords from text."""
     words = text.lower().split()
-    # Remove common stop words
     stop_words = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'are', 'was', 'were'}
     keywords = [w for w in words if w not in stop_words and len(w) > 3]
-    # Return unique keywords
     seen = set()
     unique_keywords = []
     for kw in keywords:
@@ -85,13 +80,10 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
             summary_text = _sanitize_llm_summary(summary_text)
 
         if isinstance(summary_text, list):
-            # Format as bullet points if it's a list
             for point in summary_text:
                 md += f"- {point}\n"
             md += "\n"
         elif summarization_mode == 'key_highlights':
-            # Key highlights: Keep bullet format, minimal processing
-            # The LLM output should already be in bullet format
             lines = summary_text.split('\n')
             for line in lines:
                 line = line.strip()
@@ -103,11 +95,7 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                         md += f"{line}\n"
             md += "\n"
         elif summarization_mode == 'important_points':
-            # Important points: Keep ONLY numbered/bullet items
-            # Filter out any preamble text the LLM might generate
             lines = summary_text.split('\n')
-
-            # Pattern to match numbered points (1. 2. 3. etc.) or bullets
             numbered_pattern = re.compile(r'^\d+[\.\)]\s*')
             bullet_pattern = re.compile(r'^[\•\-\*]\s*')
 
@@ -120,22 +108,16 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                 if numbered_pattern.match(line) or bullet_pattern.match(line):
                     md += f"{line}\n\n"
         else:
-            # Paragraph summary: Format as flowing paragraphs
-            # Check if content already has paragraph breaks
             if '\n\n' in summary_text:
-                # Already has paragraph structure
                 paragraphs = summary_text.split('\n\n')
                 for paragraph in paragraphs:
                     paragraph = paragraph.strip()
                     if paragraph:
                         md += f"{paragraph}\n\n"
             else:
-                # Try to create paragraphs from continuous text
-                # Split by double newline first, then by period patterns
                 summary_text = summary_text.replace('\n', ' ').strip()
                 sentences = summary_text.split('. ')
 
-                # Group sentences into paragraphs (every 3-4 sentences)
                 paragraphs = []
                 current_paragraph = []
 
@@ -143,7 +125,6 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                     sentence = sentence.strip()
                     if sentence:
                         current_paragraph.append(sentence)
-                        # Create new paragraph every 3-4 sentences
                         if (i + 1) % 4 == 0:
                             if current_paragraph:
                                 paragraph_text = '. '.join(current_paragraph)
@@ -152,14 +133,12 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
                                 paragraphs.append(paragraph_text)
                                 current_paragraph = []
 
-                # Add remaining sentences as final paragraph
                 if current_paragraph:
                     paragraph_text = '. '.join(current_paragraph)
                     if not paragraph_text.endswith('.'):
                         paragraph_text += '.'
                     paragraphs.append(paragraph_text)
 
-                # Add paragraphs with proper spacing
                 for paragraph in paragraphs:
                     if paragraph.strip():
                         md += f"{paragraph}\n\n"
@@ -177,7 +156,6 @@ def format_as_markdown(title: str, content: Dict[str, Any]) -> str:
         md += "\n"
 
     if "sources" in content and content["sources"]:
-        # Filter to only include sources with valid URLs (must start with http)
         valid_sources = [
             s for s in content["sources"]
             if s.get('url') and s['url'].startswith(('http://', 'https://'))

@@ -48,10 +48,8 @@ class RetrieverAgent(BaseAgent):
             if not query:
                 return self.handle_error(ValueError("No query provided"))
             
-            # Search knowledge base
             results = self.search_knowledge_base(query, k, threshold)
-            
-            # Format response
+
             return {
                 'success': True,
                 'query': query,

@@ -52,7 +52,7 @@ def _log_response(response, *args, **kwargs):
 
 
 # =============================================================================
-# CACHED FUNCTIONS FOR PERFORMANCE OPTIMIZATION (Phase 1)
+# CACHED FUNCTIONS
 # =============================================================================
 
 @st.cache_resource
@@ -114,7 +114,7 @@ def fetch_topics():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/topics", timeout=60)  # Phase 4: reduced from 3s
+        response = session.get(f"{API_BASE_URL}/topics", timeout=60)
         if response.status_code == 200:
             return response.json().get('topics', [])
     except:
@@ -194,7 +194,7 @@ def fetch_flashcard_sets():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=60)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/flashcards/sets", timeout=60)
         if response.status_code == 200:
             return response.json().get('sets', [])
     except:
@@ -210,7 +210,7 @@ def fetch_quizzes_list():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=60)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/quizzes", timeout=60)
         if response.status_code == 200:
             return response.json().get('quizzes', [])
     except:
@@ -227,7 +227,7 @@ def fetch_detailed_progress():
     """
     try:
         session = get_api_session()
-        response = session.get(f"{API_BASE_URL}/study/progress", timeout=60)  # Phase 4: reduced from 5s
+        response = session.get(f"{API_BASE_URL}/study/progress", timeout=60)
         if response.status_code == 200:
             return response.json()
     except:
@@ -444,7 +444,6 @@ if 'last_llm_provider' not in st.session_state:
 if 'last_llm_model' not in st.session_state:
     st.session_state.last_llm_model = None  # Track last used LLM model
 
-# Phase 5: PDF caching - store last processed PDF to avoid re-extraction
 if 'last_pdf_name' not in st.session_state:
     st.session_state.last_pdf_name = None
 if 'last_pdf_size' not in st.session_state:
@@ -865,7 +864,6 @@ with st.sidebar:
 
     st.divider()
 
-    # System Stats - Using expander with cached function (Phase 4 optimization)
     with st.expander("📊 System Stats", expanded=False):
         stats = fetch_system_stats()  # Uses cached function (2 min TTL)
 
@@ -1235,7 +1233,6 @@ with tab1:
                 if file_size_mb > 10:
                     st.error(f"File too large ({file_size_mb:.1f}MB). Maximum size is 10MB.")
                 else:
-                    # Phase 5: Check if same PDF as last time (use cached text)
                     cached_text = st.session_state.last_pdf_text
                     use_cached_text = (
                         st.session_state.last_pdf_name == current_pdf_name and
@@ -1301,7 +1298,6 @@ with tab1:
                     if response.status_code == 200:
                         result = response.json()
 
-                        # Phase 5: Cache extracted text for future use (only from /process-pdf)
                         if not use_cached_text and result.get('extracted_text'):
                             st.session_state.last_pdf_name = current_pdf_name
                             st.session_state.last_pdf_size = current_pdf_size

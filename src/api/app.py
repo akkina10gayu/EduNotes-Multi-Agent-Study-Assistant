@@ -12,7 +12,6 @@ from datetime import datetime
 import json
 import re
 import time as _time
-import traceback as _traceback
 
 from src.models.schemas import (
     GenerateNotesRequest, GenerateNotesResponse,
@@ -31,27 +30,6 @@ from src.api.chat_routes import router as chat_router
 from config import settings
 
 logger = get_logger(__name__)
-
-# =============================================================================
-# DEBUG: Monkey-patch BOTH HTTPException classes to capture 401 source
-# =============================================================================
-import starlette.exceptions
-
-_orig_starlette_exc_init = starlette.exceptions.HTTPException.__init__
-
-def _patched_starlette_exc_init(self, *args, **kwargs):
-    _orig_starlette_exc_init(self, *args, **kwargs)
-    if self.status_code in (401, 403) and "authenticated" in str(getattr(self, 'detail', '')).lower():
-        stack = ''.join(_traceback.format_stack())
-        logger.error(
-            f"!!! AUTH EXCEPTION RAISED (starlette) !!!\n"
-            f"Class: {type(self).__module__}.{type(self).__name__}\n"
-            f"Status: {self.status_code}, Detail: {self.detail}\n"
-            f"Stack trace:\n{stack}"
-        )
-
-starlette.exceptions.HTTPException.__init__ = _patched_starlette_exc_init
-# =============================================================================
 
 
 def _clean_vision_desc(desc: str) -> str:
@@ -164,8 +142,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add GZip compression middleware (Phase 5 optimization)
-# Compresses responses larger than 500 bytes for faster transfer
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Initialize rate limiter
@@ -186,45 +162,6 @@ app.include_router(chat_router)
 orchestrator = Orchestrator()
 vector_store = VectorStore()
 doc_processor = DocumentProcessor()
-
-@app.on_event("startup")
-async def debug_auth_diagnostic():
-    """DEBUG: Identify what is injecting Bearer auth"""
-    logger.warning("=" * 80)
-    logger.warning("AUTH DIAGNOSTIC: Inspecting all routes for security dependencies")
-    logger.warning("=" * 80)
-
-    for route in app.routes:
-        path = getattr(route, 'path', '?')
-        methods = getattr(route, 'methods', set())
-        dependant = getattr(route, 'dependant', None)
-        if dependant:
-            deps = getattr(dependant, 'dependencies', [])
-            security = getattr(dependant, 'security_requirements', [])
-            if deps:
-                for dep in deps:
-                    logger.warning(
-                        f"  ROUTE {methods} {path} -> dependency: {dep.call} "
-                        f"(module: {getattr(dep.call, '__module__', '?')})"
-                    )
-            if security:
-                logger.warning(f"  ROUTE {methods} {path} -> security: {security}")
-
-    # Check app-level dependencies
-    if app.dependency_overrides:
-        logger.warning(f"App dependency_overrides: {app.dependency_overrides}")
-
-    # Inspect middleware stack
-    middleware = app.middleware_stack
-    logger.warning(f"Middleware stack type: {type(middleware)}")
-    current = middleware
-    depth = 0
-    while current and depth < 15:
-        logger.warning(f"  Layer {depth}: {type(current).__name__} ({type(current).__module__})")
-        current = getattr(current, 'app', None)
-        depth += 1
-
-    logger.warning("=" * 80)
 
 @app.on_event("startup")
 async def startup_event():
@@ -292,31 +229,26 @@ async def health_check():
 async def generate_notes(request: Request, body: GenerateNotesRequest):
     """Generate study notes from query"""
     try:
-        # Input validation
         query = body.query.strip()
 
-        # Check if query is empty
         if not query:
             raise HTTPException(
                 status_code=400,
                 detail="Query cannot be empty. Please provide a topic, URL, or text to generate notes."
             )
 
-        # Check minimum length
         if len(query) < 3:
             raise HTTPException(
                 status_code=400,
                 detail="Query is too short. Please provide at least 3 characters."
             )
 
-        # Check maximum length (100KB)
         if len(query) > 100000:
             raise HTTPException(
                 status_code=400,
                 detail="Query is too long. Maximum length is 100,000 characters. Please provide shorter content."
             )
 
-        # Validate URL format if it looks like a URL
         if query.startswith(('http://', 'https://', 'www.')):
             url_pattern = re.compile(
                 r'^(?:http|https)://(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'
@@ -428,7 +360,6 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
                 logger.info(f"Retrying with arxiv abstract page: {abs_url}")
                 query = abs_url
 
-        # Process query through orchestrator
         result = await orchestrator.process(
             query,
             summarization_mode=body.summarization_mode,
@@ -442,11 +373,9 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
         if not result.get('success', False):
             _ensure_result_fields(result, 'unknown', query)
 
-        # Record activity for progress tracking (updates streak)
         if result.get('success', False):
             try:
                 progress_store = get_progress_store()
-                # Use query type as topic, or first 50 chars of query
                 topic = result.get('query_type', 'general')
                 if topic == 'text':
                     topic = query[:50].strip() if len(query) > 50 else query.strip()
@@ -454,7 +383,6 @@ async def generate_notes(request: Request, body: GenerateNotesRequest):
                 logger.debug(f"Recorded note generation activity for topic: {topic}")
             except Exception as e:
                 logger.warning(f"Failed to record activity: {e}")
-                # Don't fail the request if activity recording fails
 
         return GenerateNotesResponse(**result)
 
@@ -566,14 +494,13 @@ async def process_pdf(
 
     Supports two modes:
     1. Normal: Upload PDF file for extraction and processing
-    2. Cached: Provide pre-extracted text (cached_text) to skip extraction (Phase 5 optimization)
+    2. Cached: Provide pre-extracted text (cached_text) to skip re-extraction
     """
     try:
         extracted_text = None
         filename = None
         figures_for_ui = []  # Structured figure data for UI expander
 
-        # Phase 5: Check if using cached text (skip extraction)
         if cached_text:
             extracted_text = cached_text
             filename = cached_filename or "cached_pdf"
@@ -657,10 +584,9 @@ async def process_pdf(
             result['vision_data'] = json.dumps(figures_for_ui)
             logger.info(f"Attached {len(figures_for_ui)} figure entries as vision_data")
 
-        # Add PDF filename and extracted text to result (Phase 5: for caching)
         if result.get('success'):
             result['source_file'] = filename
-            result['extracted_text'] = extracted_text  # Phase 5: Return for UI caching
+            result['extracted_text'] = extracted_text
             # Record activity for progress tracking (updates streak)
             try:
                 progress_store = get_progress_store()
@@ -684,7 +610,6 @@ async def process_pdf(
 async def get_topics():
     """Get available topics from knowledge base"""
     try:
-        # Get unique topics from vector store
         topics = vector_store.get_unique_topics()
 
         return {
@@ -813,13 +738,11 @@ async def get_stats():
 
 @app.get("/api/v1/dashboard-stats", tags=["System"])
 async def get_dashboard_stats():
-    """Get combined dashboard statistics in a single call (Phase 5 optimization).
+    """Get combined dashboard statistics in a single call.
 
-    Returns health, KB stats, study progress, and flashcard count in ONE response.
-    Reduces 4 separate API calls to 1 for the dashboard.
+    Returns health, KB stats, study progress, and flashcard count in one response.
     """
     try:
-        # Combine all dashboard data into single response
         result = {
             "healthy": True,
             "kb_documents": 0,
@@ -829,21 +752,18 @@ async def get_dashboard_stats():
             "topics_count": 0
         }
 
-        # Get KB stats
         try:
             kb_stats = vector_store.get_collection_stats()
             result["kb_documents"] = kb_stats.get("total_documents", 0)
         except Exception as e:
             logger.warning(f"Failed to get KB stats: {e}")
 
-        # Get topics count
         try:
             topics = vector_store.get_unique_topics()
             result["topics_count"] = len(topics)
         except Exception as e:
             logger.warning(f"Failed to get topics: {e}")
 
-        # Get study progress
         try:
             progress_store = get_progress_store()
             progress = progress_store.get_progress()
@@ -854,7 +774,6 @@ async def get_dashboard_stats():
         except Exception as e:
             logger.warning(f"Failed to get progress: {e}")
 
-        # Get flashcard sets count
         try:
             progress_store = get_progress_store()
             flashcard_sets = progress_store.get_all_flashcard_sets()
@@ -866,7 +785,6 @@ async def get_dashboard_stats():
 
     except Exception as e:
         logger.error(f"Error getting dashboard stats: {e}")
-        # Return partial data rather than failing completely
         return {
             "healthy": False,
             "kb_documents": 0,

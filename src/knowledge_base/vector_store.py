@@ -15,8 +15,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Cache TTL for topics (5 minutes) - Phase 3 optimization
-TOPICS_CACHE_TTL = 300
+TOPICS_CACHE_TTL = 300  # 5 minutes
 
 class VectorStore:
     """Manages ChromaDB vector store for document embeddings"""
@@ -57,7 +56,6 @@ class VectorStore:
         )
         logger.info(f"Collection ready: {settings.CHROMA_COLLECTION} ({self.collection.count()} documents)")
 
-        # Topics cache (Phase 3 optimization)
         self._topics_cache = None
         self._topics_cache_time = 0
 
@@ -106,7 +104,6 @@ class VectorStore:
 
                 logger.info(f"Added batch of {len(texts)} chunks to vector store")
 
-            # Invalidate topics cache (Phase 3 optimization)
             self._topics_cache = None
             self._topics_cache_time = 0
             logger.debug("Topics cache invalidated after adding documents")
@@ -173,7 +170,6 @@ class VectorStore:
     def get_unique_topics(self) -> List[str]:
         """Get list of unique topics from the knowledge base (with caching)"""
         try:
-            # Phase 3 optimization: Check cache first
             current_time = time.time()
             if self._topics_cache is not None and (current_time - self._topics_cache_time) < TOPICS_CACHE_TTL:
                 logger.debug(f"Returning cached topics ({len(self._topics_cache)} topics)")

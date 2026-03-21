@@ -49,14 +49,12 @@ class SummarizerAgent(BaseAgent):
             original_length = len(text)
             self.logger.info(f"Summarizing text of length: {original_length} characters in '{style}' mode")
 
-            # Truncate very long text (increased limit for full paper coverage)
             if len(text) > 50000:
                 text = text[:50000]
                 self.logger.warning(f"Truncated input text from {original_length} to 50000 characters")
 
             self.logger.info(f"Processing {len(text)} characters with style='{style}', output_length='{output_length}'")
 
-            # Check if LLM is available
             if not self.llm_client or not self.llm_client.is_available():
                 return (
                     "**No LLM Available**\n\n"
@@ -231,7 +229,6 @@ Begin:"""
                 if response:
                     return self._parse_flashcards(response)
 
-            # Fallback: Generate simple flashcards from bullet points
             points = self.extract_bullet_points(text, num_cards)
             flashcards = []
             for i, point in enumerate(points):
@@ -281,7 +278,6 @@ Begin:"""
                 if response:
                     return self._parse_quiz(response)
 
-            # Fallback: Can't generate quiz with local model
             self.logger.warning("Quiz generation requires API mode")
             return []
 
@@ -321,7 +317,7 @@ Begin:"""
 
             content = input_data.get('content', '')
             mode = input_data.get('mode', 'paragraph_summary')
-            output_length = input_data.get('output_length', 'auto')  # Only used for paragraph_summary
+            output_length = input_data.get('output_length', 'auto')
             extra_instructions = input_data.get('extra_instructions', None)
 
             if not content:
@@ -334,12 +330,10 @@ Begin:"""
             }
 
             if mode == 'important_points':
-                # Use important_points style for numbered key points
                 summary = self.summarize_text(content, style="important_points", extra_instructions=extra_instructions)
                 result['summary'] = summary
 
             elif mode == 'key_highlights':
-                # Use key_highlights style for brief term definitions
                 summary = self.summarize_text(content, style="key_highlights", extra_instructions=extra_instructions)
                 result['summary'] = summary
 

@@ -496,7 +496,6 @@ class Orchestrator:
                     'error': f"Failed to scrape URL: {url}"
                 }
 
-            # Log content length for debugging
             content_length = len(scrape_result['content'])
             self.logger.info(f"Scraped content length: {content_length} characters")
 
@@ -516,11 +515,9 @@ class Orchestrator:
                 'skip_evaluation': True
             })
 
-            # Determine title based on summarization mode
             base_title = scrape_result.get('title', 'Web Article')
             note_title = f"{base_title}{self.TITLE_SUFFIX_MAP.get(summarization_mode, '')}"
 
-            # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
                 'title': note_title,
@@ -572,7 +569,6 @@ class Orchestrator:
         try:
             self.logger.info(f"Processing direct text input of length: {len(text)}")
 
-            # Validate input
             if not text or len(text.strip()) < 10:
                 return {
                     'success': False,
@@ -588,7 +584,6 @@ class Orchestrator:
                 'skip_evaluation': True
             })
 
-            # Check if summarization was successful
             if not detailed_summary.get('success', False):
                 self.logger.error(f"Summarization failed: {detailed_summary.get('error', 'Unknown error')}")
                 return {
@@ -596,7 +591,6 @@ class Orchestrator:
                     'error': f"Failed to summarize text: {detailed_summary.get('error', 'Unknown error')}"
                 }
 
-            # Determine title based on summarization mode
             title_map = {
                 'paragraph_summary': 'Summary',
                 'important_points': 'Important Points',
@@ -604,7 +598,6 @@ class Orchestrator:
             }
             note_title = title_map.get(summarization_mode, 'Summary')
 
-            # Create notes with detailed content
             notes_result = await self.note_maker.process({
                 'mode': 'create',
                 'title': note_title,
@@ -612,10 +605,9 @@ class Orchestrator:
                 'key_points': [],
                 'sources': [],
                 'topic': 'Direct Input',
-                'summarization_mode': summarization_mode  # Pass mode for header formatting
+                'summarization_mode': summarization_mode
             })
 
-            # Check if note creation was successful
             if not notes_result.get('success', False):
                 self.logger.error(f"Note creation failed: {notes_result.get('error', 'Unknown error')}")
                 return {
@@ -651,12 +643,10 @@ class Orchestrator:
     async def process(self, query: str, summarization_mode: str = "paragraph_summary", output_length: str = "auto", search_mode: str = "auto", research_mode: bool = False, save_to_kb: bool = False) -> Dict[str, Any]:
         """Main processing method"""
         try:
-            # Detect query type
             query_type = self.detect_query_type(query)
 
             self.logger.info(f"Detected query type: {query_type.value}, output_length: {output_length}, search_mode: {search_mode}, research_mode: {research_mode}, save_to_kb: {save_to_kb}")
 
-            # Process based on type
             if query_type == QueryType.URL:
                 return await self.process_url_query(query, summarization_mode, output_length, research_mode=research_mode, save_to_kb=save_to_kb)
             elif query_type == QueryType.TEXT:
